@@ -141,7 +141,7 @@ button:disabled{cursor:not-allowed}
 .lobby .muted{font-size:13px}
 .empty-l{margin:0}
 #settings{position:absolute;inset:0;display:grid;place-items:center;background:rgba(10,8,26,.7);padding:16px;z-index:5}
-.set-card{width:min(420px,100%);gap:14px}
+.set-card{width:min(560px,100%);gap:12px}
 .set-row{display:grid;grid-template-columns:120px minmax(0,1fr) 44px;gap:10px;align-items:center;font-size:14px}
 .set-row output{text-align:right;font-variant-numeric:tabular-nums;font-weight:700}
 .set-row input[type=range]{width:100%;accent-color:var(--gold)}
@@ -306,6 +306,28 @@ body{touch-action:manipulation}
 .bs-ch .tile-cv{height:72px}
 .bs-ch.sel{border-color:var(--gold);box-shadow:0 0 0 2px rgba(255,181,71,.35);background:linear-gradient(180deg,#3a2f6e,#241d52)}
 .bs-pick b{color:var(--gold)}
+.set-tabs{display:flex;gap:6px;flex-wrap:wrap;border-bottom:2px solid var(--line2);padding-bottom:8px}
+.set-tab{font:700 13px var(--ui);color:var(--dim);background:transparent;border:2px solid transparent;border-radius:8px;padding:6px 10px;cursor:pointer}
+.set-tab:hover{color:var(--ink);background:rgba(255,255,255,.05)}
+.set-tab.on{color:#120d24;background:var(--gold);border-color:#fff3c4}
+.set-pane{display:flex;flex-direction:column;gap:12px}
+.set-pane[hidden]{display:none}
+.keybinds{display:grid;grid-template-columns:minmax(0,1fr) 92px 92px;gap:6px 8px;align-items:center;font-size:14px}
+.kb-key{font:700 13px var(--ui);color:var(--ink);background:#15122f;border:1px solid var(--line2);border-radius:7px;padding:6px 4px;min-height:32px;cursor:pointer;text-align:center}
+.kb-key.empty{color:var(--mute);font-weight:500}
+.kb-key.wait{background:var(--gold);color:#120d24;border-color:#fff3c4;animation:kbpulse .8s ease-in-out infinite alternate}
+@keyframes kbpulse{to{box-shadow:0 0 0 3px rgba(255,181,71,.35)}}
+#kb-msg.err{color:var(--coral)}#kb-msg.ok{color:#6fe39a}
+.acct-pane{display:flex;flex-direction:column;gap:10px}
+.acct-sec{display:flex;flex-direction:column;gap:8px;padding:10px 12px;border:1px solid var(--line2);border-radius:10px;background:rgba(255,255,255,.03)}
+.acct-sec h4{margin:0;font:700 12px var(--ui);letter-spacing:.14em;text-transform:uppercase;color:var(--gold)}
+.acct-line{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.acct-line input{flex:1;min-width:140px;font:inherit;font-size:14px;color:var(--ink);background:#15122f;border:1px solid var(--line2);border-radius:6px;padding:7px 9px}
+.acct-msg{font-size:13px;color:var(--dim);margin:0}.acct-msg.err{color:var(--coral)}.acct-msg.ok{color:#6fe39a}
+.acct-pw{margin:0;padding-left:18px;font-size:12px;color:var(--mute)}.acct-pw li.ok{color:#6fe39a}
+@media (max-width:560px){.keybinds{grid-template-columns:minmax(0,1fr) 74px 74px}.set-tab{padding:5px 7px;font-size:12px}}
+.set-user input{font:inherit;font-size:15px;color:var(--ink);background:#15122f;border:1px solid var(--line2);border-radius:6px;padding:7px 9px;min-width:0;width:100%}
+#set-uname-msg.err{color:var(--coral)}#set-uname-msg.ok{color:#6fe39a}
 .bs-chaps{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:8px}
 .bs-chap{display:flex;align-items:center;gap:10px;text-align:left;padding:8px 10px;border-radius:10px;background:var(--panel2);border:2px solid var(--line2);min-width:0}
 .bs-chap.sel{border-color:var(--gold);box-shadow:0 0 0 2px rgba(255,181,71,.3);background:linear-gradient(180deg,#3a2f6e,#241d52)}
@@ -331,6 +353,7 @@ body{touch-action:manipulation}
       <p class="tag">Launch your rivals off the arena. Higher damage % means they fly farther. Last fighter standing wins.</p>
       <nav class="menu" aria-label="Main menu">
         <button type="button" class="mbtn primary" id="go-solo"><b>Solo vs CPU</b><span>You against 1 to 3 computer fighters</span></button>
+        <button type="button" class="mbtn" id="go-training"><b>Training Lab</b><span>Practice any fighter on a dummy that never runs out of lives</span></button>
         <button type="button" class="mbtn" id="go-online"><b>Online with friends</b><span>Host a lobby, invite friends, add CPUs</span></button>
         <button type="button" class="mbtn" id="go-boss"><b>Boss Fight</b><span>30 levels, 3 bosses to unlock</span></button>
         <button type="button" class="mbtn" id="go-controls"><b>How to play</b><span>Keyboard, touch and gamepad controls</span></button>
@@ -366,7 +389,7 @@ body{touch-action:manipulation}
       <div class="online-grid">
         <div class="card">
           <div class="card-h">Host a lobby</div>
-          <label class="field">Your name<input id="nick" maxlength="14" autocomplete="off"></label>
+          <label class="field">Your name<input id="nick" maxlength="16" autocomplete="off"></label>
           <p class="muted" style="font-size:13px">You get a 4-letter code to send your friends. You choose the stage, rules and which spots are for friends or CPUs. Two friends can team up against CPUs with “Humans vs CPUs”.</p>
           <button type="button" id="host-btn" class="start">Host a lobby</button>
           <div class="card-h" style="margin-top:18px">Join with a code</div>
@@ -468,18 +491,36 @@ body{touch-action:manipulation}
   <div id="settings" hidden>
     <div class="pause-card set-card" role="dialog" aria-labelledby="set-title">
       <h3 id="set-title">Settings</h3>
-      <div class="set-row"><label for="set-master">Master volume</label><input type="range" id="set-master" min="0" max="100" step="1"><output id="val-master"></output></div>
-      <div class="set-row"><label for="set-music">Music</label><input type="range" id="set-music" min="0" max="100" step="1"><output id="val-music"></output></div>
-      <div class="set-row"><label for="set-sfx">Sound effects</label><input type="range" id="set-sfx" min="0" max="100" step="1"><output id="val-sfx"></output></div>
-      <label class="set-check"><input type="checkbox" id="set-shake"> Screen shake on big hits</label>
-      <label class="set-check"><input type="checkbox" id="set-tags"> Name tags above fighters</label>
-      <label class="set-check"><input type="checkbox" id="set-hints"> Show button hints during battles (keyboard)</label>
-      <div class="set-sep">Phone controls</div>
-      <div class="set-row"><label for="set-touch">On-screen controls</label><select id="set-touch"><option value="auto">Auto (phones and tablets)</option><option value="on">Always show</option><option value="off">Hide</option></select><span></span></div>
-      <div class="set-row"><label for="set-tsize">Button size</label><input type="range" id="set-tsize" min="75" max="135" step="5"><output id="val-tsize"></output></div>
-      <label class="set-check"><input type="checkbox" id="set-flick"> Flick the stick up to jump</label>
-      <label class="set-check"><input type="checkbox" id="set-haptics"> Vibrate on button press (Android)</label>
-      <p class="muted set-note">Each stage has its own music. Settings are saved on this device.</p>
+      <div class="set-tabs" role="tablist" aria-label="Settings sections">
+        <button type="button" role="tab" class="set-tab on" data-tab="sound" aria-selected="true">Sound &amp; Screen</button>
+        <button type="button" role="tab" class="set-tab" data-tab="controls" aria-selected="false">Controls</button>
+        <button type="button" role="tab" class="set-tab" data-tab="phone" aria-selected="false">Phone</button>
+        <button type="button" role="tab" class="set-tab" data-tab="account" aria-selected="false">Account</button>
+      </div>
+      <div class="set-pane" data-pane="sound" role="tabpanel">
+        <div class="set-row"><label for="set-master">Master volume</label><input type="range" id="set-master" min="0" max="100" step="1"><output id="val-master"></output></div>
+        <div class="set-row"><label for="set-music">Music</label><input type="range" id="set-music" min="0" max="100" step="1"><output id="val-music"></output></div>
+        <div class="set-row"><label for="set-sfx">Sound effects</label><input type="range" id="set-sfx" min="0" max="100" step="1"><output id="val-sfx"></output></div>
+        <label class="set-check"><input type="checkbox" id="set-shake"> Screen shake on big hits</label>
+        <label class="set-check"><input type="checkbox" id="set-tags"> Name tags above fighters</label>
+        <label class="set-check"><input type="checkbox" id="set-hints"> Show button hints during battles (keyboard)</label>
+        <p class="muted set-note">Each stage has its own music. These settings are saved on this device.</p>
+      </div>
+      <div class="set-pane" data-pane="controls" role="tabpanel" hidden>
+        <p class="muted set-note">Click a key box, then press the new key. Press <kbd>Esc</kbd> to remove a key. Each action can have two keys.</p>
+        <div id="keybinds" class="keybinds"></div>
+        <p class="set-note" id="kb-msg" aria-live="polite"></p>
+        <button type="button" class="btn" id="kb-reset">Restore default keys</button>
+      </div>
+      <div class="set-pane" data-pane="phone" role="tabpanel" hidden>
+        <div class="set-row"><label for="set-touch">On-screen controls</label><select id="set-touch"><option value="auto">Auto (phones and tablets)</option><option value="on">Always show</option><option value="off">Hide</option></select><span></span></div>
+        <div class="set-row"><label for="set-tsize">Button size</label><input type="range" id="set-tsize" min="75" max="135" step="5"><output id="val-tsize"></output></div>
+        <label class="set-check"><input type="checkbox" id="set-flick"> Flick the stick up to jump</label>
+        <label class="set-check"><input type="checkbox" id="set-haptics"> Vibrate on button press (Android)</label>
+      </div>
+      <div class="set-pane" data-pane="account" role="tabpanel" hidden>
+        <div id="acct-pane" class="acct-pane"></div>
+      </div>
       <button type="button" id="set-close" class="start">Done</button>
     </div>
   </div>

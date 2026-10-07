@@ -4423,10 +4423,16 @@ function drawHUD(g, view, vw, vh, hudH, t, atTop) {
     const tx = x + pr + 10;
     g.textBaseline = 'alphabetic'; g.textAlign = 'left';
     g.fillStyle = f.color; g.font = `700 ${small ? 11 : 12}px "Chakra Petch", system-ui, sans-serif`;
-    g.fillText(f.tag, tx, y + (tiny ? 14 : 16));
+    // name on the left, fighter name after it, both kept clear of the life dots
+    const dotsW = view.endless ? 0 : Math.min(f.stocks, 6) * (small ? 8 : 10) + 8;
+    const room = x + cw - dotsW - tx - 4;
+    const fit = (str, w) => { if (g.measureText(str).width <= w) return str; let k = str.length; while (k > 1 && g.measureText(str.slice(0, k) + '…').width > w) k--; return str.slice(0, k) + '…'; };
+    const tag = fit(String(f.tag || ''), room);
+    g.fillText(tag, tx, y + (tiny ? 14 : 16));
+    const tagW = g.measureText(tag).width;
     g.fillStyle = '#a39cc9'; g.font = `500 ${small ? 10 : 11}px "Chakra Petch", system-ui, sans-serif`;
-    const nm = f.c.name.length > 13 && small ? f.c.name.slice(0, 11) + '…' : f.c.name;
-    g.fillText(nm, tx + g.measureText(f.tag + '  ').width + 4, y + 16);
+    const left = room - tagW - 8;
+    if (left > 24) g.fillText(fit(f.c.name, left), tx + tagW + 8, y + 16);
     const d = Math.floor(f.dmg);
     const bump = f.lastBump && t - f.lastBump < 8 ? 1.15 : 1;
     g.font = `${Math.round((tiny ? 21 : small ? 26 : 32) * bump)}px "Dela Gothic One", Impact, sans-serif`;
@@ -5148,7 +5154,7 @@ function drawOrb(g, o, t) {
 }
 
 function drawUltAura(g, f, t) {
-  if (!f.ult || f.out || f.dead > 0) return;
+  if (!f.ult || f.out || f.dead > 0 || f.trainUlt) return;
   const cx = f.x, cy = f.y - f.H * 0.5;
   g.save(); g.globalCompositeOperation = 'lighter';
   for (let i = 0; i < 3; i++) {
@@ -5481,7 +5487,7 @@ function drawUltAimHud(g, view, vw, vh, t, localSlot) {
   const me = localSlot != null && localSlot === u.slot, def = ultDef(f.c), col = def.colors[1] || '#ffd35c';
   const touch = typeof TOUCH !== 'undefined' && TOUCH.on;
   const big = u.ph === 'lock' ? (me ? 'LOCKED ON!' : 'GET OUT!') : me ? 'AIM YOUR ULTIMATE' : 'DODGE!';
-  const sub = u.ph === 'lock' ? def.name : me ? (touch ? 'Move the stick to aim · tap B to fire' : 'WASD to aim · K to fire') : `${f.name || 'Someone'} is aiming ${def.name}`;
+  const sub = u.ph === 'lock' ? def.name : me ? (touch ? 'Move the stick to aim · tap B to fire' : (typeof bindLabel === 'function' ? `${bindLabel('up')}${bindLabel('left')}${bindLabel('down')}${bindLabel('right')} to aim · ${bindLabel('sp')} to fire` : 'WASD to aim · K to fire')) : `${f.name || 'Someone'} is aiming ${def.name}`;
   const secs = u.ph === 'aim' ? (Math.max(0, u.aim) / 60).toFixed(1) + 's' : '';
   const w = Math.min(vw - 24, 440), x = (vw - w) / 2, y = 64;
   g.save();
@@ -5693,10 +5699,49 @@ function drawThemeArtNew(g, def, vw, vh, t, k) {
 'use strict';
 /* ===== CLOUDTOP BRAWL — input (keyboard, touch, gamepad) and sound ===== */
 
-const KEYMAP = {
-  KeyA: BL, ArrowLeft: BL, KeyD: BR, ArrowRight: BR, KeyW: BU, ArrowUp: BU, KeyS: BD, ArrowDown: BD,
-  Space: BJ, KeyJ: BA, KeyZ: BZ, KeyK: BS, KeyX: BS, KeyU: BM, KeyC: BM, KeyL: BH, ShiftLeft: BH, ShiftRight: BH
+/* ---------- key bindings (changeable in Settings → Controls; saved on this device) ---------- */
+const BIND_ACTIONS = [
+  ['left', 'Move left', BL], ['right', 'Move right', BR], ['up', 'Up / aim up', BU], ['down', 'Down / drop', BD],
+  ['jump', 'Jump', BJ], ['atk', 'Attack', BA], ['sp', 'Special', BS], ['sm', 'Smash attack', BM],
+  ['sh', 'Shield / dodge', BH], ['ult', 'Ultimate', BZ], ['frz', 'Freeze Ray (Mira Frost)', 0]
+];
+const DEFAULT_BINDS = {
+  left: ['KeyA', 'ArrowLeft'], right: ['KeyD', 'ArrowRight'], up: ['KeyW', 'ArrowUp'], down: ['KeyS', 'ArrowDown'],
+  jump: ['Space', ''], atk: ['KeyJ', ''], sp: ['KeyK', 'KeyX'], sm: ['KeyU', 'KeyC'], sh: ['KeyL', 'ShiftLeft'], ult: ['KeyZ', ''], frz: ['KeyF', '']
 };
+/* keys the game already uses for something else */
+const RESERVED_KEYS = { Escape: 'removing a key', KeyP: 'pause', KeyH: 'hiding the hints', KeyR: 'reset in Training Lab', Tab: 'moving around the page' };
+for (let i = 1; i <= 7; i++) { RESERVED_KEYS['Digit' + i] = 'Legend Yen’s styles'; RESERVED_KEYS['Numpad' + i] = 'Legend Yen’s styles'; }
+function loadBinds() {
+  const b = JSON.parse(JSON.stringify(DEFAULT_BINDS));
+  try { const s = JSON.parse(localStorage.getItem('cb.keys') || 'null'); if (s) for (const k in b) if (Array.isArray(s[k])) b[k] = [String(s[k][0] || ''), String(s[k][1] || '')]; } catch (e) { }
+  return b;
+}
+let BINDS = loadBinds();
+const KEYMAP = {};
+function rebuildKeymap() {
+  for (const k in KEYMAP) delete KEYMAP[k];
+  BIND_ACTIONS.forEach(([id, , bit]) => { if (bit) (BINDS[id] || []).forEach(c => { if (c) KEYMAP[c] = (KEYMAP[c] || 0) | bit; }); });
+}
+rebuildKeymap();
+function saveBinds() { try { localStorage.setItem('cb.keys', JSON.stringify(BINDS)); } catch (e) { } rebuildKeymap(); if (typeof HINTS !== 'undefined') HINTS.builtFor = null; }
+/* put a key on an action (slot 0 or 1); the key is taken off any other action first */
+function setBind(id, slot, code) {
+  for (const k in BINDS) BINDS[k] = BINDS[k].map(c => (c === code ? '' : c));
+  BINDS[id][slot] = code || '';
+  saveBinds();
+}
+function resetBinds() { BINDS = JSON.parse(JSON.stringify(DEFAULT_BINDS)); saveBinds(); }
+function keyName(code) {
+  if (!code) return '';
+  const m = { Space: 'Space', ArrowLeft: '←', ArrowRight: '→', ArrowUp: '↑', ArrowDown: '↓', ShiftLeft: 'L-Shift', ShiftRight: 'R-Shift', ControlLeft: 'L-Ctrl', ControlRight: 'R-Ctrl', AltLeft: 'L-Alt', AltRight: 'R-Alt', MetaLeft: 'L-Cmd', MetaRight: 'R-Cmd', Enter: 'Enter', Backspace: 'Backspace', CapsLock: 'Caps', Semicolon: ';', Quote: "'", Comma: ',', Period: '.', Slash: '/', Backslash: '\\', BracketLeft: '[', BracketRight: ']', Minus: '-', Equal: '=', Backquote: '`' };
+  if (m[code]) return m[code];
+  if (/^Key[A-Z]$/.test(code)) return code.slice(3);
+  if (/^Digit\d$/.test(code)) return code.slice(5);
+  if (/^Numpad/.test(code)) return 'Num ' + code.slice(6);
+  return code;
+}
+function bindLabel(id) { const c = (BINDS[id] || []).filter(Boolean); return c.length ? keyName(c[0]) : '—'; }
 const IN = { keys: new Set(), press: 0, prev: 0, touch: 0, counters: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0], active: false };
 
 function keyBits() { let b = 0; IN.keys.forEach(k => { b |= KEYMAP[k] || 0; }); return b | ((IN.mode || 0) << 10); }
@@ -5949,7 +5994,7 @@ function renderStatCard() {
 
 function renderSetup() {
   const host = isHostish();
-  document.getElementById('setup-title').textContent = G.mode === 'solo' ? 'Solo battle' : G.mode === 'host' ? 'Your lobby' : 'Lobby';
+  document.getElementById('setup-title').textContent = G.training ? 'Training Lab' : G.mode === 'solo' ? 'Solo battle' : G.mode === 'host' ? 'Your lobby' : 'Lobby';
   const sub = document.getElementById('setup-sub');
   const codeBox = document.getElementById('code-box');
   codeBox.hidden = G.mode === 'solo';
@@ -5957,6 +6002,7 @@ function renderSetup() {
   document.getElementById('code-copy').hidden = G.mode !== 'host';
   if (G.mode === 'host') sub.textContent = 'Send your friends this code. They open the game, pick “Online with friends” and type it in.';
   else if (G.mode === 'guest') sub.textContent = `Hosted by ${NET.hostNick || 'your friend'} · the host picks rules and starts the battle.`;
+  else if (G.training) sub.textContent = 'Pick your fighter and a training dummy. The dummy never runs out of lives, and your ultimate is always ready.';
   else sub.textContent = 'Pick fighters, add up to 3 CPUs, then start.';
 
   const cur = SETUP.slots[SETUP.edit];
@@ -5968,17 +6014,21 @@ function renderSetup() {
   SETUP.slots.forEach((s, i) => {
     const d = document.createElement('div');
     const active = s.type !== 'off' && s.type !== 'open';
+    if (G.training && !active) return;
     d.className = 'slot' + (i === SETUP.edit ? ' editing' : '') + (active ? '' : ' empty');
     d.style.setProperty('--sc', slotColor(i));
     const c = s.char === 'random' ? { name: 'Random' } : CHAR[s.char];
     let actions = '';
-    if (host && s.type !== 'you' && s.type !== 'peer') {
+    if (G.training && s.type === 'cpu') {
+      actions += `<span class="seg">${DUMMY_MODES.map(([id, nm]) => `<button type="button" class="seg-b${(s.dummy || 'stand') === id ? ' on' : ''}" data-act="dummy" data-m="${id}" data-i="${i}">${nm}</button>`).join('')}</span>`;
+      if (s.dummy === 'fight') actions += `<span class="lvl"><button type="button" class="mini sq" data-act="lvl-" data-i="${i}" aria-label="Lower CPU level">−</button><span>Lv ${s.lvl}</span><button type="button" class="mini sq" data-act="lvl+" data-i="${i}" aria-label="Raise CPU level">+</button></span>`;
+    } else if (host && s.type !== 'you' && s.type !== 'peer') {
       const next = { off: 'cpu', cpu: G.mode === 'host' ? 'open' : 'off', open: 'off' }[s.type];
       const lbl = { cpu: 'Add CPU', open: 'Open for friend', off: 'Remove' }[next];
       actions += `<button type="button" class="mini" data-act="cycle" data-i="${i}">${lbl}</button>`;
     }
-    if (host && s.type === 'off' && G.mode === 'host') actions += `<button type="button" class="mini" data-act="open" data-i="${i}">Invite friend</button>`;
-    if (host && s.type === 'cpu') actions += `<span class="lvl"><button type="button" class="mini sq" data-act="lvl-" data-i="${i}" aria-label="Lower CPU level">−</button><span>Lv ${s.lvl}</span><button type="button" class="mini sq" data-act="lvl+" data-i="${i}" aria-label="Raise CPU level">+</button></span>`;
+    if (!G.training && host && s.type === 'off' && G.mode === 'host') actions += `<button type="button" class="mini" data-act="open" data-i="${i}">Invite friend</button>`;
+    if (!G.training && host && s.type === 'cpu') actions += `<span class="lvl"><button type="button" class="mini sq" data-act="lvl-" data-i="${i}" aria-label="Lower CPU level">−</button><span>Lv ${s.lvl}</span><button type="button" class="mini sq" data-act="lvl+" data-i="${i}" aria-label="Raise CPU level">+</button></span>`;
     if (host && SETUP.teams && active) actions += `<button type="button" class="mini team" data-act="team" data-i="${i}">${TEAM_NAMES[s.team]} team</button>`;
     else if (!host && SETUP.teams && active) actions += `<span class="mini ghost">${TEAM_NAMES[s.team]} team</span>`;
     d.innerHTML = `
@@ -5998,13 +6048,13 @@ function renderSetup() {
   const dis = host ? '' : 'disabled';
   r.innerHTML = `
     <div class="rule"><span class="rule-l">Stage</span><div class="seg stages">${STAGES.map((st, i) => `<button type="button" class="stage-chip${i === SETUP.stage ? ' on' : ''}" data-act="stage" data-i="${i}" ${dis} style="--s1:${st.swatch[0]};--s2:${st.swatch[1]};--s3:${st.swatch[2]}"><span class="sw"></span>${esc(st.name)}</button>`).join('')}<button type="button" class="stage-chip${SETUP.stage < 0 ? ' on' : ''}" data-act="stage" data-i="-1" ${dis} style="--s1:#ff6b5b;--s2:#ffb547;--s3:#3da5ff"><span class="sw"></span>Random</button><p class="muted stage-blurb">${SETUP.stage < 0 ? 'A surprise stage every battle.' : esc((STAGES[SETUP.stage] || STAGES[0]).blurb || '')}</p></div></div>
-    <div class="rule"><span class="rule-l">Stocks</span><div class="seg"><button type="button" class="mini sq" data-act="stock-" ${dis} aria-label="Fewer stocks">−</button><span class="stock-n">${SETUP.stocks}</span><button type="button" class="mini sq" data-act="stock+" ${dis} aria-label="More stocks">+</button><span class="muted">lives each</span></div></div>
+    ${G.training ? '' : `<div class="rule"><span class="rule-l">Stocks</span><div class="seg"><button type="button" class="mini sq" data-act="stock-" ${dis} aria-label="Fewer stocks">−</button><span class="stock-n">${SETUP.stocks}</span><button type="button" class="mini sq" data-act="stock+" ${dis} aria-label="More stocks">+</button><span class="muted">lives each</span></div></div>
     <div class="rule"><span class="rule-l">Time</span><div class="seg"><button type="button" class="mini sq" data-act="time-" ${dis} aria-label="Less time">−</button><span class="stock-n">${SETUP.time}:00</span><button type="button" class="mini sq" data-act="time+" ${dis} aria-label="More time">+</button><span class="muted">minutes (2–15)</span></div></div>
     <div class="rule"><span class="rule-l">Mode</span><div class="seg">
       <button type="button" class="seg-b${!SETUP.teams ? ' on' : ''}" data-act="ffa" ${dis}>Free-for-all</button>
       <button type="button" class="seg-b${SETUP.teams ? ' on' : ''}" data-act="teams" ${dis}>Teams</button>
       ${host ? `<button type="button" class="seg-b" data-act="pvc">Humans vs CPUs</button>` : ''}
-    </div></div>`;
+    </div></div>`}`;
 
   const st = document.getElementById('start');
   const n = SETUP.slots.filter(s => s.type === 'you' || s.type === 'peer' || s.type === 'cpu');
@@ -6014,6 +6064,7 @@ function renderSetup() {
     st.hidden = false; document.getElementById('wait-note').hidden = true;
     st.disabled = n.length < 2 || !teamsOk;
     st.textContent = n.length < 2 ? 'Add at least one opponent' : !teamsOk ? 'Put fighters on both teams' : 'Start battle';
+    if (G.training) st.textContent = 'Start training';
   }
   renderStatCard();
 }
@@ -6028,6 +6079,7 @@ document.addEventListener('click', e => {
     case 'edit': if (canEditSlot(i)) SETUP.edit = i; document.getElementById('statcard').dataset.id = ''; break;
     case 'cycle': s.type = { off: 'cpu', cpu: G.mode === 'host' ? 'open' : 'off', open: 'off' }[s.type]; if (s.type === 'cpu') { s.char = 'random'; SETUP.edit = i; } if (SETUP.edit === i && !canEditSlot(i)) SETUP.edit = 0; break;
     case 'open': s.type = 'open'; break;
+    case 'dummy': s.dummy = b.dataset.m; break;
     case 'lvl-': s.lvl = Math.max(1, s.lvl - 1); break;
     case 'lvl+': s.lvl = Math.min(10, s.lvl + 1); break;
     case 'team': s.team = 1 - s.team; break;
@@ -6234,6 +6286,7 @@ function openSettings() {
   document.getElementById('set-master').focus();
 }
 function closeSettings() {
+  if (typeof stopKeyWait === 'function') stopKeyWait();
   document.getElementById('settings').hidden = true;
   const pauseOpen = !document.getElementById('pause').hidden;
   IN.active = G.screen === 'fight' && !pauseOpen;
@@ -6256,7 +6309,7 @@ document.getElementById('set-flick').addEventListener('change', e => { SETTINGS.
 document.getElementById('set-haptics').addEventListener('change', e => { SETTINGS.haptics = e.target.checked; saveSettings(); });
 document.getElementById('settings').addEventListener('click', e => { if (e.target.id === 'settings') closeSettings(); });
 document.querySelectorAll('[data-open-settings]').forEach(b => b.addEventListener('click', () => { SFX.play('ui'); openSettings(); }));
-window.addEventListener('keydown', e => { if (e.code === 'Escape' && !document.getElementById('settings').hidden) { e.stopImmediatePropagation(); closeSettings(); } }, true);
+window.addEventListener('keydown', e => { if (e.code === 'Escape' && !document.getElementById('settings').hidden && !(typeof SETUI !== 'undefined' && SETUI.wait)) { e.stopImmediatePropagation(); closeSettings(); } }, true);
 
 ;
 /* ===== touch.js ===== */
@@ -6405,25 +6458,25 @@ function buildHints() {
   const c = CHAR[localCharId()];
   HINTS.builtFor = c ? hintKey() : null;
   if (!c) { el.innerHTML = ''; return; }
-  const k = t => `<kbd>${t}</kbd>`;
+  const k = t => `<kbd>${esc(t)}</kbd>`;
   const lf = c.modes ? localFighterNow() : null;
   const sp = lf ? fSpecials(lf) : c.specials;
   const styleName = c.modes ? CHAR[c.modes[lf ? lf.yenMode | 0 : 0]].name : '';
   const rows = [
-    { id: 'move', keys: k('W') + k('A') + k('S') + k('D'), name: 'Move', sub: 'or arrow keys' },
-    { id: 'jump', keys: k('Space'), name: 'Jump', sub: 'press again in the air' },
-    { id: 'atk', keys: k('J'), name: 'Attack', sub: 'add a direction for other hits' },
-    { id: 'sm', keys: k('U'), name: 'Smash', sub: 'hold to charge' },
-    { id: 'sh', keys: k('L'), name: 'Shield', sub: '+ ← → to roll' },
-    { id: 'ledge', keys: k('Space'), name: 'Leap up from an edge', sub: 'you grab edges when close' },
-    { id: 'ult', keys: k('Z'), name: (c.ultimate || DEFAULT_ULT).name, sub: 'break the orb, then aim it with WASD + K' },
-    ...(c.freezeRay ? [{ id: 'frz', keys: k('F'), name: 'Freeze Ray on/off', sub: 'next Ice Shard freezes · 30s cooldown' }] : []),
+    { id: 'move', keys: k(bindLabel('up')) + k(bindLabel('left')) + k(bindLabel('down')) + k(bindLabel('right')), name: 'Move' },
+    { id: 'jump', keys: k(bindLabel('jump')), name: 'Jump', sub: 'press again in the air' },
+    { id: 'atk', keys: k(bindLabel('atk')), name: 'Attack', sub: 'add a direction for other hits' },
+    { id: 'sm', keys: k(bindLabel('sm')), name: 'Smash', sub: 'hold to charge' },
+    { id: 'sh', keys: k(bindLabel('sh')), name: 'Shield', sub: '+ ← → to roll' },
+    { id: 'ledge', keys: k(bindLabel('jump')), name: 'Leap up from an edge', sub: 'you grab edges when close' },
+    { id: 'ult', keys: k(bindLabel('ult')), name: (c.ultimate || DEFAULT_ULT).name, sub: `break the orb, then aim and press ${bindLabel('sp')}` },
+    ...(c.freezeRay ? [{ id: 'frz', keys: k(bindLabel('frz')), name: 'Freeze Ray on/off', sub: 'next Ice Shard freezes · 30s cooldown' }] : []),
     ...(c.modes ? [{ id: 'mode', keys: k('1') + k('–') + k('7'), name: 'Switch style', sub: 'now: ' + styleName }] : []),
     { sep: true, name: c.modes ? styleName + ' style' : c.name },
-    { id: 'spN', keys: k('K'), name: sp.neutral ? sp.neutral.name : '—' },
-    { id: 'spS', keys: k('←→') + k('K'), name: sp.side ? sp.side.name : '—' },
-    { id: 'spU', keys: k('↑') + k('K'), name: sp.up ? sp.up.name : '—', sub: 'recovery' },
-    { id: 'spD', keys: k('↓') + k('K'), name: sp.down ? sp.down.name : '—' }
+    { id: 'spN', keys: k(bindLabel('sp')), name: sp.neutral ? sp.neutral.name : '—' },
+    { id: 'spS', keys: k(bindLabel('left') + bindLabel('right')) + k(bindLabel('sp')), name: sp.side ? sp.side.name : '—' },
+    { id: 'spU', keys: k(bindLabel('up')) + k(bindLabel('sp')), name: sp.up ? sp.up.name : '—', sub: 'recovery' },
+    { id: 'spD', keys: k(bindLabel('down')) + k(bindLabel('sp')), name: sp.down ? sp.down.name : '—' }
   ];
   el.innerHTML = rows.map(r => r.sep
     ? `<div class="h-sep">${esc(r.name)} specials</div>`
@@ -6509,7 +6562,7 @@ function frzToggle() {
   IN.mode = f.frzOn ? (IN.mode === 1 ? 3 : 1) : (IN.mode === 2 ? 4 : 2);
 }
 window.addEventListener('keydown', e => {
-  if (e.code !== 'KeyF' || e.repeat || !IN.active || typeof G === 'undefined' || G.screen !== 'fight') return;
+  if (!(BINDS.frz || []).includes(e.code) || e.repeat || !IN.active || typeof G === 'undefined' || G.screen !== 'fight') return;
   if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT')) return;
   if (!FRZ.f) return;
   e.preventDefault(); frzToggle();
@@ -6533,10 +6586,132 @@ function tickFreezeRay(view, hud) {
     FRZ.state = state + Math.ceil(cd / 60) + touch;
     FRZ.el.className = (state === 'on' ? 'on' : state === 'ready' ? 'ready' : '') + (touch ? ' tch' : '');
     FRZ.b.textContent = state === 'on' ? 'FREEZE RAY ARMED' : state === 'ready' ? 'FREEZE RAY READY' : 'FREEZE RAY ' + Math.ceil(cd / 60) + 's';
-    FRZ.sm.textContent = state === 'on' ? (touch ? 'Next Ice Shard (B) freezes' : 'Next Ice Shard (K) freezes · F to cancel') : state === 'ready' ? (touch ? 'Tap FREEZE to arm' : 'Press F to arm it') : 'Recharging…';
+    FRZ.sm.textContent = state === 'on' ? (touch ? 'Next Ice Shard (B) freezes' : 'Next Ice Shard (' + bindLabel('sp') + ') freezes · ' + bindLabel('frz') + ' to cancel') : state === 'ready' ? (touch ? 'Tap FREEZE to arm' : 'Press ' + bindLabel('frz') + ' to arm it') : 'Recharging…';
   }
   FRZ.fill.style.width = (state === 'cd' ? (1 - cd / max) * 100 : 100) + '%';
 }
+
+;
+/* ===== training.js ===== */
+'use strict';
+/* ===== CLOUDTOP BRAWL — Training Lab =====
+   Practice with any fighter you own against a training dummy that respawns forever.
+   Your ultimate is always ready (no orb needed) and cooldowns are switched off. */
+
+const TRAIN = { combo: 0, best: 0, last: 0, lastT: 0, reset: false, el: null };
+const DUMMY_MODES = [['stand', 'Stand still'], ['walk', 'Walk around'], ['fight', 'Fight back']];
+
+function startTrainingSetup() {
+  G.mode = 'solo'; G.training = true;
+  const c = loadLocal('cb.char');
+  SETUP.slots = [
+    { type: 'you', char: isPickable(c, MY_UNLOCKED) ? c : 'titan', lvl: 5, team: 0, nick: '' },
+    { type: 'cpu', char: 'titan', lvl: 5, team: 1, nick: '', dummy: 'stand' },
+    { type: 'off', char: 'random', lvl: 5, team: 1, nick: '' },
+    { type: 'off', char: 'random', lvl: 5, team: 1, nick: '' }
+  ];
+  SETUP.edit = 0; SETUP.teams = false;
+  if (SETUP.stage < 0) SETUP.stage = 0;
+  showSetup();
+}
+
+/* what the dummy does: nothing, wander (no attacks), or fight like a CPU */
+function dummyInput(f, g) {
+  const m = f.ctrl.mode || 'stand';
+  if (m === 'fight') return aiThink(f, g);
+  if (m === 'walk') { const r = aiThink(f, g), keep = BL | BR | BU | BD | BJ; return { b: r.b & keep, pr: r.pr & keep }; }
+  return { b: 0, pr: 0 };
+}
+
+/* runs every frame in a training match, before the game steps */
+function trainingTick(g, inputs) {
+  g.fighters.forEach((f, i) => {
+    if (f.ctrl.type === 'dummy') inputs[i] = dummyInput(f, g);
+    if (f.ctrl.type === 'local') {
+      if (!f.ult && !g.ult && f.dead <= 0 && !f.vanish) { f.ult = true; f.ultT = 1e9; f.trainUlt = true; }
+      if (f.frzCD > 0) f.frzCD = 0;
+    }
+  });
+  if (TRAIN.reset) {
+    TRAIN.reset = false;
+    const spots = spawnSpots(g.stage, g.fighters.length);
+    g.fighters.forEach((f, k) => { if (!f.vanish) { f.spawn(spots[k].x, spots[k].y, false); f.dmg = 0; } });
+    g.projs.length = 0; TRAIN.combo = 0;
+    toast('Reset!');
+  }
+  // combo counter: hits that land while the dummy is still reeling
+  const me = g.fighters.find(f => f.ctrl.type === 'local'), d = g.fighters.find(f => f.ctrl.type === 'dummy');
+  if (me && d) {
+    if (d.dmg > (TRAIN.prevD || 0) + 0.4 && d.lastHit === me.slot) {
+      const stunned = TRAIN.stunned;
+      TRAIN.combo = stunned ? TRAIN.combo + 1 : 1;
+      TRAIN.last = d.dmg - (TRAIN.prevD || 0); TRAIN.lastT = g.frame;
+      if (TRAIN.combo > TRAIN.best) TRAIN.best = TRAIN.combo;
+    }
+    TRAIN.stunned = d.hitstun > 0 || d.frozen > 0 || d.zap > 0 || d.hitlag > 0;
+    if (!TRAIN.stunned && g.frame - TRAIN.lastT > 40) TRAIN.combo = 0;
+    TRAIN.prevD = d.dead > 0 ? 0 : d.dmg;
+  }
+}
+
+/* the small panel at the top of the screen during training */
+function trainHud() {
+  if (TRAIN.el) return TRAIN.el;
+  const st = document.createElement('style');
+  st.textContent = `#train-hud{position:fixed;top:calc(58px + env(safe-area-inset-top,0px));left:50%;transform:translateX(-50%);z-index:40;display:flex;flex-direction:column;align-items:center;gap:6px;font-family:"Chakra Petch",system-ui,sans-serif;color:#fff;pointer-events:none}
+#train-hud[hidden]{display:none}
+#train-hud .th-top{display:flex;gap:8px;align-items:center;background:rgba(17,14,36,.85);border:2px solid #6fe39a;border-radius:12px;padding:6px 12px;pointer-events:auto;flex-wrap:wrap;justify-content:center}
+#train-hud .th-t{font-family:"Dela Gothic One",Impact,sans-serif;font-size:15px;color:#6fe39a;letter-spacing:.04em}
+#train-hud .th-b{font:700 12px "Chakra Petch",system-ui,sans-serif;color:#fff;background:#241d52;border:1px solid #4a4380;border-radius:7px;padding:4px 8px;cursor:pointer}
+#train-hud .th-b.on{background:#6fe39a;color:#0c1f14;border-color:#bff5d0}
+#train-hud .th-info{font-size:12px;color:#c9c5e6;background:rgba(17,14,36,.7);border-radius:8px;padding:3px 10px}
+#train-hud .th-combo{font-family:"Dela Gothic One",Impact,sans-serif;font-size:26px;color:#ffd35c;text-shadow:0 3px 0 #120d24;min-height:30px}
+@media (max-width:560px){#train-hud{top:calc(64px + env(safe-area-inset-top,0px))}#train-hud .th-info{display:none}}`;
+  document.head.appendChild(st);
+  const el = document.createElement('div'); el.id = 'train-hud'; el.hidden = true;
+  const top = document.createElement('div'); top.className = 'th-top';
+  const t = document.createElement('span'); t.className = 'th-t'; t.textContent = 'TRAINING LAB'; top.appendChild(t);
+  DUMMY_MODES.forEach(([id, name]) => {
+    const b = document.createElement('button'); b.type = 'button'; b.className = 'th-b'; b.dataset.m = id; b.textContent = name;
+    b.addEventListener('click', e => { e.stopPropagation(); setDummyMode(id); b.blur(); });
+    top.appendChild(b);
+  });
+  const rb = document.createElement('button'); rb.type = 'button'; rb.className = 'th-b'; rb.textContent = 'Reset (R)';
+  rb.addEventListener('click', e => { e.stopPropagation(); TRAIN.reset = true; rb.blur(); });
+  top.appendChild(rb);
+  const info = document.createElement('div'); info.className = 'th-info';
+  const combo = document.createElement('div'); combo.className = 'th-combo';
+  el.append(top, info, combo);
+  document.body.appendChild(el);
+  TRAIN.el = el; TRAIN.info = info; TRAIN.comboEl = combo;
+  return el;
+}
+function setDummyMode(m) {
+  const g = G.game; if (!g) return;
+  g.fighters.forEach(f => { if (f.ctrl.type === 'dummy') { f.ctrl.mode = m; f.ai = null; } });
+  const s = SETUP.slots[1]; if (s) s.dummy = m;
+  SFX.play('ui');
+}
+/* called every frame from draw() */
+function tickTrainingHud() {
+  const covered = !document.getElementById('settings').hidden || !document.getElementById('pause').hidden;
+  const on = G.screen === 'fight' && G.training && G.game && !G.remote && !covered;
+  if (!on && !TRAIN.el) return;
+  const el = trainHud(); el.hidden = !on;
+  if (!on) return;
+  const d = G.game.fighters.find(f => f.ctrl.type === 'dummy'), mode = d ? d.ctrl.mode : 'stand';
+  el.querySelectorAll('.th-b[data-m]').forEach(b => b.classList.toggle('on', b.dataset.m === mode));
+  const ultKey = typeof bindLabel === 'function' ? bindLabel('ult') : 'Z';
+  const txt = `${ultKey} = ultimate (always ready) · R = reset · best combo ${TRAIN.best}`;
+  if (TRAIN.info.textContent !== txt) TRAIN.info.textContent = txt;
+  const c = TRAIN.combo >= 2 ? `${TRAIN.combo} HIT COMBO!` : '';
+  if (TRAIN.comboEl.textContent !== c) TRAIN.comboEl.textContent = c;
+}
+window.addEventListener('keydown', e => {
+  if (e.code !== 'KeyR' || e.repeat || !G.training || G.screen !== 'fight' || G.paused) return;
+  if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT')) return;
+  TRAIN.reset = true;
+});
 
 ;
 /* ===== net.js ===== */
@@ -6551,7 +6726,7 @@ const NET = {
   vf: null, vfGid: -1, seen: 0, nick: '', mode: 'room', pending: null, snaps: [], jit: 0, rf: null, useServer: false
 };
 
-function cleanNick(s) { return String(s || '').replace(/[^\p{L}\p{N} _.\-]/gu, '').trim().slice(0, 14); }
+function cleanNick(s) { return String(s || '').replace(/[^\p{L}\p{N} _.\-]/gu, '').trim().slice(0, 16); }
 const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 function newCode() { let s = ''; for (let i = 0; i < 4; i++) s += CODE_CHARS[Math.floor(Math.random() * CODE_CHARS.length)]; return s; }
 function cleanCode(s) { return String(s || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 4); }
@@ -6919,7 +7094,7 @@ async function joinByCode(raw) {
 function encodeLb() {
   return {
     c: NET.code, n: NET.nick, sv: NET.useServer ? 1 : 0, ti: SETUP.time, ph: NET.phase, st: NET.phase !== 'lobby' && G.cfg ? G.cfg.stage : SETUP.stage, sk: SETUP.stocks, tm: SETUP.teams ? 1 : 0, gid: NET.gid,
-    s: SETUP.slots.map(s => [s.type, s.peer || '', s.char, s.lvl, s.team, (s.nick || '').slice(0, 14)]),
+    s: SETUP.slots.map(s => [s.type, s.peer || '', s.char, s.lvl, s.team, (s.nick || '').slice(0, 16)]),
     fm: NET.phase === 'lobby' ? null : NET.fm, res: NET.phase === 'res' ? NET.res : null
   };
 }
@@ -7204,6 +7379,7 @@ const ctx = cv.getContext('2d');
 function show(id) {
   document.querySelectorAll('.screen').forEach(s => { s.hidden = s.id !== 'scr-' + id; });
   G.screen = id;
+  if (id === 'main') G.training = false;
   if (id !== 'fight' && typeof musicPlay === 'function') musicPlay('menu');
   IN.active = id === 'fight';
   if (typeof updateTouchUI === 'function') updateTouchUI();
@@ -7231,11 +7407,15 @@ function showOnline() { show('online'); renderOnline(); }
 function buildCfg() {
   const slots = SETUP.slots.map((s, i) => {
     const o = Object.assign({}, s, { char: resolvePick(s.char), picked: s.char === 'random' });
-    if (s.type === 'you') { o.ctrl = { type: 'local' }; o.name = G.mode === 'host' ? NET.nick : 'You'; o.tag = G.mode === 'host' ? NET.nick : 'P' + (i + 1); }
+    if (s.type === 'you') { o.ctrl = { type: 'local' }; const nm = G.mode === 'host' ? NET.nick : myName(); o.name = nm || 'You'; o.tag = nm || 'P' + (i + 1); }
     else if (s.type === 'peer') { o.ctrl = { type: 'remote', peer: s.peer }; o.name = s.nick || 'Friend'; o.tag = s.nick || ('P' + (i + 1)); }
     else if (s.type === 'cpu') { o.ctrl = { type: 'cpu' }; o.name = 'CPU'; o.tag = 'CPU'; }
     return o;
   });
+  if (G.training) {
+    slots.forEach(o => { if (o.type === 'cpu') { o.ctrl = { type: 'dummy', mode: o.dummy || 'stand' }; o.name = 'Dummy'; o.tag = 'DUMMY'; } });
+    return { time: 0, endless: true, training: true, stage: SETUP.stage < 0 ? Math.floor(Math.random() * STAGES.length) : SETUP.stage, stocks: 3, teams: false, slots };
+  }
   return { time: SETUP.time, stage: SETUP.stage < 0 ? Math.floor(Math.random() * STAGES.length) : SETUP.stage, stocks: SETUP.stocks, teams: SETUP.teams, slots };
 }
 
@@ -7249,7 +7429,7 @@ function startMatch() {
   G.cfg.slots.forEach((s, i) => { if (s.picked && (s.type === 'you')) toast(`Random picked ${CHAR[s.char].name} for you!`); });
   if (G.mode === 'host') {
     NET.gid++; NET.phase = 'fight'; NET.res = null;
-    NET.fm = G.game.fighters.map(f => [f.slot, f.c.id, f.tid, f.name.slice(0, 14), f.color, f.tag.slice(0, 14), f.team]);
+    NET.fm = G.game.fighters.map(f => [f.slot, f.c.id, f.tid, f.name.slice(0, 16), f.color, f.tag.slice(0, 16), f.team]);
     if (NET.useServer && SRV.ws) {
       // the match runs on the game server; this computer just sends buttons and shows the snapshots
       const cfg = {
@@ -7289,6 +7469,7 @@ function tickGame() {
     if (f.ctrl.type === 'remote') return remoteInput(f);
     return null;
   });
+  if (G.training && typeof trainingTick === 'function') trainingTick(g, inputs);
   const before = g.fighters.map(f => f.dmg);
   stepGame(g, inputs);
   g.fighters.forEach((f, i) => { if (f.dmg > before[i] + 0.5) f.lastBump = G.t; });
@@ -7336,7 +7517,8 @@ function showResults(rows, canAct) {
 
 /* ---------- buttons ---------- */
 function on(id, fn) { document.getElementById(id).addEventListener('click', e => { SFX.play('ui'); fn(e); }); }
-on('go-solo', () => { G.mode = 'solo'; SETUP.slots = defaultSlots('solo'); const c = loadLocal('cb.char'); if (isPickable(c, MY_UNLOCKED)) SETUP.slots[0].char = c; SETUP.edit = 0; SETUP.teams = false; showSetup(); });
+on('go-training', () => { startTrainingSetup(); });
+on('go-solo', () => { G.mode = 'solo'; G.training = false; SETUP.slots = defaultSlots('solo'); const c = loadLocal('cb.char'); if (isPickable(c, MY_UNLOCKED)) SETUP.slots[0].char = c; SETUP.edit = 0; SETUP.teams = false; showSetup(); });
 on('go-online', () => showOnline());
 on('go-controls', () => show('controls'));
 document.querySelectorAll('.back-main').forEach(b => b.addEventListener('click', () => { SFX.play('ui'); if (G.mode !== 'solo' && NET.role) leaveOnline(); show('main'); }));
@@ -7368,7 +7550,23 @@ on('code-copy', () => {
   const done = () => toast(`Copied ${code}`);
   try { navigator.clipboard.writeText(code).then(done, () => toast(`Your code is ${code}`)); } catch (e) { toast(`Your code is ${code}`); }
 });
-function saveNick() { const v = cleanNick(document.getElementById('nick').value) || NET.nick; NET.nick = v; document.getElementById('nick').value = v; saveLocal('cb.nick', v); presence({ nick: v }); }
+function saveNick() {
+  const v = cleanNick(document.getElementById('nick').value) || NET.nick; NET.nick = v; document.getElementById('nick').value = v; saveLocal('cb.nick', v);
+  // typing a different name keeps it; clearing it or typing your username goes back to following your account
+  const acc = typeof ACCT !== 'undefined' && ACCT.profile && cleanNick(ACCT.profile.name);
+  saveLocal('cb.nickCustom', acc && v !== acc ? '1' : '');
+  presence({ nick: v });
+}
+/* signed-in players use their username as their player name (unless they typed a different one) */
+function syncNickFromAccount() {
+  const acc = typeof ACCT !== 'undefined' && ACCT.profile && cleanNick(ACCT.profile.name);
+  if (!acc || loadLocal('cb.nickCustom') === '1' || NET.nick === acc) return;
+  NET.nick = acc; saveLocal('cb.nick', acc);
+  const el = document.getElementById('nick'); if (el) el.value = acc;
+  try { presence({ nick: acc }); } catch (e) { }
+}
+/* the name shown on your fighter: your username when signed in */
+function myName() { const acc = typeof ACCT !== 'undefined' && ACCT.profile && cleanNick(ACCT.profile.name); return acc || null; }
 
 on('pause-btn', () => togglePause(true));
 on('p-resume', () => togglePause(false));
@@ -7450,7 +7648,7 @@ function draw() {
   let view = null, hud = false;
   if (G.screen === 'fight' || G.screen === 'results') {
     if (G.mode === 'guest' || G.remote) view = guestView();
-    else if (G.game) view = { stage: G.game.stage, fighters: G.game.fighters, projs: G.game.projs, over: G.game.over, overT: G.game.overT, shake: G.game.shake, endless: false, orb: G.game.orb, ult: G.game.ult, timeLeft: G.game.timeLeft, timeUp: G.game.timeUp };
+    else if (G.game) view = { stage: G.game.stage, fighters: G.game.fighters, projs: G.game.projs, over: G.game.over, overT: G.game.overT, shake: G.game.shake, endless: !!G.game.cfg.endless, orb: G.game.orb, ult: G.game.ult, timeLeft: G.game.timeLeft, timeUp: G.game.timeUp };
     hud = G.screen === 'fight';
   }
   if (!view) {
@@ -7462,6 +7660,7 @@ function draw() {
   if (hud) { const ls = localSlotNow(); const lf = ls != null && view.fighters.find(x => x.slot === ls); setUltReady(!!(lf && lf.ult && !lf.out)); } else setUltReady(false);
   if (typeof tickLegend === 'function') tickLegend(view, hud);
   if (typeof tickFreezeRay === 'function') tickFreezeRay(view, hud);
+  if (typeof tickTrainingHud === 'function') tickTrainingHud();
   renderScene(ctx, view, vw, vh, G.t, { hud, tags: hud, hudTop: hud && TOUCH.on, localSlot: hud ? localSlotNow() : null, touchHint: TOUCH.on, leftPad: hud && HINTS.shown ? (vw < 760 || vh < 520 ? 196 : 244) : 0 });
   if (!hud) { ctx.fillStyle = G.screen === 'main' ? 'rgba(10,8,26,.28)' : 'rgba(10,8,26,.62)'; ctx.fillRect(0, 0, vw, vh); }
 }
@@ -7551,7 +7750,9 @@ async function acctChanged() {
     } catch (e) { ACCT.profile = null; if (e.message === 'slow-down') toast('Too many requests. Wait a minute and try again.'); }
   } else ACCT.profile = null;
   setUnlocked(ACCT.profile ? ACCT.profile.unlocked : []);
+  if (typeof syncNickFromAccount === 'function') syncNickFromAccount();
   renderAcctChip();
+  renderAcctPane();
   if (G.screen === 'login' && ACCT.autoGo && acctSignedIn()) { ACCT.autoGo = false; loginDone(); }
   else if (G.screen === 'login') renderLogin();
   if (G.screen === 'boss' && typeof renderBoss === 'function') renderBoss();
@@ -7765,6 +7966,182 @@ async function afterIntro() {
 document.getElementById('acct-btn') && document.getElementById('acct-btn').addEventListener('click', () => { SFX.play('ui'); showLogin(); });
 if (acctEnabled()) acctLoad();
 renderAcctChip();
+
+/* ---------- Settings → Account: username, email, password, link Google, sign out ---------- */
+const ACP = { msgs: {} };
+function acctProviders() { return ACCT.user ? (ACCT.user.providerData || []).map(p => p.providerId) : []; }
+function acpMsg(key, text, cls) {
+  ACP.msgs[key] = [text, cls || ''];
+  const m = document.querySelector(`#acct-pane [data-msg="${key}"]`);
+  if (m) { m.textContent = text || ''; m.className = 'acct-msg' + (cls ? ' ' + cls : ''); }
+}
+function renderUserSetting() { renderAcctPane(); }
+function renderAcctPane() {
+  const box = document.getElementById('acct-pane'); if (!box) return;
+  if (box.contains(document.activeElement) && document.activeElement.tagName === 'INPUT') return;   // don't wipe what they're typing
+  box.textContent = '';
+  const sec = (title, kids) => el('div', { class: 'acct-sec' }, [el('h4', { text: title }), ...kids]);
+  const msg = key => { const [t, c] = ACP.msgs[key] || ['', '']; return el('p', { class: 'acct-msg' + (c ? ' ' + c : ''), 'data-msg': key, 'aria-live': 'polite', text: t }); };
+  const btn = (text, fn, cls) => el('button', { type: 'button', class: cls || 'mini', text, on: { click: fn } });
+  const inp = (attrs) => { const i = el('input', attrs); i.addEventListener('keydown', e => e.stopPropagation()); return i; };
+  if (!acctEnabled()) { box.appendChild(el('p', { class: 'muted', text: 'Accounts aren’t available here.' })); return; }
+  if (!acctSignedIn() || !ACCT.profile) {
+    box.appendChild(sec('Account', [el('p', { class: 'acct-msg', text: 'Sign in to choose a username, save Boss Fight progress and unlock fighters on any device.' }), btn('Sign in', () => { closeSettings(); showLogin(); }, 'btn')]));
+    return;
+  }
+  const prov = acctProviders(), hasPw = prov.includes('password'), hasG = prov.includes('google.com');
+  // username
+  const un = inp({ id: 'set-uname', maxlength: '16', autocomplete: 'off', spellcheck: 'false', value: ACCT.profile.name || '' });
+  un.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); saveUsername(); } });
+  box.appendChild(sec('Username', [el('div', { class: 'acct-line' }, [un, btn('Save', saveUsername)]), msg('name'),
+    el('p', { class: 'muted set-note', text: 'Your name in every mode. 3–16 letters, numbers or _ . Every username is unique.' })]));
+  // email
+  const kids = [el('p', { class: 'acct-msg', text: 'Signed in as ' + (ACCT.user.email || '—') + (hasG && !hasPw ? ' (Google)' : '') })];
+  if (hasPw) {
+    const ne = inp({ id: 'acp-email', type: 'email', placeholder: 'New email address', autocomplete: 'email' });
+    const cp = inp({ id: 'acp-email-pw', type: 'password', placeholder: 'Current password', autocomplete: 'current-password' });
+    kids.push(el('div', { class: 'acct-line' }, [ne]), el('div', { class: 'acct-line' }, [cp, btn('Change email', changeEmail)]));
+    if (ACCT.profile.owner) kids.push(el('p', { class: 'muted set-note', text: 'You’re the game creator. Changing your email also changes which email gets creator access, so tell Claude first.' }));
+  } else kids.push(el('p', { class: 'muted set-note', text: 'Your email is managed by Google.' }));
+  kids.push(msg('email'));
+  box.appendChild(sec('Email', kids));
+  // password
+  if (hasPw) {
+    const cur = inp({ id: 'acp-pw-cur', type: 'password', placeholder: 'Current password', autocomplete: 'current-password' });
+    const np = inp({ id: 'acp-pw-new', type: 'password', placeholder: 'New password', autocomplete: 'new-password' });
+    const np2 = inp({ id: 'acp-pw-new2', type: 'password', placeholder: 'Type the new password again', autocomplete: 'new-password' });
+    const ul = el('ul', { class: 'acct-pw' });
+    const rules = () => { ul.textContent = ''; pwRules(np.value).forEach(([t, ok]) => ul.appendChild(el('li', { class: ok ? 'ok' : '', text: (ok ? '✓ ' : '✗ ') + t }))); };
+    np.addEventListener('input', rules); rules();
+    box.appendChild(sec('Password', [el('div', { class: 'acct-line' }, [cur]), el('div', { class: 'acct-line' }, [np]), el('div', { class: 'acct-line' }, [np2, btn('Change password', changePassword)]), ul, msg('pw')]));
+  }
+  // Google
+  if (hasPw && !hasG) box.appendChild(sec('Google', [el('p', { class: 'acct-msg', text: 'Link your Google account so you can also sign in with one click.' }), btn('Link Google account', linkGoogle), msg('google')]));
+  else if (hasG) box.appendChild(sec('Google', [el('p', { class: 'acct-msg ok', text: '✓ Google is linked to this account.' })]));
+  box.appendChild(btn('Sign out', () => { acctSignOut(); renderAcctPane(); }, 'btn'));
+}
+async function saveUsername() {
+  const inp = document.getElementById('set-uname'); if (!inp || !ACCT.profile) return;
+  const name = inp.value.trim();
+  if (name === ACCT.profile.name) { acpMsg('name', 'That’s already your username.', 'ok'); return; }
+  if (!/^[A-Za-z0-9_]{3,16}$/.test(name)) { acpMsg('name', 'Use 3–16 letters, numbers or _ (no spaces).', 'err'); return; }
+  acpMsg('name', 'Saving…');
+  try {
+    const p = await acctApi('/api/name', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ name }) });
+    ACCT.profile = Object.assign(ACCT.profile, p);
+    saveLocal('cb.nickCustom', ''); saveLocal('cb.pname', name);
+    if (typeof NET !== 'undefined') NET.nick = '';
+    if (typeof syncNickFromAccount === 'function') syncNickFromAccount();
+    renderAcctChip(); inp.blur();
+    acpMsg('name', 'Saved! You’re now ' + name + '.', 'ok'); SFX.play('ui');
+  } catch (e) {
+    acpMsg('name', { taken: 'Someone already has that username. Try another one.', name: 'Use 3–16 letters, numbers or _ (no spaces).', 'slow-down': 'Too many changes. Wait a minute and try again.' }[e.message] || 'Couldn’t save it. Check your connection and try again.', 'err');
+  }
+}
+/* Firebase wants a fresh password check before changing email or password */
+async function acctReauth(pw) {
+  const cred = ACCT.fb.EmailAuthProvider.credential(ACCT.user.email, pw);
+  await ACCT.fb.reauthenticateWithCredential(ACCT.user, cred);
+}
+function acctOpErr(e) {
+  const c = (e && e.code) || '';
+  if (c === 'auth/invalid-credential' || c === 'auth/wrong-password') return 'Your current password isn’t right.';
+  if (c === 'auth/email-already-in-use') return 'That email already has an account.';
+  if (c === 'auth/invalid-email' || c === 'auth/invalid-new-email') return 'That email address doesn’t look right.';
+  if (c === 'auth/requires-recent-login') return 'Please sign out and back in, then try again.';
+  if (c === 'auth/credential-already-in-use') return 'That Google account already belongs to a different Cloudtop account.';
+  if (c === 'auth/provider-already-linked') return 'Google is already linked.';
+  return acctErrText(e) || 'Something went wrong. Please try again.';
+}
+async function changeEmail() {
+  const ne = (document.getElementById('acp-email') || {}).value || '', pw = (document.getElementById('acp-email-pw') || {}).value || '';
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(ne.trim())) { acpMsg('email', 'Type the new email address.', 'err'); return; }
+  if (!pw) { acpMsg('email', 'Type your current password too.', 'err'); return; }
+  acpMsg('email', 'Checking…');
+  try {
+    await acctReauth(pw);
+    await ACCT.fb.verifyBeforeUpdateEmail(ACCT.user, ne.trim());
+    acpMsg('email', `Almost done! We sent a link to ${ne.trim()}. Your email changes after you click it.`, 'ok');
+    document.getElementById('acp-email').value = ''; document.getElementById('acp-email-pw').value = '';
+  } catch (e) { acpMsg('email', acctOpErr(e), 'err'); }
+}
+async function changePassword() {
+  const cur = document.getElementById('acp-pw-cur').value, np = document.getElementById('acp-pw-new').value, np2 = document.getElementById('acp-pw-new2').value;
+  if (!cur) { acpMsg('pw', 'Type your current password.', 'err'); return; }
+  if (!pwRules(np).every(r => r[1])) { acpMsg('pw', 'Your new password needs all four ✓.', 'err'); return; }
+  if (np !== np2) { acpMsg('pw', 'The two new passwords don’t match.', 'err'); return; }
+  acpMsg('pw', 'Saving…');
+  try {
+    await acctReauth(cur);
+    await ACCT.fb.updatePassword(ACCT.user, np);
+    ['acp-pw-cur', 'acp-pw-new', 'acp-pw-new2'].forEach(id => { document.getElementById(id).value = ''; });
+    acpMsg('pw', 'Password changed!', 'ok');
+  } catch (e) { acpMsg('pw', acctOpErr(e), 'err'); }
+}
+async function linkGoogle() {
+  acpMsg('google', 'Opening Google…');
+  try {
+    const p = new ACCT.fb.GoogleAuthProvider(); p.setCustomParameters({ prompt: 'select_account' });
+    try { await ACCT.fb.linkWithPopup(ACCT.user, p); }
+    catch (e) { if (e && (e.code === 'auth/popup-blocked' || e.code === 'auth/operation-not-supported-in-this-environment')) { await ACCT.fb.linkWithRedirect(ACCT.user, p); return; } throw e; }
+    try { await ACCT.fb.reload(ACCT.user); } catch (e) { }
+    acpMsg('google', 'Google linked! You can now sign in with Google too.', 'ok');
+    renderAcctPane();
+  } catch (e) { acpMsg('google', acctOpErr(e), 'err'); }
+}
+
+;
+/* ===== settings-ui.js ===== */
+'use strict';
+/* ===== CLOUDTOP BRAWL — Settings tabs and the key-binding editor ===== */
+
+const SETUI = { tab: 'sound', wait: null };
+
+function setTab(id) {
+  SETUI.tab = id; stopKeyWait();
+  document.querySelectorAll('#settings .set-tab').forEach(b => { const on = b.dataset.tab === id; b.classList.toggle('on', on); b.setAttribute('aria-selected', String(on)); });
+  document.querySelectorAll('#settings .set-pane').forEach(p => { p.hidden = p.dataset.pane !== id; });
+  if (id === 'controls') renderKeybinds();
+  if (id === 'account' && typeof renderAcctPane === 'function') renderAcctPane();
+}
+document.querySelectorAll('#settings .set-tab').forEach(b => b.addEventListener('click', () => { SFX.play('ui'); setTab(b.dataset.tab); }));
+document.querySelectorAll('[data-open-settings]').forEach(b => b.addEventListener('click', () => setTab(SETUI.tab)));
+
+/* ---------- key bindings ---------- */
+function kbMsg(t, cls) { const m = document.getElementById('kb-msg'); if (m) { m.textContent = t || ''; m.className = 'set-note' + (cls ? ' ' + cls : ''); } }
+function renderKeybinds() {
+  const box = document.getElementById('keybinds'); if (!box) return;
+  box.textContent = '';
+  BIND_ACTIONS.forEach(([id, name]) => {
+    const lab = document.createElement('span'); lab.textContent = name; box.appendChild(lab);
+    [0, 1].forEach(slot => {
+      const code = (BINDS[id] || [])[slot] || '';
+      const waiting = SETUI.wait && SETUI.wait.id === id && SETUI.wait.slot === slot;
+      const b = document.createElement('button'); b.type = 'button';
+      b.className = 'kb-key' + (waiting ? ' wait' : code ? '' : ' empty');
+      b.textContent = waiting ? 'Press a key…' : code ? keyName(code) : '—';
+      b.setAttribute('aria-label', `${name}, key ${slot + 1}: ${code ? keyName(code) : 'none'}. Click to change.`);
+      b.addEventListener('click', e => { e.stopPropagation(); SFX.play('ui'); SETUI.wait = { id, slot }; kbMsg(`Press a key for “${name}”. Esc removes it.`); renderKeybinds(); });
+      box.appendChild(b);
+    });
+  });
+}
+function stopKeyWait() { if (SETUI.wait) { SETUI.wait = null; renderKeybinds(); } }
+/* while waiting for a key, catch it before the game or the settings window sees it */
+window.addEventListener('keydown', e => {
+  if (!SETUI.wait) return;
+  e.preventDefault(); e.stopImmediatePropagation();
+  const { id, slot } = SETUI.wait, name = (BIND_ACTIONS.find(a => a[0] === id) || [])[1] || id;
+  if (e.code === 'Escape') { setBind(id, slot, ''); SETUI.wait = null; kbMsg(`Removed that key from “${name}”.`, 'ok'); renderKeybinds(); return; }
+  if (RESERVED_KEYS[e.code]) { kbMsg(`${keyName(e.code)} is already used for ${RESERVED_KEYS[e.code]}. Pick another key.`, 'err'); return; }
+  const was = BIND_ACTIONS.find(([k]) => k !== id && (BINDS[k] || []).includes(e.code));
+  setBind(id, slot, e.code); SETUI.wait = null;
+  kbMsg(was ? `${keyName(e.code)} now does “${name}” (it was taken off “${was[1]}”).` : `${keyName(e.code)} now does “${name}”.`, 'ok');
+  SFX.play('ui'); renderKeybinds();
+}, true);
+document.addEventListener('click', e => { if (SETUI.wait && !e.target.closest('.kb-key')) { SETUI.wait = null; kbMsg(''); renderKeybinds(); } });
+const kbReset = document.getElementById('kb-reset');
+if (kbReset) kbReset.addEventListener('click', () => { SFX.play('ui'); resetBinds(); SETUI.wait = null; kbMsg('All keys are back to the defaults.', 'ok'); renderKeybinds(); });
 
 ;
 /* ===== boss.js ===== */
