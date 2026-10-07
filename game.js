@@ -1706,6 +1706,21 @@ function aiBrain(f, g, A, LV, P) {
     }
   }
   if (f.halo > 0 || f.ledge || (g.ult && g.ult.ph !== 'aim' && g.ult.ph !== 'lock') || f.hitstun > 0 || f.frozen > 0 || f.zap > 0 || f.shieldBreak > 0) { A.guard = 0; return null; }
+  // lava stage: get up onto a platform before the lava rises (and stay there while it's up)
+  if (g.stage.hazard === 'lava' && typeof lavaState === 'function') {
+    const ls = lavaState(g.frame), top = g.stage.solids[0].y - 55;
+    if ((ls.warn || ls.lvl < 1) && f.y > top - 8 && Math.random() < 0.35 + DEF * 0.65) {
+      let best = null, bd = 1e9;
+      for (const p of g.stage.plats) { if (p.y > top - 20) continue; const d = Math.abs(p.x + p.w / 2 - f.x) + Math.abs(f.y - p.y) * 0.5; if (d < bd) { bd = d; best = p; } }
+      if (best) {
+        const px = best.x + best.w / 2, b0 = Math.abs(px - f.x) > best.w * 0.3 ? (px > f.x ? BR : BL) : 0;
+        let p0 = 0;
+        if (f.ground && Math.abs(px - f.x) < 170) p0 |= BJ;
+        else if (!f.ground && f.vy > -1 && f.jumps > 0 && f.y > best.y + 10) p0 |= BJ;
+        A.held = b0; A.cd = 2; return { b: b0, pr: p0 };
+      }
+    }
+  }
   if (f.ult) return null;
   const t = nearestEnemy(f, g);
   if (!t) return null;
@@ -4397,8 +4412,24 @@ function stageHazards(g) {
   const st = g.stage;
   g.gravMul = 1;
   if (st.hazard === 'lava') {
-    const ly = lavaY(st, g.frame);
-    for (const f of g.fighters) if (!f.out && !f.dead && f.y > ly + 4) envHit(f, g, 12, (st.cx - f.x) * 0.012, -17 - f.dmg * 0.05);
+    const ly = lavaY(st, g.frame), ls = lavaState(g.frame), m = st.solids[0];
+    for (const f of g.fighters) {
+      if (f.out || f.dead || f.vanish) continue;
+      if (f.ground && f.y < ly) f.lavaN = 0;                 // safely standing above the lava again
+      if (f.y <= ly + 4) continue;
+      // the lava pit below the stage is deadly: falling in is a KO (it used to bounce you forever)
+      if (ls.lvl >= 0.999 || f.y > m.y + m.h + 30 || (f.lavaN || 0) >= 2) {
+        if (f.halo > 0) { f.y = ly - 2; f.vy = Math.min(f.vy, -14); continue; }
+        emit(g, 'ignite', f.x, ly); emit(g, 'boom', f.x, ly);
+        koF(f, g); continue;
+      }
+      if (f.inv > 0 || f.halo > 0) continue;
+      // risen lava: burn and launch them out, sideways first if they're tucked beside / under the stage
+      const tucked = f.y > m.y - 4 && f.x > m.x - 30 && f.x < m.x + m.w + 30 && !f.ground;
+      const vx = tucked ? Math.sign(f.x - (m.x + m.w / 2) || 1) * 9 : clamp((st.cx - f.x) * 0.012, -9, 9);
+      envHit(f, g, 12, vx, -17 - f.dmg * 0.05);
+      f.lavaN = (f.lavaN || 0) + 1; f.hitstun = 20; f.jumps = Math.max(f.jumps, 1);
+    }
     for (const p of g.projs) if (p.m.mine && p.y > ly) p.life = 0;
   } else if (st.hazard === 'wind') {
     const w = windState(g.frame);
