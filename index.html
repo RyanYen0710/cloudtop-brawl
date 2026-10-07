@@ -6804,7 +6804,9 @@ requestAnimationFrame(frame);
     for (let y = iy; y < iy + ih; y += 4) g.fillRect(ix, y, iw, 1);
     for (let x = ix; x < ix + iw; x += 4) g.fillRect(x, iy, 1, ih);
     const cx = ix + iw / 2, cy = iy + ih * 0.42;
-    const fs = Math.min(iw * 0.15, 72);
+    let fs = Math.min(iw * 0.15, 72);
+    g.font = `${Math.round(fs)}px "Dela Gothic One", Impact, sans-serif`;
+    const tw = g.measureText('CLOUDTOP').width; if (tw > iw * 0.84) fs *= iw * 0.84 / tw;
     // logo drops in
     const dk = Math.min(1, Math.max(0, (ms - 150) / DROP));
     const ly = (iy - fs) + (cy - (iy - fs)) * bounce(dk);
