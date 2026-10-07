@@ -254,7 +254,7 @@ body{touch-action:manipulation}
         <button type="button" class="mbtn" id="go-online"><b>Online with friends</b><span>Host a lobby, invite friends, add CPUs</span></button>
         <button type="button" class="mbtn" id="go-controls"><b>How to play</b><span>Keyboard, touch and gamepad controls</span></button>
       </nav>
-      <div class="main-foot"><span>6 fighters · 8 stages · CPU levels 1–9</span><button type="button" class="mini" data-open-settings>Settings</button></div>
+      <div class="main-foot"><span id="main-count">17 fighters · 8 stages · CPU levels 1–9</span><button type="button" class="mini" data-open-settings>Settings</button></div>
     </div>
   </section>
 
@@ -778,6 +778,17 @@ const ROSTER = [
       down: { name: 'Explosive Flask', desc: 'Lob a bubbling flask that sticks where it lands and explodes.', kind: 'proj',
         dmg: 12, b: 7, g: 1.0, angle: 70, startup: 11, end: 16, speed: 9, aim: 48, grav: 0.45, life: 240, size: 14, shape: 'flask', color: '#ff7ab8', max: 1, fuse: 45 }
     }
+  },
+  {
+    id: 'yen', name: 'Legend Yen', title: 'The ultra max legend', legend: true,
+    modes: ['zephyr', 'blaze', 'volt', 'chui', 'guo', 'lumi', 'kiro'],
+    stats: { power: 8, speed: 9, weight: 6, jump: 9, defense: 7, skill: 10 },
+    jumps: 3,
+    look: { build: 'normal', body: '#15131f', skin: '#e9c3a0', accent: '#ffd35c', hair: '#fff3c4', legs: '#24203a', extra: ['legend'] },
+    passive: 'The ultra max fighter. Press 1–7 to switch styles at any time and use the specials of Zephyr, Blaze, Volt, Mr. Chiu, Mr. Guo, Lumi or Kiro.',
+    strongVs: ['titan', 'ulfgar', 'nova'], weakVs: [],
+    ultimate: { name: 'Legend Ascension', desc: 'All seven styles strike at once in a storm of light.', theme: 'legend', colors: ['#0b0716', '#ffd35c', '#ffffff'], hits: 7, dmg: 3.2, final: { dmg: 22, b: 13.5, g: 1.45, angle: 60 } },
+    specials: null
   }
 ];
 
@@ -830,9 +841,16 @@ const SHAPES = ['orb', 'star', 'laser', 'fist', 'mine', 'shard', 'spike', 'fire'
 
 /* 'random' is a pick, not a fighter: it becomes a real fighter when the battle starts */
 function isPick(id) { return id === 'random' || !!CHAR[id]; }
-function resolvePick(id) { return id === 'random' ? ROSTER[Math.floor(Math.random() * ROSTER.length)].id : id; }
+function resolvePick(id) { if (id !== 'random') return id; const pool = ROSTER.filter(c => !c.legend); return pool[Math.floor(Math.random() * pool.length)].id; }
 const CHAR = {};
 ROSTER.forEach(c => { CHAR[c.id] = c; });
+/* Legend Yen borrows the specials of whichever style is switched on (keys 1–7) */
+ROSTER.forEach(c => { if (c.modes) c.specials = CHAR[c.modes[0]].specials; });
+function fSpecials(f) {
+  const c = f.c;
+  if (c.modes) { const m = CHAR[c.modes[f.yenMode | 0]]; if (m) return m.specials; }
+  return c.specials;
+}
 
 const D2R = Math.PI / 180;
 const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
@@ -870,7 +888,7 @@ class Fighter {
     this.c = CHAR[o.charId] || ROSTER[0];
     this.ph = physFor(this.c);
     this.W = this.ph.W; this.H = this.ph.H;
-    this.dmg = 0; this.kos = 0; this.falls = 0; this.out = false; this.dead = 0;
+    this.dmg = 0; this.kos = 0; this.falls = 0; this.out = false; this.dead = 0; this.yenMode = 0;
     this.spawn(o.sx, o.sy, false);
   }
   spawn(x, y, respawn) {
@@ -1087,7 +1105,7 @@ function startAerial(f, inp, dirX) {
 }
 function startSpecial(f, inp, dirX, g) {
   const w = inp.u ? 'up' : inp.d ? 'down' : dirX ? 'side' : 'neutral';
-  const m = f.c.specials[w];
+  const m = fSpecials(f)[w];
   if (!m) return;
   if (dirX && w === 'side') f.face = dirX;
   const air = !f.ground;
@@ -1772,6 +1790,7 @@ function makeGame(cfg) {
 function decodeIn(o) {
   const b = o ? o.b : 0, p = o ? o.pr : 0;
   return {
+    mode: (b >> 10) & 7,
     l: !!(b & BL), r: !!(b & BR), u: !!(b & BU), d: !!(b & BD), jump: !!(b & BJ), atk: !!(b & BA), sp: !!(b & BS), sm: !!(b & BM), sh: !!(b & BH), z: !!(b & BZ),
     lp: !!(p & BL), rp: !!(p & BR), up: !!(p & BU), dp: !!(p & BD), jp: !!(p & BJ), ap: !!(p & BA), spp: !!(p & BS), smp: !!(p & BM), shp: !!(p & BH), zp: !!(p & BZ)
   };
@@ -1785,6 +1804,9 @@ function stepGame(g, inputs) {
   stageHazards(g);
   g.fighters.forEach((f, i) => {
     const inp = decodeIn(g.over ? null : inputs[i]);
+    if (inp.mode && f.c.modes && inp.mode <= f.c.modes.length && f.yenMode !== inp.mode - 1 && !f.out && f.dead <= 0) {
+      f.yenMode = inp.mode - 1; emit(g, 'mode', f.x, f.y - f.H / 2, f.yenMode, f.slot);
+    }
     if (inp.zp && typeof tryUlt === 'function') tryUlt(f, g);
     stepFighter(f, inp, g);
   });
@@ -1832,7 +1854,20 @@ function computeResults(g) {
 }
 
 /* ---------- CPU brain ---------- */
+/* a CPU Legend Yen switches style every few seconds */
 function aiThink(f, g) {
+  const r = aiThinkCore(f, g);
+  if (f.c.modes && !f.out && f.dead <= 0 && f.ai) {
+    if (f.ai.modeT == null) f.ai.modeT = 120 + Math.floor(Math.random() * 240);
+    if (--f.ai.modeT <= 0) {
+      f.ai.modeT = 240 + Math.floor(Math.random() * 420);
+      const m = Math.floor(Math.random() * f.c.modes.length);
+      r.b |= (m + 1) << 10;
+    }
+  }
+  return r;
+}
+function aiThinkCore(f, g) {
   const A = f.ai || (f.ai = { held: 0, cd: 0 });
   const P = clamp(f.lvl || 3, 1, 9) / 9;
   let b = 0, pr = 0;
@@ -1864,7 +1899,7 @@ function aiThink(f, g) {
     b |= f.x < cx ? BR : BL;
     if (f.flyT > 0) { if (f.y > m.y - 90) b |= BU; return { b, pr }; }
     if (f.helpless) return { b, pr };
-    const up = f.c.specials.up;
+    const up = fSpecials(f).up;
     if (f.vy > -1 && f.jumps > 0 && Math.random() < 0.3) pr |= BJ;
     else if (f.jumps === 0 && f.vy > 0 && !f.upUsed && (up.kind === 'fly' ? f.canFly : (f.y > m.y - 70 || Math.abs(f.x - cx) > m.w / 2 + 150))) { b |= BU; pr |= BS; }
     return { b, pr };
@@ -1898,7 +1933,7 @@ function aiThink(f, g) {
     A.held = BH; A.cd = 8 + Math.round(Math.random() * 8);
     return { b, pr };
   }
-  const sp = f.c.specials;
+  const sp = fSpecials(f);
   if (adx > reach) {
     if (sp.neutral.kind === 'proj' && adx > 200 && Math.abs(dy) < 70 && Math.random() < 0.12 + 0.25 * P) {
       if (faceOk) pr |= BS; else b |= toward;
@@ -2524,7 +2559,7 @@ function hexA(hex, a) {
 /* attack swoosh drawn from the active move's hitbox */
 function drawSwoosh(g, f, t) {
   if (!f.hot || !f.mv) return;
-  const m = moveDef(f.c, f.mv);
+  const m = f.mv && f.mv.startsWith('sp_') && typeof fSpecials === 'function' ? fSpecials(f)[f.mv.slice(3)] : moveDef(f.c, f.mv);
   if (!m) return;
   const kind = m.kind || 'melee';
   if (m.fx && typeof SWOOSH_NEW !== 'undefined' && SWOOSH_NEW[m.fx]) { g.save(); SWOOSH_NEW[m.fx](g, f, t, m, kind); g.restore(); return; }
@@ -2997,6 +3032,7 @@ function lookHook(g, part, K) {
   else if (has('dj')) LOOK_DJ[part] && LOOK_DJ[part](g, K);
   else if (has('clock')) LOOK_CLOCK[part] && LOOK_CLOCK[part](g, K);
   else if (has('alchemist')) LOOK_ALCH[part] && LOOK_ALCH[part](g, K);
+  else if (has('legend') && typeof LOOK_LEGEND !== 'undefined') LOOK_LEGEND[part] && LOOK_LEGEND[part](g, K);
 }
 
 function tideOrb(g, x, y, r, top, spin) {
@@ -3535,6 +3571,7 @@ const PROJ_NEW = {
 
 /* ---------- status effects ---------- */
 function drawStatusNew(g, f, t) {
+  if (f.c && f.c.modes && typeof drawLegendOrbs === 'function') drawLegendOrbs(g, f, t);
   if (f.zap > 0 && !(t % 3 === 2)) {
     g.save(); g.globalCompositeOperation = 'lighter'; g.strokeStyle = '#fff6a0'; g.lineWidth = 2; g.lineJoin = 'miter';
     if (!PERF.low) { g.shadowColor = '#ffe14a'; g.shadowBlur = 8; }
@@ -3559,6 +3596,7 @@ function drawStatusNew(g, f, t) {
 
 /* ---------- new particle effects ---------- */
 function fxEventNew(type, x, y, a, b, col) {
+  if (typeof fxLegend === 'function' && fxLegend(type, x, y, a, b)) return;
   switch (type) {
     case 'summon': {
       const sh = SHAPES[a] || '';
@@ -3626,6 +3664,162 @@ function drawFxNew(g, p, k) {
       break;
     }
   }
+}
+
+</script>
+<script>
+'use strict';
+/* ===== CLOUDTOP BRAWL — Legend Yen: the ultra max fighter =====
+   Keys 1–7 (or the STYLE button on phones) switch between the styles of
+   Zephyr, Blaze, Volt, Mr. Chiu, Mr. Guo, Lumi and Kiro. A pop-up in the
+   bottom-left corner shows which style is on. */
+
+function legendColor(f) {
+  const c = f.c; if (!c || !c.modes) return '#ffd35c';
+  const m = CHAR[c.modes[f.yenMode | 0]];
+  return m ? m.look.accent : '#ffd35c';
+}
+
+/* ---------- look ---------- */
+const LOOK_LEGEND = {
+  back(g, K) {
+    const { sw, shY, hipY, legL, f, t } = K, col = K.portrait ? '#ffd35c' : legendColor(f);
+    const wv = Math.sin(t * 0.1) * 6 + (f.pose === 'run' ? Math.sin(t * 0.35) * 5 : 0);
+    g.beginPath(); g.moveTo(-sw * 0.45, shY); g.lineTo(sw * 0.3, shY);
+    g.quadraticCurveTo(-sw * 0.1 + wv, hipY, -sw * 0.3 + wv * 1.3, hipY + legL * 0.98);
+    g.lineTo(-sw * 1.15 + wv * 1.7, hipY + legL * 0.9);
+    g.quadraticCurveTo(-sw * 0.9, hipY - 10, -sw * 0.45, shY); g.closePath();
+    const cg = g.createLinearGradient(0, shY, 0, hipY + legL); cg.addColorStop(0, '#1d1830'); cg.addColorStop(1, col);
+    g.fillStyle = cg; g.fill(); g.lineWidth = 3; g.strokeStyle = OUTLINE; g.stroke();
+    g.strokeStyle = '#ffd35c'; g.lineWidth = 2; g.beginPath(); g.moveTo(-sw * 0.3 + wv * 1.3, hipY + legL * 0.95); g.lineTo(-sw * 1.12 + wv * 1.7, hipY + legL * 0.87); g.stroke();
+  },
+  torso(g, K) {
+    const { sw, shY, hipY, torsoH, f, portrait } = K, col = portrait ? '#ffd35c' : legendColor(f);
+    // gold shoulder plates + V emblem + glowing core in the style colour
+    [[-0.36], [0.36]].forEach(([x]) => { g.beginPath(); g.ellipse(sw * x, shY + 3, sw * 0.2, torsoH * 0.13, 0, 0, Math.PI * 2); fillStroke(g, '#ffd35c', 2); });
+    g.strokeStyle = '#ffd35c'; g.lineWidth = 3; g.beginPath(); g.moveTo(-sw * 0.3, shY + 4); g.lineTo(sw * 0.05, shY + torsoH * 0.55); g.lineTo(sw * 0.38, shY + 4); g.stroke();
+    circle(g, sw * 0.05, shY + torsoH * 0.42, sw * 0.13); fillStroke(g, col, 2);
+    if (!portrait) { g.save(); g.globalCompositeOperation = 'lighter'; g.fillStyle = hexA(col, 0.45); circle(g, sw * 0.05, shY + torsoH * 0.42, sw * 0.26 + Math.sin(K.t * 0.2) * 2); g.fill(); g.restore(); }
+    g.fillStyle = '#ffd35c'; g.fillRect(-sw / 2 + 1, hipY - 6, sw - 2, 6);
+    g.fillStyle = col; g.fillRect(-4, hipY - 7, 8, 8);
+  },
+  head(g, K) {
+    const { hx, hy, hr, f, t, portrait, L } = K, col = portrait ? '#ffd35c' : legendColor(f);
+    // tall golden spiky hair
+    g.beginPath(); g.moveTo(hx - hr * 1.0, hy + hr * 0.1);
+    [[-1.5, -0.4], [-1.05, -0.75], [-1.45, -1.35], [-0.6, -1.1], [-0.55, -2.0], [-0.05, -1.25], [0.35, -2.05], [0.55, -1.15], [1.25, -1.5], [0.95, -0.7], [1.3, -0.45]].forEach(([a, b]) => g.lineTo(hx + hr * a, hy + hr * b + (b < -1.2 && !portrait ? Math.sin(t * 0.2 + a) * 1.5 : 0)));
+    g.lineTo(hx + hr * 0.6, hy - hr * 0.4); g.lineTo(hx - hr * 0.3, hy - hr * 0.35); g.closePath();
+    const hg = g.createLinearGradient(0, hy - hr * 2, 0, hy); hg.addColorStop(0, '#ffffff'); hg.addColorStop(1, L.hair || '#fff3c4');
+    fillStroke(g, hg, 2.5);
+    // headband in the style colour with flowing tails
+    g.fillStyle = col; g.fillRect(hx - hr * 1.0, hy - hr * 0.55, hr * 2.0, hr * 0.2);
+    const tw = portrait ? 0 : Math.sin(t * 0.25) * 4;
+    g.strokeStyle = col; g.lineWidth = 3; g.lineCap = 'round';
+    g.beginPath(); g.moveTo(hx - hr, hy - hr * 0.45); g.quadraticCurveTo(hx - hr * 1.6, hy - hr * 0.2 + tw, hx - hr * 2.1, hy + tw); g.stroke();
+    // glowing eyes
+    g.save(); if (!portrait) { g.shadowColor = col; g.shadowBlur = 10; }
+    g.fillStyle = '#ffffff'; g.beginPath(); g.ellipse(hx + hr * 0.3, hy - hr * 0.12, hr * 0.13, hr * 0.08, 0, 0, Math.PI * 2); g.fill();
+    g.beginPath(); g.ellipse(hx + hr * 0.7, hy - hr * 0.12, hr * 0.13, hr * 0.08, 0, 0, Math.PI * 2); g.fill();
+    g.fillStyle = col; circle(g, hx + hr * 0.33, hy - hr * 0.12, hr * 0.06); g.fill(); circle(g, hx + hr * 0.73, hy - hr * 0.12, hr * 0.06); g.fill();
+    g.restore();
+    g.strokeStyle = OUTLINE; g.lineWidth = 1.8; g.beginPath(); g.moveTo(hx + hr * 0.4, hy + hr * 0.4); g.lineTo(hx + hr * 0.75, hy + hr * 0.36); g.stroke();
+  },
+  hand(g, K) {
+    if (K.portrait) return;
+    const [x, y] = K.hand, col = legendColor(K.f);
+    g.save(); g.globalCompositeOperation = 'lighter';
+    const gl = g.createRadialGradient(x, y, 0, x, y, 18); gl.addColorStop(0, 'rgba(255,255,255,.7)'); gl.addColorStop(0.5, hexA(col, 0.5)); gl.addColorStop(1, hexA(col, 0));
+    g.fillStyle = gl; circle(g, x, y, 18); g.fill(); g.restore();
+  }
+};
+
+/* seven little style orbs circling Legend Yen; the active one is bigger */
+function drawLegendOrbs(g, f, t) {
+  if (!f.c || !f.c.modes || f.frozen > 0) return;
+  const n = f.c.modes.length, cur = f.yenMode | 0, cx = f.x, cy = f.y - f.H * 0.55;
+  g.save();
+  for (let i = 0; i < n; i++) {
+    const a = t * 0.04 + i / n * Math.PI * 2, x = cx + Math.cos(a) * f.W * 1.05, y = cy + Math.sin(a) * f.H * 0.22;
+    const col = CHAR[f.c.modes[i]].look.accent, on = i === cur;
+    if (Math.sin(a) < 0 && !on) g.globalAlpha = 0.55; else g.globalAlpha = 1;
+    circle(g, x, y, on ? 6 : 3.5); g.fillStyle = col; g.fill();
+    if (on) { g.lineWidth = 2; g.strokeStyle = '#ffffff'; g.stroke(); }
+  }
+  g.restore();
+}
+
+/* ---------- style pop-up (bottom left) ---------- */
+const LEGEND = { el: null, last: null, hideT: 0, key: '' };
+function legendEl() {
+  if (LEGEND.el) return LEGEND.el;
+  const st = document.createElement('style');
+  st.textContent = `#style-pop{position:fixed;left:16px;bottom:118px;z-index:60;pointer-events:none;background:rgba(17,14,36,.88);border:2px solid var(--pc,#ffd35c);border-radius:14px;padding:10px 14px 10px;min-width:210px;opacity:0;transform:translateY(10px);transition:opacity .2s ease,transform .2s ease;font-family:"Chakra Petch",system-ui,sans-serif;color:#fff;box-shadow:0 6px 24px rgba(0,0,0,.45)}
+#style-pop.show{opacity:1;transform:none}
+#style-pop .sp-big{display:flex;align-items:center;gap:10px;font-family:"Dela Gothic One",Impact,sans-serif;font-size:24px;line-height:1}
+#style-pop .sp-num{display:grid;place-items:center;width:34px;height:34px;border-radius:9px;background:var(--pc,#ffd35c);color:#120d24;font-size:20px}
+#style-pop .sp-sub{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:#c9c5e6;margin:0 0 6px}
+#style-pop .sp-row{display:flex;gap:4px;margin-top:9px}
+#style-pop .sp-row i{display:grid;place-items:center;width:22px;height:22px;border-radius:6px;font-style:normal;font-size:11px;font-weight:700;background:rgba(255,255,255,.1);color:#fff;border:1px solid transparent}
+#style-pop .sp-row i.on{background:var(--c);color:#120d24;border-color:#fff}
+#style-btn{right:calc(18px * var(--ts));bottom:calc(190px * var(--ts));width:calc(60px * var(--ts));height:calc(60px * var(--ts));font-size:calc(10px * var(--ts));background:rgba(255,211,92,.4);border-color:#ffe9a8}
+@media (max-width:560px){#style-pop{bottom:96px;left:10px;min-width:180px}#style-pop .sp-big{font-size:19px}}`;
+  document.head.appendChild(st);
+  const el = document.createElement('div'); el.id = 'style-pop'; el.setAttribute('aria-live', 'polite');
+  document.body.appendChild(el);
+  LEGEND.el = el;
+  // phone button that steps through the styles
+  const tb = document.getElementById('tbtns');
+  if (tb) {
+    const b = document.createElement('button'); b.type = 'button'; b.className = 'tb'; b.id = 'style-btn'; b.textContent = 'STYLE'; b.hidden = true; b.setAttribute('aria-label', 'Switch style');
+    b.addEventListener('pointerdown', e => {
+      e.preventDefault(); e.stopPropagation();
+      const f = LEGEND.f; if (!f || !f.c.modes) return;
+      IN.mode = ((f.yenMode | 0) + 1) % f.c.modes.length + 1;
+      b.classList.add('on'); setTimeout(() => b.classList.remove('on'), 120);
+    });
+    tb.appendChild(b);
+  }
+  return el;
+}
+
+function showStylePop(f, intro) {
+  const el = legendEl(), c = f.c, cur = f.yenMode | 0, m = CHAR[c.modes[cur]];
+  el.style.setProperty('--pc', m.look.accent);
+  el.innerHTML = `<p class="sp-sub">${intro ? (TOUCH.on ? 'Tap STYLE to switch' : 'Press 1–7 to switch style') : 'Style'}</p>
+    <div class="sp-big"><span class="sp-num">${cur + 1}</span><span>${esc(m.name)}</span></div>
+    <div class="sp-row">${c.modes.map((id, i) => `<i class="${i === cur ? 'on' : ''}" style="--c:${CHAR[id].look.accent}" title="${esc(CHAR[id].name)}">${i + 1}</i>`).join('')}</div>`;
+  const h = document.getElementById('hints');
+  const hr = h && !h.hidden && h.style.visibility !== 'hidden' ? h.getBoundingClientRect() : null;
+  el.style.left = (hr && hr.width ? Math.round(hr.right + 12) : (innerWidth < 560 ? 10 : 16)) + 'px';
+  el.classList.add('show');
+  clearTimeout(LEGEND.hideT);
+  LEGEND.hideT = setTimeout(() => el.classList.remove('show'), intro ? 3200 : 1800);
+}
+
+/* called every frame from draw(): watches the local fighter's style */
+function tickLegend(view, hud) {
+  let f = null;
+  if (hud && view && view.fighters) {
+    const slot = typeof localSlotNow === 'function' ? localSlotNow() : null;
+    f = view.fighters.find(x => x.slot === slot && x.c && x.c.modes) || null;
+  }
+  LEGEND.f = f;
+  const btn = document.getElementById('style-btn') || (f ? (legendEl(), document.getElementById('style-btn')) : null);
+  if (btn) btn.hidden = !f;
+  if (!f) { LEGEND.last = null; if (LEGEND.el) LEGEND.el.classList.remove('show'); return; }
+  const key = G.mode === 'guest' || G.remote ? 'net' + NET.gid : G.game;
+  if (LEGEND.key !== key) { LEGEND.key = key; LEGEND.last = f.yenMode | 0; showStylePop(f, true); return; }
+  if (LEGEND.last !== (f.yenMode | 0)) { LEGEND.last = f.yenMode | 0; showStylePop(f, false); }
+}
+
+/* effect + sound when anyone switches style */
+function fxLegend(type, x, y, a, b) {
+  if (type !== 'mode') return false;
+  const id = CHAR.yen && CHAR.yen.modes[a], col = id ? CHAR[id].look.accent : '#ffd35c';
+  spawnFx({ k: 'ring', x, y, life: 18, r0: 70, r1: 10, col, lw: 5 });
+  spawnFx({ k: 'ring', x, y, life: 22, r0: 10, r1: 90, col: '#ffffff', lw: 3 });
+  for (let i = 0; i < 14; i++) { const an = Math.random() * 6.28, s = 2 + Math.random() * 5; spawnFx({ k: 'spark', x, y, vx: Math.cos(an) * s, vy: Math.sin(an) * s, life: 20, col: i % 2 ? '#ffffff' : col, size: 3 }); }
+  return true;
 }
 
 </script>
@@ -4947,6 +5141,21 @@ function drawUltWorldNew(g, view, c, t) {
   const { f, tg, def, k } = c, B = view.stage.blast, st = view.stage;
   const midY = tg.length ? tg.reduce((a, o) => a + o.y - o.H / 2, 0) / tg.length : st.spawnY + 150;
   switch (def.theme) {
+    case 'legend': {
+      const cols = (f.c.modes || []).map(id => CHAR[id].look.accent);
+      tg.forEach((o, j) => {
+        const i = Math.floor((k + j * 5) / 14) % cols.length, ph = ((k + j * 5) % 14) / 14, col = cols[i] || '#ffd35c';
+        if (ph < 0.55) {
+          const w = 26 + Math.sin(t * 0.6) * 6, lg = g.createLinearGradient(o.x - w, 0, o.x + w, 0);
+          lg.addColorStop(0, hexA(col, 0)); lg.addColorStop(0.5, 'rgba(255,255,255,.95)'); lg.addColorStop(1, hexA(col, 0));
+          g.fillStyle = lg; g.fillRect(o.x - w, B.t, w * 2, o.y - B.t);
+          g.fillStyle = hexA(col, 0.4); g.fillRect(o.x - w * 2.2, B.t, w * 4.4, o.y - B.t);
+        }
+        g.strokeStyle = col; g.lineWidth = 5; circle(g, o.x, o.y - o.H / 2, 30 + ph * 90); g.stroke();
+      });
+      cols.forEach((col, i) => { const a = t * 0.05 + i / cols.length * Math.PI * 2; g.fillStyle = col; circle(g, f.x + Math.cos(a) * 90, f.y - f.H / 2 + Math.sin(a) * 50, 12); g.fill(); });
+      return true;
+    }
     case 'ocean': {
       const dir = f.x < st.cx ? 1 : -1, p = Math.min(1, k / 70);
       const L = B.l + 150, R = B.r - 150, front = dir > 0 ? L + (R - L) * p : R - (R - L) * p;
@@ -5041,6 +5250,12 @@ function drawUltWorldNew(g, view, c, t) {
 function drawThemeArtNew(g, def, vw, vh, t, k) {
   const col = def.colors;
   switch (def.theme) {
+    case 'legend': {
+      const cols = ['#34d1bf', '#ff6a1a', '#ffe14a', '#3fe0d0', '#e8354a', '#7cff6b', '#e6b84a'];
+      cols.forEach((c, i) => { const a = t * 0.01 + i / cols.length * Math.PI * 2; g.fillStyle = hexA(c, 0.35); g.beginPath(); g.moveTo(vw * 0.75, vh * 0.5); g.arc(vw * 0.75, vh * 0.5, Math.max(vw, vh), a, a + 0.35); g.closePath(); g.fill(); });
+      g.fillStyle = 'rgba(255,255,255,.85)'; for (let i = 0; i < 40; i++) { star(g, (i * 97.3) % vw, ((i * 53.1) + k * 2) % vh, 2 + (i % 3)); g.fill(); }
+      break;
+    }
     case 'ocean':
       for (let i = 0; i < 4; i++) {
         g.fillStyle = hexA(i % 2 ? col[1] : col[2], 0.18 + i * 0.05); g.beginPath(); g.moveTo(0, vh);
@@ -5091,7 +5306,15 @@ const KEYMAP = {
 };
 const IN = { keys: new Set(), press: 0, prev: 0, touch: 0, counters: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0], active: false };
 
-function keyBits() { let b = 0; IN.keys.forEach(k => { b |= KEYMAP[k] || 0; }); return b; }
+function keyBits() { let b = 0; IN.keys.forEach(k => { b |= KEYMAP[k] || 0; }); return b | ((IN.mode || 0) << 10); }
+
+/* number keys 1–7 pick a style (only Legend Yen uses it) */
+window.addEventListener('keydown', e => {
+  const m = /^(?:Digit|Numpad)([1-7])$/.exec(e.code);
+  if (!m || !IN.active || typeof G === 'undefined' || G.screen !== 'fight') return;
+  if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT')) return;
+  IN.mode = +m[1];
+});
 
 window.addEventListener('keydown', e => {
   const bit = KEYMAP[e.code];
@@ -5180,6 +5403,7 @@ const SFX = {
       case 'boom': case 'wave': this.hiss(0.5, 0.45, 300, 0.5); this.tone(90, 0.4, 'sine', 0.4, 40); break;
       case 'jump': this.tone(300, 0.08, 'triangle', 0.05, 520); break;
       case 'shoot': if (SHAPES[a] === 'bullet') { this.hiss(0.05, 0.12, 2600, 1.2); this.tone(1400, 0.04, 'square', 0.03, 500); } else if (SHAPES[a] === 'soundwave') { this.tone(220, 0.25, 'sine', 0.12, 440); this.tone(330, 0.25, 'triangle', 0.05, 660); } else if (SHAPES[a] === 'capture' || SHAPES[a] === 'potion' || SHAPES[a] === 'flask') this.tone(500, 0.12, 'triangle', 0.06, 900); else this.tone(700, 0.1, 'square', 0.04, 300); break;
+      case 'mode': [523, 784, 1047].forEach((f, i) => setTimeout(() => this.tone(f, 0.12, 'triangle', 0.06), i * 45)); break;
       case 'summon': this.hiss(0.35, 0.22, 900, 0.6); this.tone(330, 0.2, 'sine', 0.12, 660); setTimeout(() => this.tone(660, 0.18, 'triangle', 0.07), 70); break;
       case 'rewind': [880, 740, 587, 440].forEach((f, i) => setTimeout(() => this.tone(f, 0.12, 'triangle', 0.07), i * 45)); this.hiss(0.3, 0.1, 3000, 1); break;
       case 'clank': this.tone(1500, 0.06, 'square', 0.04, 900); break;
@@ -5229,9 +5453,9 @@ function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ 
 function defaultSlots(mode) {
   return [
     { type: 'you', char: 'titan', lvl: 3, team: 0, nick: '' },
-    { type: mode === 'solo' ? 'cpu' : 'open', char: 'tseng', lvl: 3, team: 1, nick: '' },
-    { type: 'off', char: 'zephyr', lvl: 3, team: 1, nick: '' },
-    { type: 'off', char: 'rivet', lvl: 3, team: 1, nick: '' }
+    { type: mode === 'solo' ? 'cpu' : 'open', char: 'random', lvl: 3, team: 1, nick: '' },
+    { type: 'off', char: 'random', lvl: 3, team: 1, nick: '' },
+    { type: 'off', char: 'random', lvl: 3, team: 1, nick: '' }
   ];
 }
 
@@ -5287,7 +5511,7 @@ function renderStatCard() {
   if (id === 'random') {
     el.dataset.id = id;
     el.innerHTML = `<div class="sc-top"><canvas class="sc-cv" aria-hidden="true"></canvas><div class="sc-head"><div class="sc-eyebrow">Surprise pick</div><h3 class="sc-name">Random</h3><p class="sc-passive">You get a random fighter from the roster when the battle starts, and a new one every rematch. Works for CPUs too.</p></div></div>
-      <div class="rand-list">${ROSTER.map(c => `<span class="chip">${esc(c.name)}</span>`).join('')}</div>`;
+      <div class="rand-list">${ROSTER.filter(c => !c.legend).map(c => `<span class="chip">${esc(c.name)}</span>`).join('')}</div>`;
     requestAnimationFrame(() => drawPortrait(el.querySelector('.sc-cv'), 'random'));
     return;
   }
@@ -5301,10 +5525,12 @@ function renderStatCard() {
     return `<div class="stat"><span class="st-l">${label}</span><span class="st-bar">${segs}</span><span class="st-n">${v}</span></div>`;
   }).join('');
   const key = { neutral: 'B', side: '→ B', up: '↑ B', down: '↓ B' };
-  const specials = ['neutral', 'side', 'up', 'down'].map(w => {
-    const m = c.specials[w]; if (!m) return '';
-    return `<li><span class="sp-k">${key[w]}</span><div><b>${esc(m.name)}</b><span>${esc(m.desc || '')}</span></div></li>`;
-  }).join('');
+  const specials = c.modes
+    ? c.modes.map((id, i) => `<li><span class="sp-k">${i + 1}</span><div><b>${esc(CHAR[id].name)} style</b><span>${esc(['neutral', 'side', 'up', 'down'].map(w => CHAR[id].specials[w].name).join(' · '))}</span></div></li>`).join('')
+    : ['neutral', 'side', 'up', 'down'].map(w => {
+      const m = c.specials[w]; if (!m) return '';
+      return `<li><span class="sp-k">${key[w]}</span><div><b>${esc(m.name)}</b><span>${esc(m.desc || '')}</span></div></li>`;
+    }).join('');
   const chip = ids => (ids || []).filter(x => CHAR[x]).map(x => `<span class="chip">${esc(CHAR[x].name)}</span>`).join('') || '<span class="muted">—</span>';
   el.innerHTML = `
     <div class="sc-top">
@@ -5400,7 +5626,7 @@ document.addEventListener('click', e => {
   SFX.play('ui');
   switch (act) {
     case 'edit': if (canEditSlot(i)) SETUP.edit = i; document.getElementById('statcard').dataset.id = ''; break;
-    case 'cycle': s.type = { off: 'cpu', cpu: G.mode === 'host' ? 'open' : 'off', open: 'off' }[s.type]; if (s.type === 'cpu') SETUP.edit = i; if (SETUP.edit === i && !canEditSlot(i)) SETUP.edit = 0; break;
+    case 'cycle': s.type = { off: 'cpu', cpu: G.mode === 'host' ? 'open' : 'off', open: 'off' }[s.type]; if (s.type === 'cpu') { s.char = 'random'; SETUP.edit = i; } if (SETUP.edit === i && !canEditSlot(i)) SETUP.edit = 0; break;
     case 'open': s.type = 'open'; break;
     case 'lvl-': s.lvl = Math.max(1, s.lvl - 1); break;
     case 'lvl+': s.lvl = Math.min(9, s.lvl + 1); break;
@@ -5768,13 +5994,21 @@ function localCharId() {
   return s ? s.char : null;
 }
 
+function localFighterNow() {
+  const slot = typeof localSlotNow === 'function' ? localSlotNow() : null;
+  if (G.mode === 'guest' || G.remote) return (NET.vf || []).find(x => x.slot === slot) || null;
+  return G.game ? G.game.fighters.find(x => x.ctrl && x.ctrl.type === 'local') || null : null;
+}
+function hintKey() { const id = localCharId(); const f = CHAR[id] && CHAR[id].modes ? localFighterNow() : null; return CHAR[id] ? id + ':' + (f ? f.yenMode | 0 : 0) : null; }
 function buildHints() {
   const el = document.getElementById('hints');
   const c = CHAR[localCharId()];
-  HINTS.builtFor = c ? c.id : null;
+  HINTS.builtFor = c ? hintKey() : null;
   if (!c) { el.innerHTML = ''; return; }
   const k = t => `<kbd>${t}</kbd>`;
-  const sp = c.specials;
+  const lf = c.modes ? localFighterNow() : null;
+  const sp = lf ? fSpecials(lf) : c.specials;
+  const styleName = c.modes ? CHAR[c.modes[lf ? lf.yenMode | 0 : 0]].name : '';
   const rows = [
     { id: 'move', keys: k('W') + k('A') + k('S') + k('D'), name: 'Move', sub: 'or arrow keys' },
     { id: 'jump', keys: k('Space'), name: 'Jump', sub: 'press again in the air' },
@@ -5783,7 +6017,8 @@ function buildHints() {
     { id: 'sh', keys: k('L'), name: 'Shield', sub: '+ ← → to roll' },
     { id: 'ledge', keys: k('Space'), name: 'Leap up from an edge', sub: 'you grab edges when close' },
     { id: 'ult', keys: k('Z'), name: (c.ultimate || DEFAULT_ULT).name, sub: 'break the rainbow orb first' },
-    { sep: true, name: c.name },
+    ...(c.modes ? [{ id: 'mode', keys: k('1') + k('–') + k('7'), name: 'Switch style', sub: 'now: ' + styleName }] : []),
+    { sep: true, name: c.modes ? styleName + ' style' : c.name },
     { id: 'spN', keys: k('K'), name: sp.neutral ? sp.neutral.name : '—' },
     { id: 'spS', keys: k('←→') + k('K'), name: sp.side ? sp.side.name : '—' },
     { id: 'spU', keys: k('↑') + k('K'), name: sp.up ? sp.up.name : '—', sub: 'recovery' },
@@ -5807,7 +6042,7 @@ function updateHintsVisibility() {
 /* called every frame: light up the rows for keys being held */
 function tickHints() {
   if (!HINTS.shown) return;
-  if (HINTS.builtFor !== (CHAR[localCharId()] ? localCharId() : null)) buildHints();
+  if (HINTS.builtFor !== hintKey()) buildHints();
   const b = IN.prev | keyBits();
   const dir = b & BU ? 'spU' : b & BD ? 'spD' : b & (BL | BR) ? 'spS' : 'spN';
   const on = {
@@ -6304,7 +6539,7 @@ function encodeState(g) {
     u: g.ult ? [g.ult.slot, g.ult.t, g.ult.targets] : null,
     f: g.fighters.map(f => [r(f.x), r(f.y), f.face, POSES.indexOf(f.pose), r((f.pt || 0) * 20), r(f.dmg * 10), f.stocks,
       (f.inv > 0 ? 1 : 0) | (f.shielding ? 2 : 0) | (f.flyT > 0 ? 4 : 0) | (f.frozen > 0 ? 8 : 0) | (f.helpless ? 16 : 0) | (f.dead > 0 ? 32 : 0) | (f.out ? 64 : 0) | (f.halo > 0 ? 128 : 0) | (f.armor ? 256 : 0) | (f.buffT > 0 ? 512 : 0) | (f.hot ? 1024 : 0) | (f.ult ? 2048 : 0) | (f.burn > 0 ? 4096 : 0) | (f.zap > 0 ? 8192 : 0) | (f.slow > 0 ? 16384 : 0),
-      MOVEKEYS.indexOf(f.mv), r(f.shieldHP), f.kos, f.falls, r((f.charge || 0) * 10), f.tag === 'CPU' ? 1 : 0]),
+      MOVEKEYS.indexOf(f.mv), r(f.shieldHP), f.kos, f.falls, r((f.charge || 0) * 10), f.tag === 'CPU' ? 1 : 0, f.yenMode | 0]),
     p: g.projs.slice(0, 24).map(p => [r(p.x), r(p.y), Math.sign(p.vx) || 1, SHAPES.indexOf(p.shape), r(p.size), p.color, p.armed ? 1 : 0, r((p.ang != null ? p.ang : Math.atan2(p.vy, p.vx)) * 100), p.charged ? 1 : 0]),
     e: g.events.slice(-10)
   };
@@ -6433,7 +6668,8 @@ function guestView() {
       v.dead = fl & 32 ? 1 : 0; v.out = !!(fl & 64); v.halo = fl & 128 ? 1 : 0; v.armor = !!(fl & 256); v.buffT = fl & 512 ? 1 : 0; v.hot = !!(fl & 1024); v.ult = !!(fl & 2048); v.burn = fl & 4096 ? 1 : 0; v.zap = fl & 8192 ? 1 : 0; v.slow = fl & 16384 ? 1 : 0;
       v.mv = MOVEKEYS[a[8]] || null; v.shieldHP = a[9]; v.kos = a[10]; v.falls = a[11]; v.charge = a[12] / 10;
       if (a[13]) v.tag = 'CPU';
-      const up = v.c.specials.up; v.flyFx = up && up.fx || 'cloud';
+      v.yenMode = a[14] | 0;
+      const up = fSpecials(v).up; v.flyFx = up && up.fx || 'cloud';
       v.anim++;
     });
   }
@@ -6546,6 +6782,7 @@ function startMatch() {
 }
 
 function enterFight() {
+  IN.mode = 0;
   show('fight');
   const stg = (G.mode === 'guest' || G.remote) ? (STAGES[NET.lb && NET.lb.st] || STAGES[0]) : (G.game ? G.game.stage : STAGES[0]);
   musicPlay(stg.id);
@@ -6736,11 +6973,13 @@ function draw() {
   const cut = !!(hud && view.ult && view.ult.t <= ULT_CUT);
   if (G.cutHide !== cut) { G.cutHide = cut; document.getElementById('hints').style.visibility = cut ? 'hidden' : ''; document.querySelector('.fight-top').style.visibility = cut ? 'hidden' : ''; }
   if (hud) { const ls = localSlotNow(); const lf = ls != null && view.fighters.find(x => x.slot === ls); setUltReady(!!(lf && lf.ult && !lf.out)); } else setUltReady(false);
+  if (typeof tickLegend === 'function') tickLegend(view, hud);
   renderScene(ctx, view, vw, vh, G.t, { hud, tags: hud, hudTop: hud && TOUCH.on, localSlot: hud ? localSlotNow() : null, touchHint: TOUCH.on, leftPad: hud && HINTS.shown ? (vw < 760 || vh < 520 ? 196 : 244) : 0 });
   if (!hud) { ctx.fillStyle = G.screen === 'main' ? 'rgba(10,8,26,.28)' : 'rgba(10,8,26,.62)'; ctx.fillRect(0, 0, vw, vh); }
 }
 
 /* ---------- boot ---------- */
+{ const mc = document.getElementById('main-count'); if (mc) mc.textContent = ROSTER.length + ' fighters · ' + STAGES.length + ' stages · CPU levels 1–9'; }
 setupTouch();
 show('main');
 initRoom();
