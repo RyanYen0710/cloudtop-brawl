@@ -45,20 +45,20 @@
 const ROSTER = [
   {
     id: 'titan', name: 'Titan Ape', title: 'Jungle wrecking ball',
-    stats: { power: 10, speed: 7, weight: 10, jump: 5, defense: 8, skill: 3 },
+    stats: { power: 10, speed: 8, weight: 10, jump: 6, defense: 9, skill: 4 },
     look: { build: 'bulky', body: '#3d312e', skin: '#b58d69', accent: '#d9483b', extra: ['ape'] },
     passive: 'Super armor while winding up punches and rushes, so small hits can’t stop him.',
     strongVs: ['zephyr', 'nova'], weakVs: ['tseng', 'mira'],
     ultimate: { name: 'Kaiju Rampage', desc: 'Grows into a giant and pounds the whole stage.', theme: 'jungle', colors: ['#0f2a17', '#6dbb4a', '#d9483b'], hits: 3, dmg: 6, final: { dmg: 22, b: 13, g: 1.4, angle: 75 } },
     specials: {
       neutral: { name: 'Mega Punch', desc: 'Hold to charge a ground-shaking punch. Super armor while winding up.', kind: 'melee',
-        dmg: 13, b: 8, g: 1.25, angle: 32, startup: 16, active: 5, end: 24, hx: 1.25, hy: 0.6, hw: 1.5, hh: 0.45, charge: 70, armor: true, lunge: 3 },
+        dmg: 15, b: 8.5, g: 1.3, angle: 32, startup: 13, active: 6, end: 19, hx: 1.25, hy: 0.6, hw: 1.5, hh: 0.45, charge: 70, armor: true, lunge: 3 },
       side: { name: 'Gorilla Rush', desc: 'Barrel forward shoulder-first and bulldoze anyone in the way.', kind: 'dash',
-        dmg: 10, b: 6, g: 0.9, angle: 30, startup: 8, dur: 22, vx: 13, end: 16, hx: 0.6, hy: 0.5, hw: 1.1, hh: 0.8, armor: true },
+        dmg: 12, b: 7, g: 0.95, angle: 30, startup: 7, dur: 22, vx: 14, end: 12, hx: 0.6, hy: 0.5, hw: 1.1, hh: 0.8, armor: true },
       up: { name: 'Titan Leap', desc: 'A towering jump that uppercuts anyone above.', kind: 'leap',
-        vy: 19, vx: 3, dmg: 9, b: 6, g: 0.8, angle: 80, startup: 6, active: 14, hx: 0.2, hy: 1.0, hw: 1.4, hh: 0.7 },
+        vy: 20, vx: 3.5, dmg: 11, b: 7, g: 0.85, angle: 80, startup: 5, active: 14, hx: 0.2, hy: 1.0, hw: 1.4, hh: 0.7 },
       down: { name: 'Earthquake Slam', desc: 'Pound the ground (or plunge from the air) and send a shockwave both ways.', kind: 'slam',
-        fall: 24, dmg: 12, b: 7, g: 1.0, angle: 70, startup: 10, end: 22, hw: 4.0, hh: 0.5, spike: { dmg: 8, b: 5, g: 0.6, angle: -80 } }
+        fall: 24, dmg: 14, b: 7.5, g: 1.05, angle: 70, startup: 9, end: 16, hw: 4.4, hh: 0.5, spike: { dmg: 8, b: 5, g: 0.6, angle: -80 } }
     }
   },
   {
@@ -137,12 +137,13 @@ const ROSTER = [
     id: 'mira', name: 'Mira Frost', title: 'Glacier witch',
     stats: { power: 5, speed: 5, weight: 4, jump: 7, defense: 5, skill: 8 },
     look: { build: 'slim', body: '#2d4d7a', skin: '#f3d7c4', accent: '#9fe7ff', hair: '#e9f4ff', extra: ['witch'] },
-    passive: 'Ice Shard freezes enemies solid, setting up big hits.',
+    passive: 'Press F to arm the Freeze Ray: her next Ice Shard freezes the target solid. 30-second cooldown.',
+    freezeRay: { cd: 1800, freeze: 55 },
     strongVs: ['titan', 'tseng'], weakVs: ['zephyr', 'nova', 'blaze'],
     ultimate: { name: 'Absolute Zero', desc: 'Freezes the whole stage, then shatters every enemy.', theme: 'ice', colors: ['#06182e', '#9fe7ff', '#ffffff'], hits: 1, dmg: 4, freeze: true, final: { dmg: 24, b: 12, g: 1.4, angle: 80 } },
     specials: {
-      neutral: { name: 'Ice Shard', desc: 'Fire a shard that freezes whoever it hits.', kind: 'proj',
-        dmg: 5, b: 2, g: 0.2, angle: 30, startup: 10, end: 16, speed: 10, life: 55, size: 12, shape: 'shard', color: '#9fe7ff', max: 1, freeze: 50 },
+      neutral: { name: 'Ice Shard', desc: 'Fire an icy shard. With the Freeze Ray armed (F), it freezes whoever it hits.', kind: 'proj',
+        dmg: 6, b: 3, g: 0.3, angle: 30, startup: 10, end: 16, speed: 10, life: 55, size: 12, shape: 'shard', color: '#9fe7ff', max: 1 },
       side: { name: 'Glacier Spikes', desc: 'Ice spikes race along the ground and pop enemies upward.', kind: 'proj',
         dmg: 9, b: 5, g: 0.8, angle: 80, startup: 14, end: 18, speed: 8, life: 50, size: 16, shape: 'spike', color: '#c9f3ff', max: 1, ground: true, pierce: true },
       up: { name: 'Snow Float', desc: 'Float on falling snow for two seconds.', kind: 'fly',
@@ -465,16 +466,16 @@ const BOSS_ID = 'yen';
 const BOSS_SIZE = 1.15;
 const BOSS_PLAYER_STOCKS = 3;
 const BOSS_LEVELS = [
-  { name: 'Awakening',    stage: 0, cpu: 5, stocks: 1, pow: 1.00, kb: 1.00, dmgIn: 1.00, minions: [] },
-  { name: 'First Light',  stage: 1, cpu: 6, stocks: 1, pow: 1.10, kb: 0.95, dmgIn: 0.95, minions: [] },
-  { name: 'Rising Storm', stage: 2, cpu: 7, stocks: 2, pow: 1.15, kb: 0.90, dmgIn: 0.90, minions: [] },
-  { name: 'Seven Styles', stage: 3, cpu: 8, stocks: 2, pow: 1.20, kb: 0.86, dmgIn: 0.90, minions: [] },
-  { name: 'Iron Will',    stage: 4, cpu: 8, stocks: 3, pow: 1.25, kb: 0.82, dmgIn: 0.85, minions: [] },
-  { name: 'No Mercy',     stage: 6, cpu: 9, stocks: 3, pow: 1.30, kb: 0.78, dmgIn: 0.85, minions: [] },
-  { name: 'Legion',       stage: 5, cpu: 9, stocks: 3, pow: 1.35, kb: 0.74, dmgIn: 0.80, minions: [4] },
-  { name: 'Overdrive',    stage: 7, cpu: 9, stocks: 3, pow: 1.45, kb: 0.70, dmgIn: 0.80, minions: [6] },
-  { name: 'The Gauntlet', stage: 5, cpu: 9, stocks: 4, pow: 1.50, kb: 0.64, dmgIn: 0.75, minions: [6] },
-  { name: 'Ultra Max',    stage: 2, cpu: 9, stocks: 5, pow: 1.60, kb: 0.58, dmgIn: 0.70, minions: [7, 7] }
+  { name: 'Awakening',    stage: 0, cpu: 10, stocks: 1, pow: 1.10, kb: 0.95, dmgIn: 0.95, minions: [] },
+  { name: 'First Light',  stage: 1, cpu: 10, stocks: 1, pow: 1.15, kb: 0.92, dmgIn: 0.92, minions: [] },
+  { name: 'Rising Storm', stage: 2, cpu: 10, stocks: 2, pow: 1.20, kb: 0.88, dmgIn: 0.90, minions: [] },
+  { name: 'Seven Styles', stage: 3, cpu: 11, stocks: 2, pow: 1.25, kb: 0.85, dmgIn: 0.88, minions: [] },
+  { name: 'Iron Will',    stage: 4, cpu: 11, stocks: 3, pow: 1.30, kb: 0.80, dmgIn: 0.85, minions: [] },
+  { name: 'No Mercy',     stage: 6, cpu: 11, stocks: 3, pow: 1.35, kb: 0.76, dmgIn: 0.82, minions: [] },
+  { name: 'Legion',       stage: 5, cpu: 11, stocks: 3, pow: 1.40, kb: 0.72, dmgIn: 0.80, minions: [6] },
+  { name: 'Overdrive',    stage: 7, cpu: 11, stocks: 3, pow: 1.50, kb: 0.68, dmgIn: 0.78, minions: [8] },
+  { name: 'The Gauntlet', stage: 5, cpu: 11, stocks: 4, pow: 1.55, kb: 0.62, dmgIn: 0.74, minions: [8] },
+  { name: 'Ultra Max',    stage: 2, cpu: 11, stocks: 5, pow: 1.65, kb: 0.56, dmgIn: 0.68, minions: [9, 9] }
 ];
 /* builds the match settings for a boss level (used by the game server) */
 function bossConfig(level, playerChar, player) {
@@ -639,7 +640,7 @@ function moveCollide(f, g) {
 function onLand(f, g, vy) {
   if (f.hitstun > 0) {
     if (vy > 7) { f.y -= 1; f.vy = -vy * 0.45; f.ground = null; emit(g, 'land', f.x, f.y, 2); return; }
-    f.hitstun = 0; f.land = 10;
+    f.land = Math.min(10, Math.max(4, f.hitstun)); f.hitstun = 0; // landing never adds stun on top of a light hit
   }
   f.jumps = f.ph.jumps - 1; f.canFly = true; f.flyT = 0; f.helpless = false; f.ledgeGrabs = 0;
   f.airDodged = false; f.sideUsed = false; f.upUsed = false; f.ff = false;
@@ -878,7 +879,7 @@ function runAct(f, inp, g, dirX) {
           const lo = Math.min(ox, tx) - f.W * 0.5, hi = Math.max(ox, tx) + f.W * 0.5;
           if (g.orb && !f.ult && g.orb.x > lo && g.orb.x < hi && Math.abs(g.orb.y - (oy - f.H / 2)) < f.H) hitOrb(f, g, m.pathHit.dmg, f.face, 0);
           for (const o of g.fighters) {
-            if (o === f || o.out || o.dead > 0 || o.halo > 0 || o.tid === f.tid) continue;
+            if (o === f || o.out || o.dead > 0 || o.halo > 0 || o.vanish || o.tid === f.tid) continue;
             if (o.x > lo && o.x < hi && Math.abs((o.y - o.H / 2) - (oy - f.H / 2)) < (o.H + f.H) * 0.5) applyHit(f, o, m.pathHit, f.face, g, false);
           }
         }
@@ -949,7 +950,7 @@ function hitCheck(f, g, h, a, cm) {
   const bx = hbox(f, h);
   if (g.orb) orbHitCheck(f, g, bx, h, a, cm);
   for (const o of g.fighters) {
-    if (o === f || o.out || o.dead > 0 || o.halo > 0 || o.tid === f.tid) continue;
+    if (o === f || o.out || o.dead > 0 || o.halo > 0 || o.vanish || o.tid === f.tid) continue;
     if (!overlap(bx, hurtbox(o))) continue;
     const last = a.hit.get(o);
     if (last !== undefined && (!h.rehit || a.t - last < h.rehit)) continue;
@@ -976,7 +977,7 @@ function reflectAround(f, g, r) {
 /* drag enemies toward a point (black holes, soul drain) */
 function pullEnemies(f, g, x, y, radius, strength) {
   for (const o of g.fighters) {
-    if (o === f || o.out || o.dead > 0 || o.halo > 0 || o.ledge || o.tid === (f ? f.tid : -1)) continue;
+    if (o === f || o.out || o.dead > 0 || o.halo > 0 || o.vanish || o.ledge || o.tid === (f ? f.tid : -1)) continue;
     const dx = x - o.x, dy = y - (o.y - o.H / 2), d = Math.hypot(dx, dy);
     if (d > radius || d < 8) continue;
     const k = strength * (1 - d / radius * 0.5);
@@ -987,7 +988,7 @@ function pullEnemies(f, g, x, y, radius, strength) {
 }
 
 function applyHit(att, tgt, h, dir, g, proj) {
-  if (tgt.inv > 0 || tgt.dead > 0 || tgt.out) return 'miss';
+  if (tgt.inv > 0 || tgt.dead > 0 || tgt.out || tgt.vanish) return 'miss';
   const ta = tgt.act;
   if (ta && ta.m.kind === 'counter' && !ta.countered && ta.t >= ta.m.startup && ta.t < ta.m.startup + ta.m.window) {
     const m = ta.m;
@@ -1043,6 +1044,17 @@ function applyHit(att, tgt, h, dir, g, proj) {
     tgt.vx *= 0.3; tgt.vy = Math.min(tgt.vy * 0.3, 0);
     emit(g, 'freeze', tgt.x, tgt.y - tgt.H / 2);
   }
+  // shots chained back-to-back stun less and less, so nobody can be shot-locked forever
+  if (proj && proj !== true) {
+    if (tgt.pLast !== proj) { tgt.pChain = g.frame - (tgt.pHitF || -999) < 45 ? (tgt.pChain || 0) + 1 : 0; tgt.pLast = proj; }
+    tgt.pHitF = g.frame;
+    if (tgt.pChain > 0) {
+      const k = Math.max(0.3, 1 - 0.25 * tgt.pChain);
+      tgt.hitstun = Math.max(2, Math.round(tgt.hitstun * k));
+      if (tgt.frozen > 0) tgt.frozen = Math.max(4, Math.round(tgt.frozen * k));
+      if (tgt.zap > 0) tgt.zap = Math.max(4, Math.round(tgt.zap * k));
+    }
+  }
   g.shake = Math.max(g.shake, Math.min(18, kb * 0.6));
   emit(g, 'hit', tgt.x, tgt.y - tgt.H * 0.55, Math.round(kb), att.slot);
   return 'hit';
@@ -1051,7 +1063,7 @@ function applyHit(att, tgt, h, dir, g, proj) {
 function nearestEnemy(f, g, maxD) {
   let best = null, bd = maxD || 1e9;
   for (const o of g.fighters) {
-    if (o === f || o.out || o.dead > 0 || o.tid === f.tid) continue;
+    if (o === f || o.out || o.dead > 0 || o.vanish || o.tid === f.tid) continue;
     const d = Math.hypot(o.x - f.x, o.y - f.y);
     if (d < bd) { bd = d; best = o; }
   }
@@ -1183,7 +1195,7 @@ function spawnProj(f, g, m, key, frac) {
     if (m.sky) {
       let best = null, bd = 620;
       for (const o of g.fighters) {
-        if (o === f || o.out || o.dead > 0 || o.tid === f.tid) continue;
+        if (o === f || o.out || o.dead > 0 || o.vanish || o.tid === f.tid) continue;
         const d = Math.abs(o.x - f.x) + Math.abs(o.y - f.y) * 0.5; if (d < bd) { bd = d; best = o; }
       }
       p.x = best ? best.x + best.vx * 6 : f.x + f.face * 200;
@@ -1199,6 +1211,13 @@ function spawnProj(f, g, m, key, frac) {
       if (frac >= 0.8) { p.pierce = true; p.charged = true; }
     }
     list.push(p);
+  }
+  // Mira's Freeze Ray: an armed shot freezes, then the ray goes on cooldown
+  const FR = f.c.freezeRay;
+  if (FR && key === 'neutral' && f.frzOn && !(f.frzCD > 0) && list.length) {
+    list.forEach(p => { p.frz = FR.freeze; p.size *= 1.35; p.color = '#ffffff'; p.charged = true; });
+    f.frzOn = false; f.frzCD = FR.cd;
+    emit(g, 'frzfire', f.x, f.y - f.H * 0.6, 0, f.slot);
   }
   list.forEach(p => g.projs.push(p));
   if (list.length) emit(g, 'shoot', list[0].x, list[0].y, SHAPES.indexOf(list[0].shape));
@@ -1277,7 +1296,7 @@ function stepProjs(g) {
       if (p.age > 35) p.armed = 1;
       if (p.armed) {
         for (const o of g.fighters) {
-          if (o.out || o.dead > 0 || o.tid === p.tid) continue;
+          if (o.out || o.dead > 0 || o.vanish || o.tid === p.tid) continue;
           if (Math.hypot(o.x - p.x, (o.y - o.H / 2) - p.y) < o.W * 0.5 + 40) { explode(p, g); break; }
         }
       }
@@ -1336,12 +1355,12 @@ function stepProjs(g) {
     if (m.finalB && p.life === 8) { p.hit.clear(); p.dmg = m.dmg * 1.8; p.bMul = 2.2; }
     if (!m.mine) {
       for (const o of g.fighters) {
-        if (o.out || o.dead > 0 || o.halo > 0 || o.tid === p.tid || p.hit.has(o)) continue;
+        if (o.out || o.dead > 0 || o.halo > 0 || o.vanish || o.tid === p.tid || p.hit.has(o)) continue;
         if (m.tall ? !overlap({ x: p.x - p.size * 0.55, y: p.y - p.size * 3.4, w: p.size * 1.1, h: p.size * 3.9 }, hurtbox(o)) : !circRect(p.x, p.y, p.size * 0.6, hurtbox(o))) continue;
         p.hit.add(o);
         const dir = Math.sign(p.vx) || (o.x > p.x ? 1 : -1);
         if (m.fuse) { if (!p.stuck) explode(p, g); p.hit.delete(o); break; }
-        const r = applyHit(p.owner, o, { dmg: p.dmg, b: m.b * (p.bMul || 1), g: m.g, angle: m.angle, freeze: m.freeze, burn: m.burn, zap: m.zap, slow: m.slow }, dir, g, true);
+        const r = applyHit(p.owner, o, { dmg: p.dmg, b: m.b * (p.bMul || 1), g: m.g, angle: m.angle, freeze: m.freeze || p.frz, burn: m.burn, zap: m.zap, slow: m.slow }, dir, g, p);
         if (!(m.pierce || p.pierce) || r === 'block' || r === 'counter') { p.life = 0; break; }
       }
     }
@@ -1394,7 +1413,7 @@ function makeGame(cfg) {
     const tid = cfg.teams ? s.team : s.slot;
     const f = new Fighter({
       slot: s.slot, charId: s.char, tid, team: s.team, name: s.name || ('P' + (s.slot + 1)),
-      stocks: s.stocks || cfg.stocks, boss: s.boss || null, ctrl: s.ctrl || { type: 'none' }, lvl: s.lvl || 3, sx: spots[k].x, sy: spots[k].y,
+      stocks: s.stocks || cfg.stocks, boss: s.boss || null, ctrl: s.ctrl || { type: 'none' }, lvl: s.lvl || 5, sx: spots[k].x, sy: spots[k].y,
       color: cfg.teams ? TEAM_COLORS[s.team] : SLOT_COLORS[s.slot], tag: s.tag || ('P' + (s.slot + 1))
     });
     f.face = f.x < st.cx ? 1 : -1;
@@ -1415,11 +1434,21 @@ function decodeIn(o) {
 function stepGame(g, inputs) {
   g.frame++;
   if (g.over) g.overT++;
-  if (typeof stepUlt === 'function' && stepUlt(g)) { if (g.shake > 0) g.shake *= 0.9; return; }
+  if (typeof stepUlt === 'function' && stepUlt(g, inputs)) { if (g.shake > 0) g.shake *= 0.9; return; }
   updateStage(g.stage, g.frame);
   stageHazards(g);
   g.fighters.forEach((f, i) => {
+    if (f.vanish) return;                          // off aiming an ultimate
     const inp = decodeIn(g.over ? null : inputs[i]);
+    if (f.c.freezeRay) {                               // F toggles the freeze ray (sent as a style value: even = on)
+      if (f.frzCD > 0) f.frzCD--;
+      if (f.frzMode === undefined) f.frzMode = inp.mode;
+      else if (inp.mode !== f.frzMode) {
+        f.frzMode = inp.mode;
+        const want = inp.mode > 0 && inp.mode % 2 === 0;
+        if (inp.mode && want !== !!f.frzOn && !(want && f.frzCD > 0)) { f.frzOn = want; emit(g, 'frzarm', f.x, f.y - f.H / 2, want ? 1 : 0, f.slot); }
+      }
+    }
     if (inp.mode && f.c.modes && inp.mode <= f.c.modes.length && f.yenMode !== inp.mode - 1 && !f.out && f.dead <= 0) {
       f.yenMode = inp.mode - 1; emit(g, 'mode', f.x, f.y - f.H / 2, f.yenMode, f.slot);
     }
@@ -1472,7 +1501,15 @@ function computeResults(g) {
 /* ---------- CPU brain ---------- */
 /* a CPU Legend Yen switches style every few seconds */
 function aiThink(f, g) {
+  if (g.ult && g.ult.slot === f.slot && g.ult.ph === 'aim' && typeof aiUltAim === 'function') return aiUltAim(f, g);
   const r = aiThinkCore(f, g);
+  if (f.c.freezeRay && f.ai && !f.out && f.dead <= 0) {
+    const A = f.ai; if (A.frzV == null) A.frzV = 1;
+    const t = nearestEnemy(f, g);
+    if (!f.frzOn && !(f.frzCD > 0) && t && Math.abs(t.x - f.x) < 520 && Math.random() < 0.02 * clamp(f.lvl || 5, 1, 11) / 5) A.frzV = A.frzV === 2 ? 4 : 2;
+    else if (A.frzV % 2 === 0 && !f.frzOn) A.frzV = A.frzV === 2 ? 3 : 1;
+    r.b = (r.b & ~(7 << 10)) | (A.frzV << 10);
+  }
   if (f.c.modes && !f.out && f.dead <= 0 && f.ai) {
     if (f.ai.modeT == null) f.ai.modeT = 120 + Math.floor(Math.random() * 240);
     if (--f.ai.modeT <= 0) {
@@ -1483,14 +1520,80 @@ function aiThink(f, g) {
   }
   return r;
 }
+/* skill tables by CPU level (index = level; 11 is the boss-only "MAX" brain) */
+const AI_DEF = [0, 0.08, 0.18, 0.3, 0.45, 0.6, 0.7, 0.8, 0.88, 0.93, 0.97, 0.99]; // chance to notice and answer a threat
+const AI_RX = [0, 24, 21, 18, 15, 13, 11, 9, 7, 5, 4, 3];                            // reaction time in frames
+
+/* how far an enemy's current move can reach (rough, generous) */
+function aiMoveReach(t, m) {
+  const k = m.kind || 'melee';
+  if (k === 'dash') return (m.vx || 10) * (m.dur || 16) * 0.7 + t.W;
+  if (k === 'teleport') return m.behind ? 320 : Math.abs(m.dist || 0) + t.W * 1.5;
+  if (k === 'aura') return (m.r || m.range || 130) + t.W * 0.5;
+  if (k === 'slam') return (m.hw || 3) * t.W * 0.6 + 30;
+  if (k === 'leap') return (m.hw || 1.4) * t.W * 0.7 + 40;
+  return ((m.hx || 0.8) + (m.hw || 1) / 2) * t.W + (m.lunge || 0) * 6 + 18;
+}
+/* the most urgent danger to f: an incoming projectile or an enemy attack about to land */
+function aiThreat(f, g) {
+  let best = null;
+  const fy0 = f.y - f.H, fy1 = f.y;
+  for (const p of g.projs) {
+    if (p.tid === f.tid || p.stuck || p.life <= 0 || p.hit.has(f)) continue;
+    const rel = f.x - p.x, pad = (p.size || 10) + f.W * 0.5;
+    let tt;
+    if (Math.abs(p.vx) < 0.6) {
+      if (Math.abs(rel) > pad + 10) continue;
+      if (p.vy > 0.5 && p.y < fy1) tt = Math.max(0, (fy0 - p.y) / p.vy); else if (p.y >= fy0 - pad && p.y <= fy1 + pad) tt = 0; else continue;
+    } else {
+      const close = (p.vx - f.vx) * Math.sign(rel);           // closing speed, counting our own movement
+      if (close <= 0.3 && Math.abs(rel) > pad) continue;
+      tt = Math.max(0, (Math.abs(rel) - pad) / Math.max(0.3, close));
+      const py = p.y + p.vy * tt - f.vy * tt;
+      if (py < fy0 - (p.size || 10) - 6 || py > fy1 + (p.size || 10) + 6) continue;
+    }
+    if (tt > 26) continue;
+    if (!best || tt < best.tt) best = { tt, key: p, proj: p, x: p.x, low: p.y > f.y - f.H * 0.55 };
+  }
+  for (const o of g.fighters) {
+    if (o === f || o.out || o.dead > 0 || o.tid === f.tid || !o.act) continue;
+    const m = o.act.m, k = m.kind || 'melee';
+    if (k === 'proj' || k === 'fly' || k === 'counter' || k === 'reflect') continue;
+    const S = m.startup || 1, Act = m.active || m.dur || 6;
+    if (o.act.t > S + Act) continue;
+    const dx = f.x - o.x, adx = Math.abs(dx);
+    const facing = Math.sign(dx) === o.face || k === 'aura' || k === 'slam' || m.sides || m.behind;
+    if (!facing || adx > aiMoveReach(o, m) || Math.abs(f.y - o.y) > o.H * 1.6 + 40) continue;
+    const tt = Math.max(0, S - o.act.t);
+    if (!best || tt < best.tt) best = { tt, key: o.act, att: o, x: o.x, low: false };
+  }
+  return best;
+}
+/* pick an attack aimed at t from close range */
+function aiStrike(f, t, P, toward) {
+  let b = 0, pr = 0;
+  const dy = t.y - f.y, adx = Math.abs(t.x - f.x);
+  if (Math.sign(t.x - f.x) !== f.face) b |= toward;
+  if (f.ground) {
+    if (dy < -f.H * 0.8) { b |= BU; pr |= Math.random() < 0.5 ? BA : BM; }
+    else if (t.dmg > 85 - P * 15 && adx < f.W * 1.6 + 30 && Math.random() < 0.55 + P * 0.3) { b |= toward; pr |= BM; }
+    else { const q = Math.random(); if (q < 0.4) pr |= BA; else if (q < 0.8) { b |= toward; pr |= BA; } else { b |= toward; pr |= BM; } }
+  } else {
+    if (dy < -f.H * 0.5) b |= BU; else if (dy > f.H * 0.5) b |= BD; else b |= toward;
+    pr |= BA;
+  }
+  return { b, pr };
+}
 function aiThinkCore(f, g) {
   const A = f.ai || (f.ai = { held: 0, cd: 0 });
-  const P = clamp(f.lvl || 3, 1, 9) / 9;
+  const LV = clamp(f.lvl || 5, 1, 11), P = LV / 10;
   let b = 0, pr = 0;
   if (f.out || f.dead > 0) return { b, pr };
+  const brain = aiBrain(f, g, A, LV, P);
+  if (brain) return brain;
   if (f.halo > 0) { if (Math.random() < 0.02 + P * 0.03) pr |= BD; return { b, pr }; }
   const st = g.stage;
-  if (g.ult) return { b: 0, pr: 0 };
+  if (g.ult && g.ult.ph !== 'aim' && g.ult.ph !== 'lock') return { b: 0, pr: 0 };
   if (f.ult) {
     if (A.ultWait == null) A.ultWait = Math.round(20 + Math.random() * 70);
     if (--A.ultWait <= 0 && !f.ledge && f.hitstun <= 0) { A.ultWait = null; return { b: 0, pr: BZ }; }
@@ -1536,7 +1639,7 @@ function aiThinkCore(f, g) {
     return { b: ob, pr: opr };
   }
   if (A.cd > 0) { A.cd--; return { b: A.held, pr: 0 }; }
-  A.cd = Math.round(13 - P * 10 + Math.random() * 4);
+  A.cd = Math.max(1, Math.round(13 - P * 10 + Math.random() * 4));
   const dx = t.x - f.x, adx = Math.abs(dx), dy = t.y - f.y;
   const toward = dx > 0 ? BR : BL, away = dx > 0 ? BL : BR, faceOk = Math.sign(dx) === f.face;
   const reach = f.W * 1.2 + 34;
@@ -1582,6 +1685,129 @@ function aiThinkCore(f, g) {
   }
   A.held = b & (BL | BR | BU | BD | BH | BM);
   return { b, pr };
+}
+
+/* the "smart" layer: defend against shots and attacks, punish mistakes, follow up combos,
+   and get out of combos. Returns inputs, or null to let the basic brain decide. */
+function aiBrain(f, g, A, LV, P) {
+  const DEF = AI_DEF[LV], RX = AI_RX[LV];
+  const wasStun = A.stun || 0; A.stun = f.hitstun;
+  if (g.ult && (g.ult.ph === 'aim' || g.ult.ph === 'lock') && !f.ledge && f.hitstun <= 0 && g.ult.slot !== f.slot) {
+    // an ultimate crosshair is hunting: stay out of the circle
+    const u = g.ult, ddx = f.x - u.ax, d = Math.hypot(ddx, f.y - f.H / 2 - u.ay);
+    if (A.udKey !== u) { A.udKey = u; A.udWill = Math.random() < 0.2 + DEF * 0.6; }
+    if (A.udWill && d < ULT_R + (u.ph === 'lock' ? 150 : 70)) {
+      const st0 = g.stage, run = ddx >= 0 ? BR : BL, edge = surfaceBelow(st0, f.x + (ddx >= 0 ? 90 : -90), f.y) === null;
+      const dir = edge ? (run === BR ? BL : BR) : run;
+      let pr0 = 0;
+      if (f.ground && (u.ay > f.y - f.H * 1.2 || edge) && Math.random() < 0.15) pr0 |= BJ;
+      if (u.ph === 'lock' && d < ULT_R + 40 && f.ground && Math.random() < DEF) return { b: BH, pr: dir };   // roll out at the last second
+      A.held = dir; A.cd = 3; return { b: dir, pr: pr0 };
+    }
+  }
+  if (f.halo > 0 || f.ledge || (g.ult && g.ult.ph !== 'aim' && g.ult.ph !== 'lock') || f.hitstun > 0 || f.frozen > 0 || f.zap > 0 || f.shieldBreak > 0) { A.guard = 0; return null; }
+  if (f.ult) return null;
+  const t = nearestEnemy(f, g);
+  if (!t) return null;
+  const dx = t.x - f.x, adx = Math.abs(dx), dy = t.y - f.y;
+  const toward = dx > 0 ? BR : BL, away = dx > 0 ? BL : BR;
+  const st = g.stage, overGround = surfaceBelow(st, f.x, f.y) !== null;
+  const reach = f.W * 1.2 + 34;
+  const shieldOk = f.shieldHP > f.ph.shieldMax * 0.3;
+
+  // 1) just escaped hitstun in the air with an enemy close by: break the combo
+  if (wasStun > 0 && !f.ground && adx < 200 && Math.random() < DEF) {
+    if (!f.airDodged && Math.random() < 0.6) return { b: away | (dy > 0 ? BU : 0), pr: BH };
+    if (f.jumps > 0) return { b: away, pr: BJ };
+  }
+
+  // 2) keep holding a guard we already decided on, then punish out of it
+  if (A.guard > 0) {
+    A.guard--;
+    if (f.shielding && t.act && adx < reach + 40) {
+      const m = t.act.m, S = m.startup || 1, Act = m.active || m.dur || 6;
+      if (t.act.t >= S + Act && Math.random() < DEF) { A.guard = 0; A.cd = 2; const r = aiStrike(f, t, P, toward); r.b &= ~BH; return r; }
+    }
+    if (A.guard > 0 && f.ground && shieldOk) return { b: BH, pr: 0 };
+    A.guard = 0;
+  }
+
+  // 3) danger incoming? (seen after a reaction delay, answered with a skill roll)
+  const th = aiThreat(f, g);
+  if (th) {
+    if (A.thKey !== th.key) { A.thKey = th.key; A.thSeen = 0; A.thWill = Math.random() < DEF; }
+    A.thSeen++;
+    if (A.thWill && A.thSeen >= RX * 0.5 && th.tt <= 12 + LV) {
+      const down = fSpecials(f).down, src = th.att || th.proj.owner;
+      const sdir = src && src.x > f.x ? BR : BL, sAway = sdir === BR ? BL : BR;
+      // counters and reflectors are the best answer when timed right
+      if ((down.kind === 'counter' || (down.kind === 'reflect' && th.proj)) && th.tt >= (down.startup || 3) - 1 && th.tt <= (down.startup || 3) + 6 && Math.random() < 0.6) {
+        A.thWill = false; A.cd = 6; return { b: BD, pr: BS };
+      }
+      if (f.ground) {
+        const r = Math.random();
+        if (th.proj) {
+          if (th.low && r < 0.3 && th.tt > 4) { A.thWill = false; A.cd = 4; return { b: sdir, pr: BJ }; }           // hop over it toward the shooter
+          if (shieldOk && r < 0.85) { A.guard = Math.round(th.tt + 8); A.thWill = false; return { b: BH, pr: 0 }; }
+          A.thWill = false; A.cd = 4; return { b: sdir, pr: BJ };
+        }
+        if (shieldOk && r < 0.6) { A.guard = Math.round(th.tt + (th.att.act.m.active || 6) + 6); A.thWill = false; return { b: BH, pr: 0 }; }
+        A.thWill = false; A.cd = 6;
+        if (r < 0.82) return { b: BH, pr: r < 0.72 ? sAway : sdir };                                     // roll away (or behind them)
+        return { b: sAway, pr: BJ };
+      }
+      const home = overGround ? sAway : (f.x < st.cx ? BR : BL);
+      if (th.tt <= 6 && !f.airDodged) { A.thWill = false; A.cd = 4; return { b: home, pr: BH }; }
+      if (f.jumps > 0 && th.low && th.tt <= 12) { A.thWill = false; A.cd = 4; return { b: home, pr: BJ }; }
+      if (!th.low && overGround && f.vy > -2) return { b: home | BD, pr: BD };                         // fast-fall under a high shot
+      return { b: home, pr: 0 };
+    }
+  } else A.thKey = null;
+
+  // 4) don't swing into a counter / mirror stance
+  if (t.act && (t.act.m.kind === 'counter' || t.act.m.kind === 'reflect') && adx < 260 && Math.random() < DEF) {
+    A.cd = 4; A.held = 0; return { b: adx < 140 && f.ground ? away : 0, pr: 0 };
+  }
+
+  // 5) punish a whiffed move (they're stuck in end lag)
+  if (t.act && f.ground && !t.act.m.window) {
+    const m = t.act.m, S = m.startup || 1, Act = m.active || m.dur || 6, E = m.end || 10;
+    const left = S + Act + E - t.act.t;
+    if (t.act.t >= S + Act && left > 4) {
+      if (A.punKey !== t.act) { A.punKey = t.act; A.punWill = Math.random() < DEF * 0.9; }
+      if (A.punWill) {
+        if (adx < reach + 6) { A.cd = 3; return aiStrike(f, t, P, toward); }
+        if (adx < reach + f.ph.run * left * 0.8 && Math.abs(dy) < 60) { A.held = toward; A.cd = 1; return { b: toward, pr: 0 }; }
+      }
+    }
+  }
+
+  // 6) follow up while they're in hitstun (combos)
+  if (t.hitstun > 2 && !t.out && adx < 260 && Math.abs(dy) < 260) {
+    if (A.comboKey !== t.lastHitT || A.comboVictim !== t) { A.comboVictim = t; A.comboKey = t.lastHitT; A.comboWill = Math.random() < DEF; }
+    if (A.comboWill && t.lastHit === f.slot) {
+      const px = t.x + t.vx * 6, py = t.y + t.vy * 6, pdx = px - f.x, pdy = py - f.y;
+      const tw = pdx > 0 ? BR : BL;
+      const stageOk = surfaceBelow(st, f.x + Math.sign(pdx) * 70, f.y) !== null || !f.ground;
+      if (Math.abs(pdx) < reach + 10 && Math.abs(pdy) < f.H * 1.4) { A.cd = 4; return aiStrike(f, { x: px, y: py, dmg: t.dmg }, P, tw); }
+      let ob = stageOk || !f.ground ? tw : 0, opr = 0;
+      if (pdy < -f.H && Math.abs(pdx) < 160) { if (f.ground) opr |= BJ; else if (f.jumps > 0 && f.vy > -1) opr |= BJ; }
+      A.held = ob; A.cd = 2; return { b: ob, pr: opr };
+    }
+  }
+
+  // 7) being zoned: when a shooter is far away, approach in jumps instead of walking into shots
+  if (LV >= 4 && t.act && t.act.m.kind === 'proj' && adx > 220 && f.ground && Math.random() < DEF * 0.6) {
+    const ahead = surfaceBelow(st, f.x + Math.sign(dx) * 120, f.y) !== null;
+    if (ahead) { A.held = toward; A.cd = 6; return { b: toward, pr: BJ }; }
+  }
+
+  // 8) spacing at higher levels: sometimes wait just outside their reach instead of running in
+  if (LV >= 6 && f.ground && !t.act && t.ground && adx > reach + 10 && adx < reach + 90 && Math.random() < 0.25 * DEF) {
+    A.cd = 3 + Math.floor(Math.random() * 6); A.held = Math.random() < 0.5 ? 0 : away;
+    return { b: A.held, pr: 0 };
+  }
+  return null;
 }
 
 ;
@@ -3588,6 +3814,12 @@ function fxEvent(e, getF) {
     case 'ult': spawnFx({ k: 'flash', life: 12, a: 0.6 }); break;
     case 'ulthit': for (let i = 0; i < 8; i++) { const an = Math.random() * 6.28, s = 3 + Math.random() * 6; spawnFx({ k: 'spark', x, y, vx: Math.cos(an) * s, vy: Math.sin(an) * s, life: 16, col: i % 2 ? '#fff' : col, size: 3 }); } break;
     case 'ultfinal': spawnFx({ k: 'flash', life: 14, a: 0.7 }); break;
+    case 'ultaim': spawnFx({ k: 'ring', x, y, life: 24, r0: 10, r1: 140, col: '#ffffff', lw: 5 }); break;
+    case 'ultlock': spawnFx({ k: 'ring', x, y, life: 20, r0: 200, r1: 120, col: '#ff3b3b', lw: 6 }); break;
+    case 'ultmiss': spawnFx({ k: 'ring', x, y, life: 26, r0: 120, r1: 10, col: '#c9c5e6', lw: 4 }); for (let i = 0; i < 14; i++) { const an = Math.random() * 6.28, s2 = 2 + Math.random() * 4; spawnFx({ k: 'smoke', x, y, vx: Math.cos(an) * s2, vy: Math.sin(an) * s2, life: 26, col: 'rgba(200,200,220,.6)', size: 10 }); } if (typeof toast === 'function' && typeof G !== 'undefined' && G.screen === 'fight') toast('Missed! The ultimate hit nobody.'); break;
+    case 'ultback': spawnFx({ k: 'ring', x, y, life: 22, r0: 90, r1: 10, col: col, lw: 5 }); for (let i = 0; i < 16; i++) { const an = Math.random() * 6.28, s2 = 2 + Math.random() * 5; spawnFx({ k: 'spark', x, y, vx: Math.cos(an) * s2, vy: Math.sin(an) * s2, life: 20, col: i % 2 ? '#fff' : col, size: 3 }); } break;
+    case 'frzarm': spawnFx({ k: 'ring', x, y, life: 18, r0: a ? 70 : 10, r1: a ? 10 : 70, col: '#9fe7ff', lw: 4 }); break;
+    case 'frzfire': spawnFx({ k: 'ring', x, y, life: 16, r0: 10, r1: 80, col: '#ffffff', lw: 5 }); for (let i = 0; i < 12; i++) { const an = Math.random() * 6.28, s2 = 2 + Math.random() * 5; spawnFx({ k: 'spark', x, y, vx: Math.cos(an) * s2, vy: Math.sin(an) * s2, life: 18, col: i % 2 ? '#ffffff' : '#9fe7ff', size: 3 }); } break;
     case 'ignite': for (let i = 0; i < 10; i++) { const an = -Math.PI / 2 + (Math.random() - 0.5) * 2, s = 2 + Math.random() * 5; spawnFx({ k: 'spark', x, y, vx: Math.cos(an) * s, vy: Math.sin(an) * s, life: 22, col: i % 2 ? '#ffb02e' : '#ff4a1a', size: 3 }); } break;
     case 'zap': spawnFx({ k: 'flash', life: 5, a: 0.35, col: '255,250,200' }); spawnFx({ k: 'ring', x, y, life: 16, r0: 10, r1: 90, col: '#ffe14a', lw: 5 }); for (let i = 0; i < 16; i++) { const an = -Math.PI * Math.random(), s = 3 + Math.random() * 8; spawnFx({ k: 'spark', x, y, vx: Math.cos(an) * s, vy: Math.sin(an) * s, life: 18, col: i % 2 ? '#fff' : '#ffe14a', size: 3 }); } break;
     case 'zapline': { const x2 = a, n = Math.max(4, Math.round(Math.abs(x2 - x) / 18)); for (let i = 0; i <= n; i++) { const xx = x + (x2 - x) * i / n; spawnFx({ k: 'spark', x: xx, y: y + (Math.random() - 0.5) * 30, vx: (Math.random() - 0.5) * 3, vy: (Math.random() - 0.5) * 3, life: 14 + Math.random() * 8, col: i % 2 ? '#fffbd0' : '#ffe14a', size: 3.5 }); } spawnFx({ k: 'flash', life: 4, a: 0.2, col: '255,250,200' }); break; }
@@ -3672,7 +3904,7 @@ function renderScene(g, view, vw, vh, t, opts) {
   g.translate(cxs + ox, ah / 2 + oy + top); g.scale(CAM.z, CAM.z); g.translate(-CAM.x, -CAM.y);
   drawStage(g, view.stage, t);
   for (const f of view.fighters) {
-    if (f.out || f.dead > 0) continue;
+    if (f.out || f.dead > 0 || f.vanish) continue;
     g.fillStyle = 'rgba(0,0,0,.25)';
     const gy = shadowY(view.stage, f);
     if (gy !== null) { g.beginPath(); g.ellipse(f.x, gy, f.W * 0.45, 5, 0, 0, Math.PI * 2); g.fill(); }
@@ -3681,7 +3913,7 @@ function renderScene(g, view, vw, vh, t, opts) {
   if (view.orb) drawOrb(g, view.orb, t);
   const order = view.fighters.slice().sort((a, b) => (a.hot ? 1 : 0) - (b.hot ? 1 : 0));
   for (const f of order) {
-    if (f.out || f.dead > 0) continue;
+    if (f.out || f.dead > 0 || f.vanish) continue;
     if (f.flyT > 0) drawFighterFx(g, Object.assign({}, f, { shielding: false, frozen: 0, pose: 'x', armor: false, halo: 0, buffT: 0 }), t);
     if (typeof drawGhosts === 'function') drawGhosts(g, f, f.anim || t);
     drawFighter(g, f, f.anim || t);
@@ -3691,10 +3923,11 @@ function renderScene(g, view, vw, vh, t, opts) {
   }
   drawFx(g);
   drawUltWorld(g, view, t);
+  if (typeof drawUltAim === 'function') drawUltAim(g, view, t);
   g.restore();
   // name tags + offscreen bubbles
   for (const f of view.fighters) {
-    if (f.out || f.dead > 0) continue;
+    if (f.out || f.dead > 0 || f.vanish) continue;
     let [sx, sy] = toS(f.x, f.y - f.H);
     const off = sx < 0 || sx > vw || sy < top || sy > ah + top + 20;
     if (off) {
@@ -3738,6 +3971,7 @@ function renderScene(g, view, vw, vh, t, opts) {
     g.fillStyle = gr; g.fillText(view.timeUp ? 'TIME!' : 'GAME!', 0, 0); g.restore();
   }
   drawUltCutscene(g, view, vw, vh, t);
+  if (typeof drawUltAimHud === 'function') drawUltAimHud(g, view, vw, vh, t, opts.localSlot);
 }
 
 function drawTimerAndBanner(g, view, vw, vh, hudH, t, atTop, cx) {
@@ -4150,7 +4384,7 @@ function lowGravState(frame) {
 function rainState(frame) { const k = frame % 4200; return { on: k > 2600, k }; }
 
 function envHit(f, g, dmg, vx, vy) {
-  if (f.inv > 0 || f.dead > 0 || f.out || f.halo > 0) return;
+  if (f.inv > 0 || f.dead > 0 || f.out || f.halo > 0 || f.vanish) return;
   f.dmg = Math.min(999, f.dmg + dmg * f.ph.dt);
   endAct(f); f.ledge = null; f.flyT = 0; f.helpless = false; f.upUsed = false; f.shielding = false;
   f.vx = vx; f.vy = vy; f.ground = null; f.y -= 2;
@@ -4169,7 +4403,7 @@ function stageHazards(g) {
   } else if (st.hazard === 'wind') {
     const w = windState(g.frame);
     if (w.on) {
-      for (const f of g.fighters) if (!f.out && !f.dead && !f.ledge && f.halo <= 0) f.x += w.dir * w.k * (f.ground ? 0.8 : 1.5);
+      for (const f of g.fighters) if (!f.out && !f.dead && !f.ledge && !f.vanish && f.halo <= 0) f.x += w.dir * w.k * (f.ground ? 0.8 : 1.5);
       for (const p of g.projs) if (!p.m.mine) p.x += w.dir * w.k * 1.2;
     }
   } else if (st.hazard === 'lowgrav') {
@@ -4326,6 +4560,10 @@ Object.keys(STYLE).forEach(id => {
    their ultimate for 20 seconds. Press Z (or the ULT button) to unleash it. */
 
 const ULT_CUT = 110, ULT_FX = 130;
+/* aimed ultimates: after the splash the user vanishes and steers a crosshair (WASD / arrows).
+   K fires (or it fires itself when time runs out). Only enemies inside the circle get hit. */
+const ULT_AIM = 300, ULT_LOCK = 26, ULT_R = 125, ULT_SPD = 9;
+const ULT_PH = ['cut', 'aim', 'lock', 'fx'];
 const ORB_R = 28;
 const DEFAULT_ULT = { name: 'Ultimate Burst', desc: 'A huge blast of power hits every enemy.', theme: 'plain', hits: 4, dmg: 4, final: { dmg: 18, b: 12, g: 1.35, angle: 60 } };
 function ultDef(c) {
@@ -4389,23 +4627,50 @@ function orbHitCheck(f, g, bx, h, a, cm) {
 
 function tryUlt(f, g) {
   if (!f.ult || g.ult || g.over || f.dead > 0 || f.out || f.halo > 0 || f.hitstun > 0 || f.frozen > 0 || f.ledge || f.shieldBreak > 0) return;
-  f.ult = false; endAct(f); f.vx = 0; f.vy = Math.min(f.vy, 0);
-  const targets = g.fighters.filter(o => o !== f && !o.out && o.dead <= 0 && o.tid !== f.tid).map(o => o.slot);
-  g.ult = { slot: f.slot, t: 0, targets };
-  f.inv = ULT_CUT + ULT_FX + 30;
+  f.ult = false; endAct(f); f.vx = 0; f.vy = 0;
+  g.ult = { slot: f.slot, t: 0, targets: [], ph: 'cut', ax: f.x, ay: f.y - f.H / 2, aim: ULT_AIM, lock: 0 };
+  f.vanish = true; f.inv = Math.max(f.inv, 4);
   emit(g, 'ult', f.x, f.y - f.H / 2, 0, f.slot);
+}
+function endUlt(g, f) {
+  g.ult = null;
+  if (f) { f.vanish = false; f.hitlag = 0; f.inv = 60; f.vx = 0; f.vy = 0; emit(g, 'ultback', f.x, f.y - f.H / 2, 0, f.slot); }
+  g.orbNext = g.frame + 2400 + Math.floor(Math.random() * 1800);
 }
 
 /* returns true while the cutscene freezes the match */
-function stepUlt(g) {
+function stepUlt(g, inputs) {
   const u = g.ult; if (!u) return false;
-  u.t++;
-  if (u.t <= ULT_CUT) return true;
   const f = g.fighters.find(x => x.slot === u.slot);
   if (!f) { g.ult = null; return false; }
+  if (u.ph === 'cut') {
+    u.t++; f.vanish = true;
+    if (u.t >= ULT_CUT) { u.ph = 'aim'; emit(g, 'ultaim', u.ax, u.ay, 0, f.slot); }
+    return true;
+  }
+  if (u.ph === 'aim' || u.ph === 'lock') {
+    f.vanish = true; f.inv = Math.max(f.inv, 4); f.hitstun = 0; f.vx = 0; f.vy = 0;
+    if (u.ph === 'aim') {
+      const inp = decodeIn(inputs ? inputs[g.fighters.indexOf(f)] : null);
+      const mx = (inp.r ? 1 : 0) - (inp.l ? 1 : 0), my = (inp.d ? 1 : 0) - (inp.u ? 1 : 0);
+      const B = g.stage.blast;
+      u.ax = clamp(u.ax + mx * ULT_SPD, B.l + 80, B.r - 80);
+      u.ay = clamp(u.ay + my * ULT_SPD, B.t + 80, B.b - 60);
+      u.aim--;
+      if (inp.spp || inp.ap || inp.smp || inp.zp || u.aim <= 0) { u.ph = 'lock'; u.lock = ULT_LOCK; emit(g, 'ultlock', u.ax, u.ay, 0, f.slot); }
+    } else if (--u.lock <= 0) {
+      u.targets = g.fighters.filter(o => o !== f && !o.out && o.dead <= 0 && !o.vanish && o.tid !== f.tid &&
+        Math.hypot(o.x - u.ax, (o.y - o.H / 2) - u.ay) < ULT_R + o.W * 0.35).map(o => o.slot);
+      if (!u.targets.length) { emit(g, 'ultmiss', u.ax, u.ay, 0, f.slot); endUlt(g, f); return false; }
+      u.ph = 'fx'; u.t = ULT_CUT;
+    }
+    return false;
+  }
+  // 'fx': the themed finisher plays on whoever got caught (the rest of the match keeps going)
+  u.t++;
   const def = ultDef(f.c), k = u.t - ULT_CUT;
   const tg = u.targets.map(s => g.fighters.find(x => x.slot === s)).filter(o => o && !o.out && o.dead <= 0);
-  f.hitlag = 2; f.pose = 'power'; f.pt = 1;
+  f.vanish = true; f.inv = Math.max(f.inv, 4);
   if (k === 1 && def.freeze) tg.forEach(o => { o.frozen = 100; emit(g, 'freeze', o.x, o.y - o.H / 2); });
   const hits = def.hits || 3, finalAt = 112;
   if (k < finalAt) tg.forEach(o => { if (!def.freeze) o.hitlag = 2; });
@@ -4416,15 +4681,37 @@ function stepUlt(g) {
     });
   }
   if (k === finalAt) {
+    const fin = Object.assign({}, def.final, { b: def.final.b * 0.85, g: def.final.g * 0.9 });
     tg.forEach(o => {
       o.hitlag = 0; o.frozen = 0; o.inv = 0; o.ledge = null;
-      applyHit(f, o, def.final, Math.sign(o.x - f.x) || f.face, g, true);
+      applyHit(f, o, fin, Math.sign(o.x - u.ax) || f.face, g, true);
     });
     g.shake = 24;
-    emit(g, 'ultfinal', f.x, f.y, 0, f.slot);
+    emit(g, 'ultfinal', u.ax, u.ay, 0, f.slot);
   }
-  if (k >= ULT_FX) { g.ult = null; f.hitlag = 0; f.inv = 30; g.orbNext = g.frame + 2400 + Math.floor(Math.random() * 1800); }
+  if (k >= ULT_FX) endUlt(g, f);
   return false;
+}
+
+/* CPU steering the crosshair: chase the nearest enemy and fire once it's lined up */
+function aiUltAim(f, g) {
+  const u = g.ult, A = f.ai || (f.ai = { held: 0, cd: 0 });
+  let best = null, bd = 1e9;
+  for (const o of g.fighters) {
+    if (o === f || o.out || o.dead > 0 || o.vanish || o.tid === f.tid) continue;
+    const d = Math.hypot(o.x - u.ax, o.y - o.H / 2 - u.ay); if (d < bd) { bd = d; best = o; }
+  }
+  if (!best) return { b: 0, pr: BS };
+  const lead = 10 + (f.lvl || 5) * 2;
+  const tx = best.x + best.vx * lead, ty = best.y - best.H / 2 + best.vy * lead * 0.6;
+  let b = 0;
+  if (tx > u.ax + 6) b |= BR; else if (tx < u.ax - 6) b |= BL;
+  if (ty > u.ay + 6) b |= BD; else if (ty < u.ay - 6) b |= BU;
+  if (A.ultHold == null) A.ultHold = 30 + Math.floor(Math.random() * 90);
+  A.ultHold--;
+  const fire = Math.hypot(tx - u.ax, ty - u.ay) < 30 && A.ultHold <= 0;
+  if (fire) A.ultHold = null;
+  return { b, pr: fire ? BS : 0 };
 }
 
 /* ---------- drawing ---------- */
@@ -4468,7 +4755,7 @@ function ultCtx(view) {
 
 /* world-space effects during the ultimate */
 function drawUltWorld(g, view, t) {
-  const c = ultCtx(view); if (!c || c.k <= 0) return;
+  const c = ultCtx(view); if (!c || c.k <= 0 || c.u.ph === 'aim' || c.u.ph === 'lock') return;
   const { f, tg, def, k } = c, col = def.colors, B = view.stage.blast;
   g.save(); g.globalCompositeOperation = 'lighter';
   if (def.theme === 'dragon') {
@@ -4631,7 +4918,7 @@ function drawChineseFrame(g, vw, vh) {
 
 /* the big cutscene splash when an ultimate starts (like Smash) */
 function drawUltCutscene(g, view, vw, vh, t) {
-  const c = ultCtx(view); if (!c || c.u.t > ULT_CUT) return;
+  const c = ultCtx(view); if (!c || c.u.t > ULT_CUT || (c.u.ph && c.u.ph !== 'cut')) return;
   const { f, def } = c, col = def.colors, k = c.u.t;
   const inA = Math.min(1, k / 14), outA = Math.min(1, (ULT_CUT - k) / 14), a = inA * outA;
   g.save();
@@ -4746,6 +5033,52 @@ function drawThemeArt(g, def, vw, vh, t, k) {
     g.fillStyle = 'rgba(230,250,255,.8)';
     for (let i = 0; i < 40; i++) { star(g, (i * 97.3) % vw, ((i * 53.1) + k * 3) % vh, 3 + (i % 3)); g.fill(); }
   } else if (typeof drawThemeArtNew === 'function') drawThemeArtNew(g, def, vw, vh, t, k);
+  g.restore();
+}
+
+/* ---------- aimed ultimate: crosshair (world) + banner (screen) ---------- */
+function drawUltAim(g, view, t) {
+  const u = view.ult; if (!u || (u.ph !== 'aim' && u.ph !== 'lock')) return;
+  const f = view.fighters.find(x => x.slot === u.slot); if (!f) return;
+  const col = ultDef(f.c).colors[1] || '#ffd35c', x = u.ax, y = u.ay, R = ULT_R;
+  const lock = u.ph === 'lock', lk = lock ? 1 - (u.lock / ULT_LOCK) : 0;
+  g.save();
+  // danger zone
+  g.fillStyle = lock ? `rgba(255,60,60,${0.12 + 0.18 * lk})` : 'rgba(255,255,255,.07)';
+  circle(g, x, y, R); g.fill();
+  g.lineWidth = lock ? 5 : 4; g.strokeStyle = lock ? (Math.floor(t / 3) % 2 ? '#ff3b3b' : '#ffffff') : col;
+  g.setLineDash(lock ? [] : [18, 10]); g.lineDashOffset = -t * 1.5;
+  circle(g, x, y, R); g.stroke(); g.setLineDash([]);
+  // closing lock ring
+  if (lock) { g.strokeStyle = '#ffffff'; g.lineWidth = 3; circle(g, x, y, R * (1.6 - 0.6 * lk)); g.stroke(); }
+  // cross
+  g.strokeStyle = lock ? '#ff3b3b' : '#ffffff'; g.lineWidth = 3;
+  const a = R * 0.35, b2 = R * 0.85;
+  g.beginPath(); g.moveTo(x - b2, y); g.lineTo(x - a, y); g.moveTo(x + a, y); g.lineTo(x + b2, y); g.moveTo(x, y - b2); g.lineTo(x, y - a); g.moveTo(x, y + a); g.lineTo(x, y + b2); g.stroke();
+  g.fillStyle = lock ? '#ff3b3b' : col; circle(g, x, y, 6); g.fill();
+  // rotating brackets
+  g.strokeStyle = col; g.lineWidth = 5;
+  for (let i = 0; i < 4; i++) { const an = t * 0.04 + i * Math.PI / 2; g.beginPath(); g.arc(x, y, R + 14, an, an + 0.5); g.stroke(); }
+  // timer arc
+  if (!lock) { g.strokeStyle = 'rgba(0,0,0,.45)'; g.lineWidth = 6; circle(g, x, y, R + 26); g.stroke(); g.strokeStyle = '#ffd35c'; g.beginPath(); g.arc(x, y, R + 26, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * Math.max(0, u.aim) / ULT_AIM); g.stroke(); }
+  g.restore();
+}
+function drawUltAimHud(g, view, vw, vh, t, localSlot) {
+  const u = view.ult; if (!u || (u.ph !== 'aim' && u.ph !== 'lock')) return;
+  const f = view.fighters.find(x => x.slot === u.slot); if (!f) return;
+  const me = localSlot != null && localSlot === u.slot, def = ultDef(f.c), col = def.colors[1] || '#ffd35c';
+  const touch = typeof TOUCH !== 'undefined' && TOUCH.on;
+  const big = u.ph === 'lock' ? (me ? 'LOCKED ON!' : 'GET OUT!') : me ? 'AIM YOUR ULTIMATE' : 'DODGE!';
+  const sub = u.ph === 'lock' ? def.name : me ? (touch ? 'Move the stick to aim · tap B to fire' : 'WASD to aim · K to fire') : `${f.name || 'Someone'} is aiming ${def.name}`;
+  const secs = u.ph === 'aim' ? (Math.max(0, u.aim) / 60).toFixed(1) + 's' : '';
+  const w = Math.min(vw - 24, 440), x = (vw - w) / 2, y = 64;
+  g.save();
+  g.fillStyle = 'rgba(17,14,36,.86)'; rrect(g, x, y, w, 64, 14); g.fill();
+  g.lineWidth = 3; g.strokeStyle = u.ph === 'lock' ? '#ff3b3b' : col; g.stroke();
+  g.textAlign = 'center'; g.textBaseline = 'middle';
+  g.font = '22px "Dela Gothic One", Impact, sans-serif'; g.fillStyle = '#ffffff'; g.fillText(big + (secs ? '  ' + secs : ''), vw / 2, y + 24);
+  g.font = '700 13px "Chakra Petch", system-ui, sans-serif'; g.fillStyle = '#c9c5e6'; g.fillText(sub, vw / 2, y + 48);
+  if (u.ph === 'aim') { g.fillStyle = '#ffd35c'; rrect(g, x + 10, y + 58, Math.max(0, (w - 20) * u.aim / ULT_AIM), 3, 2); g.fill(); }
   g.restore();
 }
 
@@ -5040,6 +5373,12 @@ const SFX = {
       case 'orbget': [660, 880, 1100, 1320].forEach((f, i) => setTimeout(() => this.tone(f, 0.25, 'triangle', 0.12), i * 70)); break;
       case 'ult': this.hiss(0.6, 0.3, 2000, 0.5); [440, 554, 660, 880].forEach((f, i) => setTimeout(() => this.tone(f, 0.6, 'sawtooth', 0.07), i * 90)); break;
       case 'ulthit': this.hiss(0.1, 0.2, 1500); this.tone(200, 0.12, 'square', 0.08, 90); break;
+      case 'ultaim': [660, 990].forEach((f, i) => setTimeout(() => this.tone(f, 0.15, 'square', 0.05), i * 80)); break;
+      case 'ultlock': [1320, 1320, 1760].forEach((f, i) => setTimeout(() => this.tone(f, 0.07, 'square', 0.07), i * 110)); break;
+      case 'ultmiss': this.tone(300, 0.5, 'sawtooth', 0.08, 120); break;
+      case 'ultback': this.tone(500, 0.2, 'triangle', 0.08, 1000); break;
+      case 'frzarm': this.tone(a ? 1400 : 700, 0.15, 'triangle', 0.07, a ? 2200 : 400); break;
+      case 'frzfire': this.tone(2400, 0.3, 'triangle', 0.08, 1200); this.hiss(0.2, 0.12, 6000, 2); break;
       case 'ultfinal': this.hiss(1, 0.6, 400, 0.4); this.tone(110, 0.9, 'sawtooth', 0.25, 40); break;
       case 'ignite': this.hiss(0.25, 0.14, 700, 0.6); break;
       case 'zap': this.hiss(0.35, 0.35, 3500, 0.7); this.tone(1800, 0.08, 'square', 0.08, 300); break;
@@ -5069,10 +5408,10 @@ function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ 
 
 function defaultSlots(mode) {
   return [
-    { type: 'you', char: 'titan', lvl: 3, team: 0, nick: '' },
-    { type: mode === 'solo' ? 'cpu' : 'open', char: 'random', lvl: 3, team: 1, nick: '' },
-    { type: 'off', char: 'random', lvl: 3, team: 1, nick: '' },
-    { type: 'off', char: 'random', lvl: 3, team: 1, nick: '' }
+    { type: 'you', char: 'titan', lvl: 5, team: 0, nick: '' },
+    { type: mode === 'solo' ? 'cpu' : 'open', char: 'random', lvl: 5, team: 1, nick: '' },
+    { type: 'off', char: 'random', lvl: 5, team: 1, nick: '' },
+    { type: 'off', char: 'random', lvl: 5, team: 1, nick: '' }
   ];
 }
 
@@ -5246,7 +5585,7 @@ document.addEventListener('click', e => {
     case 'cycle': s.type = { off: 'cpu', cpu: G.mode === 'host' ? 'open' : 'off', open: 'off' }[s.type]; if (s.type === 'cpu') { s.char = 'random'; SETUP.edit = i; } if (SETUP.edit === i && !canEditSlot(i)) SETUP.edit = 0; break;
     case 'open': s.type = 'open'; break;
     case 'lvl-': s.lvl = Math.max(1, s.lvl - 1); break;
-    case 'lvl+': s.lvl = Math.min(9, s.lvl + 1); break;
+    case 'lvl+': s.lvl = Math.min(10, s.lvl + 1); break;
     case 'team': s.team = 1 - s.team; break;
     case 'stage': SETUP.stage = i; break;
     case 'stock-': SETUP.stocks = Math.max(1, SETUP.stocks - 1); break;
@@ -5633,7 +5972,8 @@ function buildHints() {
     { id: 'sm', keys: k('U'), name: 'Smash', sub: 'hold to charge' },
     { id: 'sh', keys: k('L'), name: 'Shield', sub: '+ ← → to roll' },
     { id: 'ledge', keys: k('Space'), name: 'Leap up from an edge', sub: 'you grab edges when close' },
-    { id: 'ult', keys: k('Z'), name: (c.ultimate || DEFAULT_ULT).name, sub: 'break the rainbow orb first' },
+    { id: 'ult', keys: k('Z'), name: (c.ultimate || DEFAULT_ULT).name, sub: 'break the orb, then aim it with WASD + K' },
+    ...(c.freezeRay ? [{ id: 'frz', keys: k('F'), name: 'Freeze Ray on/off', sub: 'next Ice Shard freezes · 30s cooldown' }] : []),
     ...(c.modes ? [{ id: 'mode', keys: k('1') + k('–') + k('7'), name: 'Switch style', sub: 'now: ' + styleName }] : []),
     { sep: true, name: c.modes ? styleName + ' style' : c.name },
     { id: 'spN', keys: k('K'), name: sp.neutral ? sp.neutral.name : '—' },
@@ -5679,6 +6019,80 @@ window.addEventListener('keydown', e => {
   updateHintsVisibility();
 });
 document.getElementById('set-hints').addEventListener('change', e => { SETTINGS.hints = e.target.checked; saveSettings(); updateHintsVisibility(); });
+
+;
+/* ===== freeze.js ===== */
+'use strict';
+/* ===== CLOUDTOP BRAWL — Mira Frost's Freeze Ray: F toggles it, a chip shows the cooldown ===== */
+const FRZ = { el: null, btn: null, f: null };
+
+function frzUi() {
+  if (FRZ.el) return;
+  const st = document.createElement('style');
+  st.textContent = `#frz-chip{position:fixed;left:50%;bottom:104px;transform:translateX(-50%);z-index:60;pointer-events:none;display:flex;align-items:center;gap:10px;padding:8px 14px;border-radius:12px;background:rgba(17,14,36,.88);border:2px solid #6b86a8;font-family:"Chakra Petch",system-ui,sans-serif;color:#fff;box-shadow:0 6px 24px rgba(0,0,0,.45);min-width:230px}
+#frz-chip[hidden]{display:none}
+#frz-chip .fz-ic{display:grid;place-items:center;width:30px;height:30px;border-radius:8px;background:#21385a;font-size:18px}
+#frz-chip b{display:block;font-size:14px;letter-spacing:.04em}
+#frz-chip small{display:block;font-size:11px;color:#c9c5e6}
+#frz-chip .fz-bar{height:4px;border-radius:2px;background:#15122f;margin-top:4px;overflow:hidden}
+#frz-chip .fz-bar i{display:block;height:100%;background:linear-gradient(90deg,#9fe7ff,#ffffff)}
+#frz-chip.ready{border-color:#9fe7ff}
+#frz-chip.on{border-color:#ffffff;box-shadow:0 0 18px rgba(159,231,255,.7)}
+#frz-chip.on .fz-ic{background:#9fe7ff;color:#0b1830}
+#frz-btn{right:calc(18px * var(--ts));bottom:calc(190px * var(--ts));width:calc(60px * var(--ts));height:calc(60px * var(--ts));font-size:calc(10px * var(--ts));background:rgba(159,231,255,.35);border-color:#d8f6ff}
+#frz-chip.tch{left:calc(10px + env(safe-area-inset-left,0px));top:62px;bottom:auto;transform:none;min-width:0;padding:6px 10px;gap:8px}
+#frz-chip.tch .fz-ic{width:24px;height:24px;font-size:14px}
+#frz-chip.tch b{font-size:12px}#frz-chip.tch small{font-size:10px}`;
+  document.head.appendChild(st);
+  const el = document.createElement('div'); el.id = 'frz-chip'; el.hidden = true; el.setAttribute('aria-live', 'polite');
+  const ic = document.createElement('span'); ic.className = 'fz-ic'; ic.textContent = '❄';
+  const tx = document.createElement('div'); tx.style.flex = '1';
+  const b = document.createElement('b'), sm = document.createElement('small'), bar = document.createElement('div'), fill = document.createElement('i');
+  bar.className = 'fz-bar'; bar.appendChild(fill); tx.append(b, sm, bar); el.append(ic, tx);
+  document.body.appendChild(el);
+  FRZ.el = el; FRZ.b = b; FRZ.sm = sm; FRZ.fill = fill;
+  const tb = document.getElementById('tbtns');
+  if (tb) {
+    const bt = document.createElement('button'); bt.type = 'button'; bt.className = 'tb'; bt.id = 'frz-btn'; bt.textContent = 'FREEZE'; bt.hidden = true; bt.setAttribute('aria-label', 'Toggle freeze ray');
+    bt.addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); frzToggle(); bt.classList.add('on'); setTimeout(() => bt.classList.remove('on'), 120); });
+    tb.appendChild(bt); FRZ.btn = bt;
+  }
+}
+
+/* sends a new "style" value each press: even = armed, odd = off (the game only reacts to changes) */
+function frzToggle() {
+  const f = FRZ.f; if (!f) return;
+  IN.mode = f.frzOn ? (IN.mode === 1 ? 3 : 1) : (IN.mode === 2 ? 4 : 2);
+}
+window.addEventListener('keydown', e => {
+  if (e.code !== 'KeyF' || e.repeat || !IN.active || typeof G === 'undefined' || G.screen !== 'fight') return;
+  if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT')) return;
+  if (!FRZ.f) return;
+  e.preventDefault(); frzToggle();
+});
+
+/* called every frame from draw() */
+function tickFreezeRay(view, hud) {
+  let f = null;
+  if (hud && view && view.fighters) {
+    const slot = typeof localSlotNow === 'function' ? localSlotNow() : null;
+    f = view.fighters.find(x => x.slot === slot && x.c && x.c.freezeRay && !x.out) || null;
+  }
+  FRZ.f = f;
+  if (!f && !FRZ.el) return;
+  frzUi();
+  FRZ.el.hidden = !f; if (FRZ.btn) FRZ.btn.hidden = !f;
+  if (!f) return;
+  const cd = f.frzCD || 0, max = f.c.freezeRay.cd, touch = typeof TOUCH !== 'undefined' && TOUCH.on;
+  const state = cd > 0 ? 'cd' : f.frzOn ? 'on' : 'ready';
+  if (FRZ.state !== state + Math.ceil(cd / 60) + touch) {
+    FRZ.state = state + Math.ceil(cd / 60) + touch;
+    FRZ.el.className = (state === 'on' ? 'on' : state === 'ready' ? 'ready' : '') + (touch ? ' tch' : '');
+    FRZ.b.textContent = state === 'on' ? 'FREEZE RAY ARMED' : state === 'ready' ? 'FREEZE RAY READY' : 'FREEZE RAY ' + Math.ceil(cd / 60) + 's';
+    FRZ.sm.textContent = state === 'on' ? (touch ? 'Next Ice Shard (B) freezes' : 'Next Ice Shard (K) freezes · F to cancel') : state === 'ready' ? (touch ? 'Tap FREEZE to arm' : 'Press F to arm it') : 'Recharging…';
+  }
+  FRZ.fill.style.width = (state === 'cd' ? (1 - cd / max) * 100 : 100) + '%';
+}
 
 ;
 /* ===== net.js ===== */
@@ -6157,10 +6571,10 @@ function encodeState(g) {
   return {
     t: g.frame, o: g.over ? 1 : 0, ot: g.overT, sh: r(g.shake), tl: g.timeLeft, tu: g.timeUp ? 1 : 0,
     ob: g.orb ? [r(g.orb.x), r(g.orb.y), Math.max(0, Math.ceil(g.orb.hp)), g.orb.max, g.orb.flash] : null,
-    u: g.ult ? [g.ult.slot, g.ult.t, g.ult.targets] : null,
+    u: g.ult ? [g.ult.slot, g.ult.t, g.ult.targets, Math.max(0, ULT_PH.indexOf(g.ult.ph)), Math.round(g.ult.ax || 0), Math.round(g.ult.ay || 0), g.ult.aim | 0, g.ult.lock | 0] : null,
     f: g.fighters.map(f => [r(f.x), r(f.y), f.face, POSES.indexOf(f.pose), r((f.pt || 0) * 20), r(f.dmg * 10), f.stocks,
-      (f.inv > 0 ? 1 : 0) | (f.shielding ? 2 : 0) | (f.flyT > 0 ? 4 : 0) | (f.frozen > 0 ? 8 : 0) | (f.helpless ? 16 : 0) | (f.dead > 0 ? 32 : 0) | (f.out ? 64 : 0) | (f.halo > 0 ? 128 : 0) | (f.armor ? 256 : 0) | (f.buffT > 0 ? 512 : 0) | (f.hot ? 1024 : 0) | (f.ult ? 2048 : 0) | (f.burn > 0 ? 4096 : 0) | (f.zap > 0 ? 8192 : 0) | (f.slow > 0 ? 16384 : 0),
-      MOVEKEYS.indexOf(f.mv), r(f.shieldHP), f.kos, f.falls, r((f.charge || 0) * 10), f.tag === 'CPU' ? 1 : 0, f.yenMode | 0]),
+      (f.inv > 0 ? 1 : 0) | (f.shielding ? 2 : 0) | (f.flyT > 0 ? 4 : 0) | (f.frozen > 0 ? 8 : 0) | (f.helpless ? 16 : 0) | (f.dead > 0 ? 32 : 0) | (f.out ? 64 : 0) | (f.halo > 0 ? 128 : 0) | (f.armor ? 256 : 0) | (f.buffT > 0 ? 512 : 0) | (f.hot ? 1024 : 0) | (f.ult ? 2048 : 0) | (f.burn > 0 ? 4096 : 0) | (f.zap > 0 ? 8192 : 0) | (f.slow > 0 ? 16384 : 0) | (f.vanish ? 32768 : 0),
+      MOVEKEYS.indexOf(f.mv), r(f.shieldHP), f.kos, f.falls, r((f.charge || 0) * 10), f.tag === 'CPU' ? 1 : 0, f.yenMode | 0, (f.frzOn ? 1 : 0) | (Math.ceil((f.frzCD || 0) / 60) << 1)]),
     p: g.projs.slice(0, 24).map(p => [r(p.x), r(p.y), Math.sign(p.vx) || 1, SHAPES.indexOf(p.shape), r(p.size), p.color, p.armed ? 1 : 0, r((p.ang != null ? p.ang : Math.atan2(p.vy, p.vx)) * 100), p.charged ? 1 : 0]),
     e: g.events.slice(-10)
   };
@@ -6286,10 +6700,11 @@ function guestView() {
       v.stocks = a[6];
       const fl = a[7];
       v.inv = fl & 1; v.shielding = !!(fl & 2); v.flyT = fl & 4 ? 1 : 0; v.frozen = fl & 8 ? 1 : 0; v.helpless = !!(fl & 16);
-      v.dead = fl & 32 ? 1 : 0; v.out = !!(fl & 64); v.halo = fl & 128 ? 1 : 0; v.armor = !!(fl & 256); v.buffT = fl & 512 ? 1 : 0; v.hot = !!(fl & 1024); v.ult = !!(fl & 2048); v.burn = fl & 4096 ? 1 : 0; v.zap = fl & 8192 ? 1 : 0; v.slow = fl & 16384 ? 1 : 0;
+      v.dead = fl & 32 ? 1 : 0; v.out = !!(fl & 64); v.halo = fl & 128 ? 1 : 0; v.armor = !!(fl & 256); v.buffT = fl & 512 ? 1 : 0; v.hot = !!(fl & 1024); v.ult = !!(fl & 2048); v.burn = fl & 4096 ? 1 : 0; v.zap = fl & 8192 ? 1 : 0; v.slow = fl & 16384 ? 1 : 0; v.vanish = !!(fl & 32768);
       v.mv = MOVEKEYS[a[8]] || null; v.shieldHP = a[9]; v.kos = a[10]; v.falls = a[11]; v.charge = a[12] / 10;
       if (a[13]) v.tag = 'CPU';
       v.yenMode = a[14] | 0;
+      v.frzOn = !!((a[15] | 0) & 1); v.frzCD = ((a[15] | 0) >> 1) * 60;
       const up = fSpecials(v).up; v.flyFx = up && up.fx || 'cloud';
       v.anim++;
     });
@@ -6309,7 +6724,12 @@ function guestView() {
   return {
     stage: st, fighters: NET.vf, over: s ? !!s.o : false, overT: s ? s.ot : 0, shake: s ? s.sh : 0,
     timeLeft: s ? s.tl : 0, timeUp: s ? !!s.tu : false, orb,
-    ult: s && s.u ? { slot: s.u[0], t: s.u[1], targets: s.u[2] || [] } : null,
+    ult: s && s.u ? (() => {
+      const u = { slot: s.u[0], t: s.u[1], targets: s.u[2] || [], ph: ULT_PH[s.u[3] | 0] || 'cut', ax: s.u[4] || 0, ay: s.u[5] || 0, aim: s.u[6] | 0, lock: s.u[7] | 0 };
+      const ua = P.a.u, ub = P.b.u;
+      if (ua && ub && ua[3] === 1 && ub[3] === 1) { u.ax = lerp(ua[4], ub[4], P.k); u.ay = lerp(ua[5], ub[5], P.k); }
+      return u;
+    })() : null,
     projs
   };
 }
@@ -6593,16 +7013,17 @@ function draw() {
     const a = G.attract; if (!a) return;
     view = { stage: a.stage, fighters: a.fighters, projs: a.projs, over: false, shake: a.shake * 0.5, endless: true };
   }
-  const cut = !!(hud && view.ult && view.ult.t <= ULT_CUT);
+  const cut = !!(hud && view.ult && view.ult.t <= ULT_CUT && (!view.ult.ph || view.ult.ph === 'cut'));
   if (G.cutHide !== cut) { G.cutHide = cut; document.getElementById('hints').style.visibility = cut ? 'hidden' : ''; document.querySelector('.fight-top').style.visibility = cut ? 'hidden' : ''; }
   if (hud) { const ls = localSlotNow(); const lf = ls != null && view.fighters.find(x => x.slot === ls); setUltReady(!!(lf && lf.ult && !lf.out)); } else setUltReady(false);
   if (typeof tickLegend === 'function') tickLegend(view, hud);
+  if (typeof tickFreezeRay === 'function') tickFreezeRay(view, hud);
   renderScene(ctx, view, vw, vh, G.t, { hud, tags: hud, hudTop: hud && TOUCH.on, localSlot: hud ? localSlotNow() : null, touchHint: TOUCH.on, leftPad: hud && HINTS.shown ? (vw < 760 || vh < 520 ? 196 : 244) : 0 });
   if (!hud) { ctx.fillStyle = G.screen === 'main' ? 'rgba(10,8,26,.28)' : 'rgba(10,8,26,.62)'; ctx.fillRect(0, 0, vw, vh); }
 }
 
 /* ---------- boot ---------- */
-{ const mc = document.getElementById('main-count'); if (mc) mc.textContent = ROSTER.length + ' fighters · ' + STAGES.length + ' stages · CPU levels 1–9'; }
+{ const mc = document.getElementById('main-count'); if (mc) mc.textContent = ROSTER.length + ' fighters · ' + STAGES.length + ' stages · CPU levels 1–10'; }
 setupTouch();
 show('main');
 initRoom();
@@ -6970,7 +7391,7 @@ function renderBoss() {
     const card = el('button', { type: 'button', role: 'listitem', class: 'bs-lv' + (done ? ' done' : '') + (open ? '' : ' locked') + (BOSS.sel === n ? ' sel' : ''), 'aria-pressed': String(BOSS.sel === n), on: { click: () => { if (!open) { toast(`Beat level ${n - 1} first.`); return; } SFX.play('ui'); BOSS.sel = n; renderBoss(); } } }, [
       el('span', { class: 'bs-n', text: open ? String(n) : '🔒' }),
       el('b', { text: L.name }),
-      el('small', { text: `Boss lives ${L.stocks} · Skill ${L.cpu}${L.minions.length ? ` · ${L.minions.length} helper${L.minions.length > 1 ? 's' : ''}` : ''}` }),
+      el('small', { text: `Boss lives ${L.stocks} · Skill ${L.cpu > 10 ? 'MAX' : L.cpu}${L.minions.length ? ` · ${L.minions.length} helper${L.minions.length > 1 ? 's' : ''}` : ''}` }),
       done ? el('span', { class: 'bs-tick', text: '✓' }) : null
     ]);
     grid.appendChild(card);
@@ -7183,6 +7604,7 @@ document.getElementById('go-boss') && document.getElementById('go-boss').addEven
   }
   function go(e) {
     if (done) return;
+    if (!wrap.isConnected) { done = true; window.removeEventListener('keydown', go, true); return; }
     if (e) { e.preventDefault(); e.stopPropagation(); }
     const ms = Math.max(performance.now() - t0, skipTo);
     if (ms < POP) { skipTo = READY; return; } // first press skips the animation
