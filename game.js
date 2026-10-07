@@ -14,7 +14,7 @@
      skill   → difficulty rating only (shown on the card)
 
    look.build: 'bulky' | 'normal' | 'slim' | 'small'
-   look.extra: any of 'ape','robe','beard','topknot','ninja','robot','knight','witch','flame','storm','reaper','archer','thunder','bird','tamer','agent','dj','clock','alchemist'
+   look.extra: any of 'ape','robe','beard','topknot','ninja','robot','knight','witch','flame','storm','reaper','archer','thunder','bird','tamer','agent','dj','clock','alchemist','photo','baller'
 
    Each special picks a "kind". Kinds the engine understands:
      melee    dmg,b,g,angle,startup,active,end,hx,hy,hw,hh  (+charge, armor, lunge, rehit)
@@ -361,6 +361,42 @@ const ROSTER = [
     }
   },
   {
+    id: 'chuang', name: 'Master Chuang', title: 'Shutter-speed photographer', legend: true, locked: true,
+    stats: { power: 6, speed: 7, weight: 5, jump: 7, defense: 5, skill: 7 },
+    look: { build: 'normal', body: '#6b5638', skin: '#e5bf98', accent: '#ffd84a', hair: '#2a211b', legs: '#2f3340', extra: ['photo'] },
+    passive: 'His camera flashes dazzle: anyone caught in a flash is stunned for a moment. Photos fly in a spread.',
+    strongVs: ['guo', 'zephyr'], weakVs: ['titan', 'hsi'],
+    ultimate: { name: 'Final Exposure', desc: 'Frames the target in a giant viewfinder: blinding flashes, a storm of polaroids, then the shutter slams.', theme: 'photo', colors: ['#0c0b10', '#ffd84a', '#ffffff'], hits: 5, dmg: 3, final: { dmg: 20, b: 13, g: 1.4, angle: 55 } },
+    specials: {
+      neutral: { name: 'Flash Burst', desc: 'Pop the camera flash in front of you. Short range, but it dazzles whoever it catches.', kind: 'proj',
+        dmg: 5, b: 3, g: 0.35, angle: 30, startup: 8, end: 18, speed: 13, life: 13, size: 30, shape: 'flash', color: '#fff6c8', max: 1, pierce: true, grow: 3, maxSize: 62, zap: 16, flash: true },
+      side: { name: 'Film Strip', desc: 'Fling three fresh photos in a spread.', kind: 'proj',
+        dmg: 4, b: 3, g: 0.4, angle: 30, startup: 9, end: 14, speed: 16, life: 32, size: 14, shape: 'photo', color: '#ffffff', max: 3, spread: [-9, 0, 9] },
+      up: { name: 'Tripod Vault', desc: 'Pole-vault off his tripod and smack anyone above.', kind: 'leap',
+        vy: 19, vx: 3.5, dmg: 8, b: 6, g: 0.8, angle: 80, startup: 5, active: 12, hx: 0.2, hy: 1.0, hw: 1.3, hh: 0.7, fx: 'tripod' },
+      down: { name: 'Photo Trap', desc: 'Set a camera on a mini tripod. It flashes when an enemy walks in front of it.', kind: 'proj',
+        dmg: 9, b: 7, g: 0.9, angle: 65, startup: 12, end: 18, speed: 0, life: 600, size: 18, shape: 'cammine', color: '#ffd84a', max: 1, mine: true, zap: 18, flash: true }
+    }
+  },
+  {
+    id: 'hsi', name: 'Mythic Hsi', title: 'Sky-walking point guard', legend: true, locked: true,
+    stats: { power: 7, speed: 8, weight: 6, jump: 9, defense: 5, skill: 5 },
+    look: { build: 'normal', body: '#5b2a86', skin: '#d9a87e', accent: '#ff8a1f', hair: '#1a1410', legs: '#5b2a86', extra: ['baller'] },
+    passive: 'Triple jump. His Jump Shot bounces off the floor for extra hits, and he dunks on anyone below him.',
+    strongVs: ['chuang', 'rowan'], weakVs: ['nova', 'kiro'],
+    ultimate: { name: 'Buzzer Beater', desc: 'A giant hoop drops from the sky, basketballs rain down, then he slam-dunks the target.', theme: 'court', colors: ['#1a0f06', '#ff8a1f', '#ffe2b8'], hits: 4, dmg: 3.5, final: { dmg: 21, b: 13, g: 1.42, angle: 70 } },
+    specials: {
+      neutral: { name: 'Jump Shot', desc: 'Shoot a basketball in an arc. It bounces off the floor and can hit again.', kind: 'proj',
+        dmg: 8, b: 5, g: 0.7, angle: 45, startup: 9, end: 16, speed: 11, aim: 30, grav: 0.4, life: 110, size: 18, shape: 'ball', color: '#ff8a1f', max: 1, bounce: 2 },
+      side: { name: 'Crossover', desc: 'Dribble-dash through anyone in the way.', kind: 'dash',
+        dmg: 9, b: 6.5, g: 0.85, angle: 35, startup: 5, dur: 16, vx: 13, end: 12, hx: 0.6, hy: 0.5, hw: 1.2, hh: 0.8, fx: 'dribble' },
+      up: { name: 'Alley-Oop', desc: 'Sky high off one foot, swatting anyone above.', kind: 'leap',
+        vy: 21, vx: 3, dmg: 10, b: 7, g: 0.9, angle: 85, startup: 5, active: 14, hx: 0.2, hy: 1.05, hw: 1.3, hh: 0.7, fx: 'dunk' },
+      down: { name: 'Posterize', desc: 'Slam down like a dunk. In the air it spikes anyone below; on the ground it sends out a shockwave.', kind: 'slam',
+        fall: 26, dmg: 14, b: 8, g: 1.05, angle: 75, startup: 8, end: 18, hw: 3.8, hh: 0.5, spike: { dmg: 9, b: 5.5, g: 0.65, angle: -80 } }
+    }
+  },
+  {
     id: 'yen', name: 'Legend Yen', title: 'The ultra max legend', legend: true, locked: true,
     modes: ['zephyr', 'blaze', 'volt', 'chui', 'guo', 'lumi', 'kiro'],
     stats: { power: 8, speed: 9, weight: 6, jump: 9, defense: 7, skill: 10 },
@@ -416,15 +452,15 @@ const STAT_KEYS = [['power', 'Power', '#ff6b5b'], ['speed', 'Speed', '#41d3ff'],
 const BL = 1, BR = 2, BU = 4, BD = 8, BJ = 16, BA = 32, BS = 64, BM = 128, BH = 256, BZ = 512;
 const BITS = [BL, BR, BU, BD, BJ, BA, BS, BM, BH, BZ];
 const POSES = ['idle', 'run', 'jump', 'fall', 'helpless', 'land', 'hurt', 'shield', 'guard', 'roll', 'dodge', 'punch', 'up', 'low', 'split', 'spin', 'back', 'stomp', 'charge', 'dash', 'slam', 'counter', 'cast', 'cast2', 'fly', 'vanish', 'frozen', 'dizzy', 'halo', 'power', 'ledge', 'climb'];
-const MOVEFX = ['fire', 'bolt', 'thunder', 'feathers', 'rope', 'scythe', 'arc', 'beat', 'fizz', 'knife', 'speaker', 'spring', 'palm'];
+const MOVEFX = ['fire', 'bolt', 'thunder', 'feathers', 'rope', 'scythe', 'arc', 'beat', 'fizz', 'knife', 'speaker', 'spring', 'palm', 'dribble', 'tripod', 'dunk'];
 const MOVEKEYS = [...Object.keys(NORMALS), 'sp_neutral', 'sp_side', 'sp_up', 'sp_down'];
-const SHAPES = ['orb', 'star', 'laser', 'fist', 'mine', 'shard', 'spike', 'fire', 'bolt', 'strike', 'void', 'pillar', 'arrow', 'arrowbomb', 'javelin', 'hammer', 'tstrike', 'leafnado', 'feather', 'capture', 'shark', 'eel', 'bullet', 'dagger', 'soundwave', 'gear', 'potion', 'puddle', 'flask'];
+const SHAPES = ['orb', 'star', 'laser', 'fist', 'mine', 'shard', 'spike', 'fire', 'bolt', 'strike', 'void', 'pillar', 'arrow', 'arrowbomb', 'javelin', 'hammer', 'tstrike', 'leafnado', 'feather', 'capture', 'shark', 'eel', 'bullet', 'dagger', 'soundwave', 'gear', 'potion', 'puddle', 'flask', 'flash', 'photo', 'cammine', 'ball'];
 
 /* 'random' is a pick, not a fighter: it becomes a real fighter when the battle starts */
 /* fighters this player has unlocked (filled in after signing in) */
 let MY_UNLOCKED = [];
 function isPick(id) { return id === 'random' || !!CHAR[id]; }
-/* locked fighters (Legend Yen) can only be picked after unlocking them in Boss Fight */
+/* locked fighters (the Boss Fight bosses) can only be picked after unlocking them in Boss Fight */
 function isPickable(id, unlocked) { return id === 'random' || (!!CHAR[id] && (!CHAR[id].locked || !!(unlocked && unlocked.indexOf(id) >= 0))); }
 function resolvePick(id) { if (id !== 'random') return id; const pool = ROSTER.filter(c => !c.legend); return pool[Math.floor(Math.random() * pool.length)].id; }
 const CHAR = {};
@@ -457,15 +493,21 @@ function moveDef(c, key) {
   return key.startsWith('sp_') ? c.specials[key.slice(3)] : NORMALS[key];
 }
 
-/* ===== Boss Fight: 10 levels against Legend Yen. Beat all 10 to unlock him.
+/* ===== Boss Fight: 30 levels in three chapters of 10. Beat a chapter's last level to unlock its boss.
    The game server reads this table, so players can't make a level easier. =====
-   cpu = boss skill (1-9), stocks = boss lives, pow = boss attack power,
+   cpu = boss skill (10 = top CPU level, 11 = boss-only MAX brain), stocks = boss lives, pow = boss attack power,
    kb = how far the boss flies when hit (lower = heavier), dmgIn = damage the boss takes,
    minions = extra CPU helpers on the boss's team (their skill level). */
+const BOSS_CHAPTERS = [
+  { boss: 'yen', from: 1, to: 10, title: 'Chapter 1', blurb: 'The ultra max fighter. He switches between seven fighters’ styles.' },
+  { boss: 'chuang', from: 11, to: 20, title: 'Chapter 2', blurb: 'The shutter-speed photographer. His flashes dazzle and his camera traps wait for you.' },
+  { boss: 'hsi', from: 21, to: 30, title: 'Chapter 3', blurb: 'The sky-walking point guard. Triple jump, bouncing jump shots and crushing dunks.' }
+];
 const BOSS_ID = 'yen';
 const BOSS_SIZE = 1.15;
 const BOSS_PLAYER_STOCKS = 3;
 const BOSS_LEVELS = [
+  // chapter 1 — Legend Yen
   { name: 'Awakening',    stage: 0, cpu: 10, stocks: 1, pow: 1.10, kb: 0.95, dmgIn: 0.95, minions: [] },
   { name: 'First Light',  stage: 1, cpu: 10, stocks: 1, pow: 1.15, kb: 0.92, dmgIn: 0.92, minions: [] },
   { name: 'Rising Storm', stage: 2, cpu: 10, stocks: 2, pow: 1.20, kb: 0.88, dmgIn: 0.90, minions: [] },
@@ -475,14 +517,40 @@ const BOSS_LEVELS = [
   { name: 'Legion',       stage: 5, cpu: 11, stocks: 3, pow: 1.40, kb: 0.72, dmgIn: 0.80, minions: [6] },
   { name: 'Overdrive',    stage: 7, cpu: 11, stocks: 3, pow: 1.50, kb: 0.68, dmgIn: 0.78, minions: [8] },
   { name: 'The Gauntlet', stage: 5, cpu: 11, stocks: 4, pow: 1.55, kb: 0.62, dmgIn: 0.74, minions: [8] },
-  { name: 'Ultra Max',    stage: 2, cpu: 11, stocks: 5, pow: 1.65, kb: 0.56, dmgIn: 0.68, minions: [9, 9] }
+  { name: 'Ultra Max',    stage: 2, cpu: 11, stocks: 5, pow: 1.65, kb: 0.56, dmgIn: 0.68, minions: [9, 9] },
+  // chapter 2 — Master Chuang
+  { name: 'Say Cheese',     stage: 3, cpu: 10, stocks: 1, pow: 1.10, kb: 0.95, dmgIn: 0.95, minions: [] },
+  { name: 'Overexposed',    stage: 0, cpu: 10, stocks: 2, pow: 1.10, kb: 0.92, dmgIn: 0.92, minions: [] },
+  { name: 'Darkroom',       stage: 7, cpu: 10, stocks: 2, pow: 1.15, kb: 0.90, dmgIn: 0.90, minions: [] },
+  { name: 'Red Eye',        stage: 6, cpu: 10, stocks: 2, pow: 1.20, kb: 0.88, dmgIn: 0.88, minions: [] },
+  { name: 'Panorama',       stage: 1, cpu: 11, stocks: 2, pow: 1.20, kb: 0.86, dmgIn: 0.88, minions: [] },
+  { name: 'Long Exposure',  stage: 4, cpu: 11, stocks: 3, pow: 1.25, kb: 0.84, dmgIn: 0.86, minions: [] },
+  { name: 'Burst Mode',     stage: 2, cpu: 11, stocks: 3, pow: 1.30, kb: 0.80, dmgIn: 0.84, minions: [4] },
+  { name: 'Golden Hour',    stage: 5, cpu: 11, stocks: 3, pow: 1.35, kb: 0.76, dmgIn: 0.82, minions: [] },
+  { name: 'Flash Flood',    stage: 3, cpu: 11, stocks: 3, pow: 1.40, kb: 0.72, dmgIn: 0.80, minions: [6] },
+  { name: 'Final Exposure', stage: 0, cpu: 11, stocks: 4, pow: 1.50, kb: 0.66, dmgIn: 0.76, minions: [6] },
+  // chapter 3 — Mythic Hsi
+  { name: 'Tip-Off',          stage: 1, cpu: 10, stocks: 2, pow: 1.15, kb: 0.92, dmgIn: 0.92, minions: [] },
+  { name: 'Fast Break',       stage: 2, cpu: 10, stocks: 2, pow: 1.20, kb: 0.90, dmgIn: 0.90, minions: [] },
+  { name: 'Full-Court Press', stage: 4, cpu: 10, stocks: 2, pow: 1.25, kb: 0.86, dmgIn: 0.88, minions: [] },
+  { name: 'Pick and Roll',    stage: 7, cpu: 11, stocks: 2, pow: 1.25, kb: 0.84, dmgIn: 0.86, minions: [] },
+  { name: 'Triple Double',    stage: 0, cpu: 11, stocks: 3, pow: 1.30, kb: 0.80, dmgIn: 0.84, minions: [] },
+  { name: 'Shot Clock',       stage: 3, cpu: 11, stocks: 3, pow: 1.35, kb: 0.76, dmgIn: 0.82, minions: [4] },
+  { name: 'Half-Court Heave', stage: 6, cpu: 11, stocks: 3, pow: 1.40, kb: 0.72, dmgIn: 0.80, minions: [5] },
+  { name: 'Overtime',         stage: 5, cpu: 11, stocks: 3, pow: 1.45, kb: 0.68, dmgIn: 0.78, minions: [6] },
+  { name: 'Playoffs',         stage: 2, cpu: 11, stocks: 4, pow: 1.50, kb: 0.64, dmgIn: 0.76, minions: [7] },
+  { name: 'Hall of Fame',     stage: 1, cpu: 11, stocks: 4, pow: 1.60, kb: 0.60, dmgIn: 0.72, minions: [7, 7] }
 ];
+function bossChapter(level) { return BOSS_CHAPTERS.find(c => level >= c.from && level <= c.to) || BOSS_CHAPTERS[0]; }
+BOSS_LEVELS.forEach((L, i) => { L.boss = bossChapter(i + 1).boss; });
+/* every chapter boss whose last level is beaten */
+function bossUnlocksFor(beaten) { return BOSS_CHAPTERS.filter(c => beaten >= c.to).map(c => c.boss); }
 /* builds the match settings for a boss level (used by the game server) */
 function bossConfig(level, playerChar, player) {
   const L = BOSS_LEVELS[level - 1];
   const pool = ROSTER.filter(c => !c.legend);
   const slots = [Object.assign({ type: 'you', char: playerChar, lvl: 5, team: 0 }, player || {})];
-  slots.push({ type: 'cpu', char: BOSS_ID, lvl: L.cpu, team: 1, boss: { pow: L.pow, kb: L.kb, dmgIn: L.dmgIn, size: BOSS_SIZE }, stocks: L.stocks, name: 'Legend Yen', tag: 'BOSS' });
+  slots.push({ type: 'cpu', char: L.boss, lvl: L.cpu, team: 1, boss: { pow: L.pow, kb: L.kb, dmgIn: L.dmgIn, size: BOSS_SIZE }, stocks: L.stocks, name: CHAR[L.boss].name, tag: 'BOSS' });
   L.minions.forEach(lv => slots.push({ type: 'cpu', char: pool[Math.floor(Math.random() * pool.length)].id, lvl: lv, team: 1, stocks: 1 }));
   while (slots.length < 4) slots.push({ type: 'off' });
   return { stage: L.stage, stocks: BOSS_PLAYER_STOCKS, time: 6, teams: true, boss: level, slots };
@@ -1035,10 +1103,10 @@ function applyHit(att, tgt, h, dir, g, proj) {
   if (h.burn) { tgt.burn = Math.max(tgt.burn || 0, h.burn); emit(g, 'ignite', tgt.x, tgt.y - tgt.H / 2); }
   if (h.slow) { if (!(tgt.slow > 0)) emit(g, 'slowed', tgt.x, tgt.y - tgt.H / 2); tgt.slow = Math.max(tgt.slow || 0, h.slow | 1); }
   if (h.zap) {
-    tgt.zap = Math.round(h.zap + tgt.dmg * 0.08); tgt.hitstun = 0;
+    tgt.zap = Math.round(h.zap + tgt.dmg * 0.08); tgt.hitstun = 0; tgt.dazzle = !!h.flash;
     tgt.vx *= 0.35; tgt.vy = Math.min(tgt.vy * 0.35, 0);
-    emit(g, 'shock', tgt.x, tgt.y - tgt.H / 2, 1);
-  } else tgt.zap = 0;
+    emit(g, h.flash ? 'dazzle' : 'shock', tgt.x, tgt.y - tgt.H / 2, 1);
+  } else { tgt.zap = 0; tgt.dazzle = false; }
   if (h.freeze) {
     tgt.frozen = Math.round(h.freeze + tgt.dmg * 0.15); tgt.hitstun = 0;
     tgt.vx *= 0.3; tgt.vy = Math.min(tgt.vy * 0.3, 0);
@@ -1266,12 +1334,12 @@ function burstProj(p, g) {
 
 function explode(p, g) {
   p.life = 0;
-  emit(g, 'boom', p.x, p.y);
-  g.shake = Math.max(g.shake, 10);
+  emit(g, p.m.flash ? 'flashpop' : 'boom', p.x, p.y);
+  g.shake = Math.max(g.shake, p.m.flash ? 5 : 10);
   for (const o of g.fighters) {
     if (o.out || o.dead > 0 || o.tid === p.tid) continue;
     if (Math.hypot(o.x - p.x, (o.y - o.H / 2) - p.y) < 95) {
-      applyHit(p.owner, o, { dmg: p.dmg, b: p.m.b, g: p.m.g, angle: p.m.angle, burn: p.m.burn, zap: p.m.zap, slow: p.m.slow }, Math.sign(o.x - p.x) || 1, g, true);
+      applyHit(p.owner, o, { dmg: p.dmg, b: p.m.b, g: p.m.g, angle: p.m.angle, burn: p.m.burn, zap: p.m.zap, slow: p.m.slow, flash: p.m.flash }, Math.sign(o.x - p.x) || 1, g, true);
     }
   }
 }
@@ -1360,7 +1428,7 @@ function stepProjs(g) {
         p.hit.add(o);
         const dir = Math.sign(p.vx) || (o.x > p.x ? 1 : -1);
         if (m.fuse) { if (!p.stuck) explode(p, g); p.hit.delete(o); break; }
-        const r = applyHit(p.owner, o, { dmg: p.dmg, b: m.b * (p.bMul || 1), g: m.g, angle: m.angle, freeze: m.freeze || p.frz, burn: m.burn, zap: m.zap, slow: m.slow }, dir, g, p);
+        const r = applyHit(p.owner, o, { dmg: p.dmg, b: m.b * (p.bMul || 1), g: m.g, angle: m.angle, freeze: m.freeze || p.frz, burn: m.burn, zap: m.zap, slow: m.slow, flash: m.flash }, dir, g, p);
         if (!(m.pierce || p.pierce) || r === 'block' || r === 'counter') { p.life = 0; break; }
       }
     }
@@ -2906,6 +2974,8 @@ function lookHook(g, part, K) {
   else if (has('clock')) LOOK_CLOCK[part] && LOOK_CLOCK[part](g, K);
   else if (has('alchemist')) LOOK_ALCH[part] && LOOK_ALCH[part](g, K);
   else if (has('legend') && typeof LOOK_LEGEND !== 'undefined') LOOK_LEGEND[part] && LOOK_LEGEND[part](g, K);
+  else if (has('photo') && typeof LOOK_PHOTO !== 'undefined') LOOK_PHOTO[part] && LOOK_PHOTO[part](g, K);
+  else if (has('baller') && typeof LOOK_BALLER !== 'undefined') LOOK_BALLER[part] && LOOK_BALLER[part](g, K);
 }
 
 function tideOrb(g, x, y, r, top, spin) {
@@ -3445,7 +3515,8 @@ const PROJ_NEW = {
 /* ---------- status effects ---------- */
 function drawStatusNew(g, f, t) {
   if (f.c && f.c.modes && typeof drawLegendOrbs === 'function') drawLegendOrbs(g, f, t);
-  if (f.zap > 0 && !(t % 3 === 2)) {
+  if (f.zap > 0 && f.dazzle && typeof drawDazzle === 'function') drawDazzle(g, f, t);
+  else if (f.zap > 0 && !(t % 3 === 2)) {
     g.save(); g.globalCompositeOperation = 'lighter'; g.strokeStyle = '#fff6a0'; g.lineWidth = 2; g.lineJoin = 'miter';
     if (!PERF.low) { g.shadowColor = '#ffe14a'; g.shadowBlur = 8; }
     for (let k = 0; k < 3; k++) {
@@ -3470,6 +3541,7 @@ function drawStatusNew(g, f, t) {
 /* ---------- new particle effects ---------- */
 function fxEventNew(type, x, y, a, b, col) {
   if (typeof fxLegend === 'function' && fxLegend(type, x, y, a, b)) return;
+  if (typeof fxEventBoss2 === 'function' && fxEventBoss2(type, x, y, a, b)) return;
   switch (type) {
     case 'summon': {
       const sh = SHAPES[a] || '';
@@ -3536,6 +3608,292 @@ function drawFxNew(g, p, k) {
       g.stroke(); g.fillStyle = '#7a5a2a'; g.fillRect(p.x - 20, p.y - 3, 40, 6); g.fillRect(p.x - 18, p.y - h - 3, 36, 5);
       break;
     }
+  }
+}
+
+;
+/* ===== looks-boss2.js ===== */
+'use strict';
+/* ===== CLOUDTOP BRAWL — art for Master Chuang (photography) and Mythic Hsi (basketball) =====
+   outfits, projectiles, move effects, particles and their ultimate scenes */
+
+/* ---------- Master Chuang: photographer's vest, beret, round glasses, camera ---------- */
+const LOOK_PHOTO = {
+  back(g, K) {
+    // camera bag on the back hip
+    const { sw, hipY, torsoH } = K;
+    rrect(g, -sw * 0.75, hipY - torsoH * 0.45, sw * 0.42, torsoH * 0.42, 4); fillStroke(g, '#3a2d1e', 2);
+    g.fillStyle = '#ffd84a'; g.fillRect(-sw * 0.72, hipY - torsoH * 0.36, sw * 0.36, 3);
+  },
+  torso(g, K) {
+    const { sw, shY, hipY, torsoH, body, acc } = K;
+    // shirt down the middle
+    g.fillStyle = '#efe6d2'; g.beginPath(); g.moveTo(-sw * 0.16, shY - 2); g.lineTo(sw * 0.2, shY - 2); g.lineTo(sw * 0.14, hipY - 4); g.lineTo(-sw * 0.1, hipY - 4); g.closePath(); g.fill();
+    // vest panels with pockets
+    for (const side of [-1, 1]) {
+      g.beginPath(); g.moveTo(side * sw * 0.18, shY - 2); g.lineTo(side * sw * 0.5, shY + 2); g.lineTo(side * sw * 0.5, hipY); g.lineTo(side * sw * 0.12, hipY); g.closePath();
+      fillStroke(g, shade(body, -0.05), 1.8);
+      rrect(g, side > 0 ? sw * 0.2 : -sw * 0.44, shY + torsoH * 0.18, sw * 0.24, torsoH * 0.2, 2); fillStroke(g, shade(body, 0.12), 1.4);
+      rrect(g, side > 0 ? sw * 0.2 : -sw * 0.44, shY + torsoH * 0.52, sw * 0.24, torsoH * 0.24, 2); fillStroke(g, shade(body, 0.12), 1.4);
+    }
+    // camera strap across the chest
+    g.strokeStyle = '#1d1a16'; g.lineWidth = 3.5; g.beginPath(); g.moveTo(-sw * 0.4, shY + 1); g.lineTo(sw * 0.38, hipY - torsoH * 0.12); g.stroke();
+    g.strokeStyle = acc; g.lineWidth = 1.2; g.beginPath(); g.moveTo(-sw * 0.4, shY + 1); g.lineTo(sw * 0.38, hipY - torsoH * 0.12); g.stroke();
+    // belt
+    g.fillStyle = '#2b241c'; g.fillRect(-sw / 2 + 1, hipY - 5, sw - 2, 5); g.fillStyle = '#c9b27a'; g.fillRect(-3, hipY - 5, 6, 5);
+  },
+  head(g, K) {
+    const { hx, hy, hr } = K;
+    // hair at the back + sideburns
+    g.fillStyle = K.L.hair || '#2a211b';
+    g.beginPath(); g.ellipse(hx - hr * 0.35, hy - hr * 0.05, hr * 0.75, hr * 0.85, 0, Math.PI * 0.5, Math.PI * 1.5); g.fill();
+    // round glasses
+    g.strokeStyle = '#1b1712'; g.lineWidth = 2;
+    circle(g, hx + hr * 0.5, hy - hr * 0.08, hr * 0.25); g.fillStyle = 'rgba(200,235,255,.35)'; g.fill(); g.stroke();
+    g.beginPath(); g.moveTo(hx + hr * 0.25, hy - hr * 0.1); g.lineTo(hx - hr * 0.3, hy - hr * 0.2); g.stroke();
+    g.fillStyle = 'rgba(255,255,255,.75)'; circle(g, hx + hr * 0.42, hy - hr * 0.16, hr * 0.06); g.fill();
+    // little goatee
+    g.fillStyle = K.L.hair || '#2a211b'; g.beginPath(); g.moveTo(hx + hr * 0.45, hy + hr * 0.55); g.lineTo(hx + hr * 0.7, hy + hr * 0.6); g.lineTo(hx + hr * 0.52, hy + hr * 0.92); g.closePath(); g.fill();
+    // tilted beret
+    g.save(); g.translate(hx - hr * 0.05, hy - hr * 0.72); g.rotate(-0.25);
+    g.beginPath(); g.ellipse(0, 0, hr * 1.05, hr * 0.42, 0, 0, Math.PI * 2); fillStroke(g, '#8c1f2b', 2.2);
+    g.fillStyle = '#a8303c'; g.beginPath(); g.ellipse(hr * 0.1, -hr * 0.1, hr * 0.7, hr * 0.22, 0, 0, Math.PI * 2); g.fill();
+    g.strokeStyle = OUTLINE; g.lineWidth = 2; g.beginPath(); g.moveTo(0, -hr * 0.38); g.lineTo(hr * 0.06, -hr * 0.6); g.stroke();
+    g.restore();
+  },
+  hand(g, K) {
+    const { f, hand, acc, portrait } = K, r = hand[2];
+    g.save(); g.translate(hand[0], hand[1]); g.rotate(-r + Math.PI / 2);
+    // a compact camera held at the end of the arm; +x points along the forearm
+    rrect(g, 0, -9, 22, 16, 3); fillStroke(g, '#24242b', 1.8);
+    g.fillStyle = '#3a3a44'; g.fillRect(3, -13, 8, 4);
+    g.fillStyle = acc; g.fillRect(14, -12, 6, 3);
+    circle(g, 24, -1, 6.5); fillStroke(g, '#15151a', 1.8);
+    g.fillStyle = '#6fa8ff'; circle(g, 24, -1, 3.4); g.fill(); g.fillStyle = 'rgba(255,255,255,.8)'; circle(g, 23, -2.4, 1.2); g.fill();
+    const firing = (f.mv === 'sp_neutral' || f.mv === 'sp_down') && (f.pt || 0) > 0.9;
+    if (firing && !portrait) {
+      g.globalCompositeOperation = 'lighter';
+      const fg = g.createRadialGradient(17, -12, 0, 17, -12, 26); fg.addColorStop(0, 'rgba(255,255,255,1)'); fg.addColorStop(0.4, 'rgba(255,240,170,.7)'); fg.addColorStop(1, 'rgba(255,216,74,0)');
+      g.fillStyle = fg; circle(g, 17, -12, 26); g.fill();
+    }
+    g.restore();
+  }
+};
+
+/* ---------- Mythic Hsi: jersey #7, headband, basketball ---------- */
+const LOOK_BALLER = {
+  torso(g, K) {
+    const { f, sw, shY, hipY, torsoH, body, acc, portrait } = K;
+    // tank-top cut: show arms' shoulders, accent trim
+    g.strokeStyle = acc; g.lineWidth = 3;
+    g.beginPath(); g.moveTo(-sw * 0.2, shY - 3); g.quadraticCurveTo(0, shY + torsoH * 0.18, sw * 0.24, shY - 3); g.stroke();
+    g.beginPath(); g.moveTo(-sw * 0.5, shY + 2); g.quadraticCurveTo(-sw * 0.36, shY + torsoH * 0.3, -sw * 0.5, shY + torsoH * 0.42); g.stroke();
+    g.beginPath(); g.moveTo(sw * 0.5, shY + 2); g.quadraticCurveTo(sw * 0.36, shY + torsoH * 0.3, sw * 0.5, shY + torsoH * 0.42); g.stroke();
+    // side stripes
+    g.fillStyle = shade(acc, -0.1); g.fillRect(-sw * 0.5, shY + torsoH * 0.45, 3, torsoH * 0.5); g.fillRect(sw * 0.5 - 3, shY + torsoH * 0.45, 3, torsoH * 0.5);
+    // number 7 (kept readable whichever way he faces)
+    g.save(); g.translate(sw * 0.02, shY + torsoH * 0.55); g.scale((f.face || 1) < 0 && !portrait ? -1 : 1, 1);
+    g.font = `${Math.round(torsoH * 0.52)}px "Dela Gothic One", Impact, sans-serif`; g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.lineWidth = 3; g.strokeStyle = '#ffffff'; g.strokeText('7', 0, 0); g.fillStyle = acc; g.fillText('7', 0, 0);
+    g.restore();
+    // shorts waistband
+    g.fillStyle = acc; g.fillRect(-sw / 2 + 1, hipY - 4, sw - 2, 4);
+    g.fillStyle = body; g.fillRect(-sw / 2 + 1, hipY - 1, sw - 2, 2);
+  },
+  head(g, K) {
+    const { hx, hy, hr, acc } = K;
+    // short fade
+    g.fillStyle = K.L.hair || '#1a1410';
+    g.beginPath(); g.arc(hx, hy - hr * 0.05, hr * 1.02, Math.PI * 1.05, Math.PI * 1.95); g.closePath(); g.fill();
+    // headband
+    g.save(); g.beginPath(); g.arc(hx, hy, hr * 1.03, 0, Math.PI * 2); g.clip();
+    g.fillStyle = acc; g.fillRect(hx - hr * 1.1, hy - hr * 0.62, hr * 2.2, hr * 0.32);
+    g.fillStyle = '#ffffff'; g.fillRect(hx - hr * 1.1, hy - hr * 0.5, hr * 2.2, hr * 0.06);
+    g.restore();
+    // headband tails
+    g.strokeStyle = acc; g.lineWidth = 3; g.lineCap = 'round';
+    const w = Math.sin(K.t * 0.25) * 3;
+    g.beginPath(); g.moveTo(hx - hr * 0.95, hy - hr * 0.45); g.quadraticCurveTo(hx - hr * 1.5, hy - hr * 0.3 + w, hx - hr * 1.9, hy - hr * 0.1 + w); g.stroke();
+    // confident brows
+    g.strokeStyle = OUTLINE; g.lineWidth = 2; g.beginPath(); g.moveTo(hx + hr * 0.2, hy - hr * 0.22); g.lineTo(hx + hr * 0.5, hy - hr * 0.28); g.moveTo(hx + hr * 0.62, hy - hr * 0.28); g.lineTo(hx + hr * 0.9, hy - hr * 0.22); g.stroke();
+  },
+  hand(g, K) {
+    const { f, hand, portrait, t } = K;
+    const busy = f.act && f.mv !== 'sp_side';
+    if (busy || f.mv === 'sp_neutral') return;
+    // dribbling when running, palming the ball otherwise
+    const running = f.pose === 'run' || f.mv === 'sp_side';
+    const r = 9.5, by = running && !portrait ? Math.abs(Math.sin(t * 0.32)) * 26 : 0;
+    drawBall(g, hand[0] + 6, hand[1] + 4 + by, r, t * (running ? 0.3 : 0.05));
+  }
+};
+function drawBall(g, x, y, r, rot) {
+  g.save(); g.translate(x, y); g.rotate(rot || 0);
+  const bg = g.createRadialGradient(-r * 0.35, -r * 0.35, r * 0.1, 0, 0, r); bg.addColorStop(0, '#ffb15c'); bg.addColorStop(1, '#e0650a');
+  circle(g, 0, 0, r); fillStroke(g, bg, 1.8);
+  g.strokeStyle = '#3a1d06'; g.lineWidth = Math.max(1, r * 0.11);
+  g.beginPath(); g.moveTo(-r, 0); g.lineTo(r, 0); g.moveTo(0, -r); g.lineTo(0, r); g.stroke();
+  g.beginPath(); g.arc(-r * 1.25, 0, r * 0.95, -0.85, 0.85); g.stroke();
+  g.beginPath(); g.arc(r * 1.25, 0, r * 0.95, Math.PI - 0.85, Math.PI + 0.85); g.stroke();
+  g.restore();
+}
+
+/* ---------- projectiles ---------- */
+Object.assign(PROJ_NEW, {
+  flash(g, p, t, x, y, r, dir) {
+    g.save(); g.globalCompositeOperation = 'lighter';
+    const R = r * 1.6, fg = g.createRadialGradient(x, y, 0, x, y, R);
+    fg.addColorStop(0, 'rgba(255,255,255,1)'); fg.addColorStop(0.35, 'rgba(255,246,200,.85)'); fg.addColorStop(1, 'rgba(255,216,74,0)');
+    g.fillStyle = fg; circle(g, x, y, R); g.fill();
+    g.strokeStyle = 'rgba(255,255,255,.9)'; g.lineWidth = 2.5;
+    for (let i = 0; i < 8; i++) { const a = i / 8 * Math.PI * 2 + t * 0.1, l = R * (i % 2 ? 0.9 : 1.35); g.beginPath(); g.moveTo(x + Math.cos(a) * R * 0.25, y + Math.sin(a) * R * 0.25); g.lineTo(x + Math.cos(a) * l, y + Math.sin(a) * l); g.stroke(); }
+    g.restore();
+  },
+  photo(g, p, t, x, y, r, dir) {
+    g.translate(x, y); g.rotate(t * 0.35 * dir);
+    const w = r * 1.7, h = r * 2.0;
+    g.fillStyle = '#ffffff'; rrect(g, -w / 2, -h / 2, w, h, 2); g.fill(); g.strokeStyle = OUTLINE; g.lineWidth = 1.6; g.stroke();
+    const sg = g.createLinearGradient(0, -h * 0.4, 0, h * 0.2); sg.addColorStop(0, '#6fb7ff'); sg.addColorStop(1, '#ffd2a1');
+    g.fillStyle = sg; g.fillRect(-w * 0.4, -h * 0.4, w * 0.8, h * 0.6);
+    g.fillStyle = '#ffd84a'; circle(g, w * 0.15, -h * 0.2, r * 0.2); g.fill();
+    g.fillStyle = '#4e8a4a'; g.beginPath(); g.moveTo(-w * 0.4, h * 0.2); g.lineTo(-w * 0.1, -h * 0.05); g.lineTo(w * 0.1, h * 0.08); g.lineTo(w * 0.4, -h * 0.1); g.lineTo(w * 0.4, h * 0.2); g.closePath(); g.fill();
+  },
+  cammine(g, p, t, x, y, r, dir) {
+    g.translate(x, y);
+    g.strokeStyle = '#2a2a30'; g.lineWidth = 2.5; g.lineCap = 'round';
+    g.beginPath(); g.moveTo(0, 0); g.lineTo(-r * 0.8, r * 0.9); g.moveTo(0, 0); g.lineTo(r * 0.8, r * 0.9); g.moveTo(0, 0); g.lineTo(0, r * 0.95); g.stroke();
+    g.scale(p.face || dir || 1, 1);
+    rrect(g, -r * 0.8, -r * 0.95, r * 1.5, r * 0.95, 3); fillStroke(g, '#24242b', 1.8);
+    circle(g, r * 0.75, -r * 0.48, r * 0.38); fillStroke(g, '#15151a', 1.6);
+    g.fillStyle = '#6fa8ff'; circle(g, r * 0.75, -r * 0.48, r * 0.18); g.fill();
+    const blink = p.armed && ((t >> 3) & 1);
+    g.fillStyle = blink ? '#ff3b3b' : '#5a1a1a'; circle(g, -r * 0.5, -r * 0.75, r * 0.12); g.fill();
+    if (blink) { g.globalCompositeOperation = 'lighter'; g.fillStyle = 'rgba(255,60,60,.35)'; circle(g, -r * 0.5, -r * 0.75, r * 0.4); g.fill(); }
+  },
+  ball(g, p, t, x, y, r, dir) {
+    g.save(); g.globalCompositeOperation = 'lighter'; g.fillStyle = 'rgba(255,138,31,.18)';
+    for (let i = 1; i <= 3; i++) { circle(g, x - (p.vx || dir * 6) * i * 1.3, y - (p.vy || 0) * i * 1.3, r * (1 - i * 0.18)); g.fill(); }
+    g.restore();
+    drawBall(g, x, y, r * 0.95, t * 0.25 * dir);
+  }
+});
+
+/* ---------- move effects ---------- */
+Object.assign(SWOOSH_NEW, {
+  tripod(g, f, t) {
+    // vaulting off the tripod: three legs planted under him for the first part of the leap
+    const a = f.act; if (!a || a.t > 18) return;
+    const k = a.t / 18, baseY = f.y + 10 + k * 60, x = f.x - (f.face || 1) * 6;
+    g.globalAlpha = 1 - k * 0.6; g.strokeStyle = '#2a2a30'; g.lineWidth = 3.5; g.lineCap = 'round';
+    g.beginPath(); g.moveTo(x, f.y - 4); g.lineTo(x - 22, baseY); g.moveTo(x, f.y - 4); g.lineTo(x + 22, baseY); g.moveTo(x, f.y - 4); g.lineTo(x + 2, baseY + 4); g.stroke();
+    g.globalCompositeOperation = 'lighter'; g.fillStyle = 'rgba(255,216,74,.4)'; circle(g, f.x, f.y - f.H * 0.5, f.W * (0.7 + k * 0.4)); g.fill();
+  },
+  dribble(g, f, t) {
+    const dir = f.face || 1;
+    drawBall(g, f.x + dir * f.W * 0.7, f.y - 10 - Math.abs(Math.sin(t * 0.55)) * f.H * 0.35, 9.5, t * 0.4 * dir);
+    g.globalCompositeOperation = 'lighter'; g.strokeStyle = 'rgba(255,170,90,.6)'; g.lineWidth = 3;
+    for (let i = 0; i < 4; i++) { const y = f.y - f.H * (0.2 + i * 0.18); g.beginPath(); g.moveTo(f.x - dir * f.W * 0.6, y); g.lineTo(f.x - dir * (f.W * 0.6 + 26 + (i % 2) * 14), y); g.stroke(); }
+  },
+  dunk(g, f, t) {
+    const dir = f.face || 1;
+    g.globalCompositeOperation = 'lighter';
+    const tg = g.createLinearGradient(0, f.y + 60, 0, f.y - f.H); tg.addColorStop(0, 'rgba(255,138,31,0)'); tg.addColorStop(1, 'rgba(255,190,110,.6)');
+    g.fillStyle = tg; g.beginPath(); g.ellipse(f.x, f.y - f.H * 0.2, f.W * 0.55, f.H * 0.9, 0, 0, Math.PI * 2); g.fill();
+    g.globalCompositeOperation = 'source-over';
+    drawBall(g, f.x + dir * f.W * 0.25, f.y - f.H * 1.12, 10, t * 0.3);
+  }
+});
+
+/* ---------- particles ---------- */
+function fxEventBoss2(type, x, y, a, b) {
+  switch (type) {
+    case 'dazzle':
+      spawnFx({ k: 'flash', life: 5, a: 0.25, col: '255,250,220' });
+      spawnFx({ k: 'ring', x, y, life: 14, r0: 10, r1: 70, col: '#ffffff', lw: 5 });
+      for (let i = 0; i < 10; i++) { const an = Math.random() * 6.28, s = 2 + Math.random() * 5; spawnFx({ k: 'spark', x, y, vx: Math.cos(an) * s, vy: Math.sin(an) * s, life: 18, col: i % 2 ? '#ffffff' : '#ffd84a', size: 3 }); }
+      return true;
+    case 'flashpop':
+      spawnFx({ k: 'flash', life: 7, a: 0.35, col: '255,250,220' });
+      spawnFx({ k: 'ring', x, y, life: 18, r0: 10, r1: 110, col: '#fff6c8', lw: 6 });
+      return true;
+    case 'trail':
+      if (MOVEFX[b] === 'dribble') { for (let i = 0; i < 2; i++) spawnFx({ k: 'spark', x, y: y + 20, vx: -a * (1 + Math.random() * 2), vy: -Math.random() * 2, g: 0.2, life: 16, col: i ? '#ffb15c' : '#ffffff', size: 2.5 }); return true; }
+      return false;
+  }
+  return false;
+}
+
+/* dazzled fighters see stars instead of lightning */
+function drawDazzle(g, f, t) {
+  g.save(); g.globalCompositeOperation = 'lighter';
+  g.fillStyle = 'rgba(255,250,220,.22)'; g.beginPath(); g.ellipse(f.x, f.y - f.H / 2, f.W * 0.75, f.H * 0.62, 0, 0, Math.PI * 2); g.fill();
+  const cy = f.y - f.H - 10;
+  for (let i = 0; i < 4; i++) {
+    const a = t * 0.12 + i / 4 * Math.PI * 2, sx = f.x + Math.cos(a) * f.W * 0.55, sy = cy + Math.sin(a) * 7;
+    g.fillStyle = i % 2 ? '#ffffff' : '#ffd84a'; star(g, sx, sy, 6); g.fill();
+  }
+  g.restore();
+}
+
+/* ---------- ultimates ---------- */
+function drawUltWorldBoss2(g, view, c, t) {
+  const { f, tg, def, k } = c, B = view.stage.blast;
+  if (def.theme === 'photo') {
+    tg.forEach((o, j) => {
+      const cx = o.x, cy = o.y - o.H / 2, s = 120 - Math.min(40, k * 0.6);
+      // viewfinder brackets closing in
+      g.strokeStyle = '#ffffff'; g.lineWidth = 5;
+      for (const [sx, sy] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) { g.beginPath(); g.moveTo(cx + sx * s, cy + sy * (s - 28)); g.lineTo(cx + sx * s, cy + sy * s); g.lineTo(cx + sx * (s - 28), cy + sy * s); g.stroke(); }
+      g.fillStyle = '#ff3b3b'; circle(g, cx - s + 14, cy - s + 14, 6); g.fill();
+      // flashes on each small hit
+      if ((k + j * 5) % 18 < 4) { const fg = g.createRadialGradient(cx, cy, 0, cx, cy, 160); fg.addColorStop(0, 'rgba(255,255,255,.95)'); fg.addColorStop(1, 'rgba(255,216,74,0)'); g.fillStyle = fg; circle(g, cx, cy, 160); g.fill(); }
+      // polaroids swirling
+      for (let i = 0; i < 6; i++) { const a = k * 0.06 + i / 6 * Math.PI * 2, rr = 70 + Math.sin(k * 0.05 + i) * 20; g.save(); g.globalCompositeOperation = 'source-over'; PROJ_NEW.photo(g, {}, t + i * 9, cx + Math.cos(a) * rr * 1.4, cy + Math.sin(a) * rr, 16, 1); g.restore(); }
+    });
+    if (k > 100) { g.fillStyle = `rgba(0,0,0,${Math.min(0.85, (k - 100) / 8)})`; g.fillRect(B.l, B.t, B.r - B.l, B.b - B.t); }
+    return true;
+  }
+  if (def.theme === 'court') {
+    tg.forEach((o, j) => {
+      const cx = o.x, top = o.y - o.H - 130 + Math.max(0, 30 - k) * 6;
+      // backboard + hoop above the target
+      g.fillStyle = 'rgba(255,255,255,.9)'; rrect(g, cx - 70, top - 70, 140, 90, 6); g.fill(); g.strokeStyle = '#1a0f06'; g.lineWidth = 3; g.stroke();
+      g.strokeStyle = '#ff3b3b'; g.lineWidth = 3; g.strokeRect(cx - 26, top - 30, 52, 38);
+      g.strokeStyle = '#ff6a00'; g.lineWidth = 6; g.beginPath(); g.ellipse(cx, top + 24, 34, 9, 0, 0, Math.PI * 2); g.stroke();
+      g.strokeStyle = 'rgba(255,255,255,.85)'; g.lineWidth = 1.6;
+      for (let i = -3; i <= 3; i++) { g.beginPath(); g.moveTo(cx + i * 10, top + 26); g.lineTo(cx + i * 6, top + 70); g.stroke(); }
+      // basketballs raining through the hoop onto the target
+      for (let i = 0; i < 5; i++) { const ph = ((k * 2.2 + i * 23 + j * 11) % 110) / 110; const bx = cx + Math.sin(i * 2.1 + k * 0.05) * 50 * (1 - ph), by = top - 200 + ph * (o.y - top + 200); drawBall(g, bx, by, 15, k * 0.2 + i); }
+    });
+    return true;
+  }
+  return false;
+}
+function drawThemeArtBoss2(g, def, vw, vh, t, k) {
+  const col = def.colors;
+  if (def.theme === 'photo') {
+    // aperture blades + film strip edges
+    const cx = vw * 0.76, cy = vh * 0.5, R = Math.min(vw, vh) * 0.42, open = 0.55 + Math.sin(k * 0.08) * 0.25;
+    for (let i = 0; i < 8; i++) {
+      const a = i / 8 * Math.PI * 2 + k * 0.01;
+      g.fillStyle = hexA(i % 2 ? '#2a2a33' : '#3a3a46', 0.9);
+      g.beginPath(); g.moveTo(cx + Math.cos(a) * R * open, cy + Math.sin(a) * R * open); g.lineTo(cx + Math.cos(a + 0.8) * R * 1.4, cy + Math.sin(a + 0.8) * R * 1.4); g.lineTo(cx + Math.cos(a - 0.3) * R * 1.4, cy + Math.sin(a - 0.3) * R * 1.4); g.closePath(); g.fill();
+    }
+    g.strokeStyle = hexA(col[1], 0.8); g.lineWidth = 5; circle(g, cx, cy, R); g.stroke();
+    for (const y of [0, vh - 38]) { g.fillStyle = 'rgba(10,10,14,.9)'; g.fillRect(0, y, vw, 38); g.fillStyle = 'rgba(255,240,200,.85)'; for (let x = (k * 6) % 40; x < vw; x += 40) g.fillRect(x, y + 10, 22, 18); }
+    return;
+  }
+  if (def.theme === 'court') {
+    // hardwood floor, court lines and a scoreboard
+    for (let i = 0; i < 12; i++) { g.fillStyle = hexA(i % 2 ? '#c98a4b' : '#b8773a', 0.55); g.fillRect(0, vh * 0.62 + i * vh * 0.035, vw, vh * 0.035); }
+    g.strokeStyle = 'rgba(255,255,255,.75)'; g.lineWidth = 4;
+    g.beginPath(); g.ellipse(vw * 0.75, vh * 0.98, vw * 0.3, vh * 0.25, 0, Math.PI, Math.PI * 2); g.stroke();
+    g.beginPath(); g.moveTo(0, vh * 0.66); g.lineTo(vw, vh * 0.66); g.stroke();
+    const sx = vw * 0.62, sy = vh * 0.08, sw = Math.min(260, vw * 0.3);
+    g.fillStyle = 'rgba(10,8,6,.9)'; rrect(g, sx, sy, sw, 70, 8); g.fill(); g.strokeStyle = col[1]; g.lineWidth = 3; g.stroke();
+    g.font = '700 34px "Chakra Petch", monospace'; g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.fillStyle = (k >> 3) & 1 ? '#ff3b3b' : '#ffd35c'; g.fillText('00:0' + Math.max(0, 3 - Math.floor(k / 35)), sx + sw / 2, sy + 36);
+    for (let i = 0; i < 6; i++) drawBall(g, (i * 173 + k * 3) % vw, vh * 0.3 + Math.abs(Math.sin(k * 0.08 + i)) * vh * 0.25, 18, k * 0.1 + i);
   }
 }
 
@@ -5169,6 +5527,7 @@ function drawUltSplash(g, vw, vh) {
 
 function drawUltWorldNew(g, view, c, t) {
   const { f, tg, def, k } = c, B = view.stage.blast, st = view.stage;
+  if (typeof drawUltWorldBoss2 === 'function' && drawUltWorldBoss2(g, view, c, t)) return true;
   const midY = tg.length ? tg.reduce((a, o) => a + o.y - o.H / 2, 0) / tg.length : st.spawnY + 150;
   switch (def.theme) {
     case 'legend': {
@@ -5279,6 +5638,7 @@ function drawUltWorldNew(g, view, c, t) {
 
 function drawThemeArtNew(g, def, vw, vh, t, k) {
   const col = def.colors;
+  if ((def.theme === 'photo' || def.theme === 'court') && typeof drawThemeArtBoss2 === 'function') { drawThemeArtBoss2(g, def, vw, vh, t, k); return; }
   switch (def.theme) {
     case 'legend': {
       const cols = ['#34d1bf', '#ff6a1a', '#ffe14a', '#3fe0d0', '#e8354a', '#7cff6b', '#e6b84a'];
@@ -6654,7 +7014,7 @@ function encodeState(g) {
     ob: g.orb ? [r(g.orb.x), r(g.orb.y), Math.max(0, Math.ceil(g.orb.hp)), g.orb.max, g.orb.flash] : null,
     u: g.ult ? [g.ult.slot, g.ult.t, g.ult.targets, Math.max(0, ULT_PH.indexOf(g.ult.ph)), Math.round(g.ult.ax || 0), Math.round(g.ult.ay || 0), g.ult.aim | 0, g.ult.lock | 0] : null,
     f: g.fighters.map(f => [r(f.x), r(f.y), f.face, POSES.indexOf(f.pose), r((f.pt || 0) * 20), r(f.dmg * 10), f.stocks,
-      (f.inv > 0 ? 1 : 0) | (f.shielding ? 2 : 0) | (f.flyT > 0 ? 4 : 0) | (f.frozen > 0 ? 8 : 0) | (f.helpless ? 16 : 0) | (f.dead > 0 ? 32 : 0) | (f.out ? 64 : 0) | (f.halo > 0 ? 128 : 0) | (f.armor ? 256 : 0) | (f.buffT > 0 ? 512 : 0) | (f.hot ? 1024 : 0) | (f.ult ? 2048 : 0) | (f.burn > 0 ? 4096 : 0) | (f.zap > 0 ? 8192 : 0) | (f.slow > 0 ? 16384 : 0) | (f.vanish ? 32768 : 0),
+      (f.inv > 0 ? 1 : 0) | (f.shielding ? 2 : 0) | (f.flyT > 0 ? 4 : 0) | (f.frozen > 0 ? 8 : 0) | (f.helpless ? 16 : 0) | (f.dead > 0 ? 32 : 0) | (f.out ? 64 : 0) | (f.halo > 0 ? 128 : 0) | (f.armor ? 256 : 0) | (f.buffT > 0 ? 512 : 0) | (f.hot ? 1024 : 0) | (f.ult ? 2048 : 0) | (f.burn > 0 ? 4096 : 0) | (f.zap > 0 ? 8192 : 0) | (f.slow > 0 ? 16384 : 0) | (f.vanish ? 32768 : 0) | (f.zap > 0 && f.dazzle ? 65536 : 0),
       MOVEKEYS.indexOf(f.mv), r(f.shieldHP), f.kos, f.falls, r((f.charge || 0) * 10), f.tag === 'CPU' ? 1 : 0, f.yenMode | 0, (f.frzOn ? 1 : 0) | (Math.ceil((f.frzCD || 0) / 60) << 1)]),
     p: g.projs.slice(0, 24).map(p => [r(p.x), r(p.y), Math.sign(p.vx) || 1, SHAPES.indexOf(p.shape), r(p.size), p.color, p.armed ? 1 : 0, r((p.ang != null ? p.ang : Math.atan2(p.vy, p.vx)) * 100), p.charged ? 1 : 0]),
     e: g.events.slice(-10)
@@ -6781,7 +7141,7 @@ function guestView() {
       v.stocks = a[6];
       const fl = a[7];
       v.inv = fl & 1; v.shielding = !!(fl & 2); v.flyT = fl & 4 ? 1 : 0; v.frozen = fl & 8 ? 1 : 0; v.helpless = !!(fl & 16);
-      v.dead = fl & 32 ? 1 : 0; v.out = !!(fl & 64); v.halo = fl & 128 ? 1 : 0; v.armor = !!(fl & 256); v.buffT = fl & 512 ? 1 : 0; v.hot = !!(fl & 1024); v.ult = !!(fl & 2048); v.burn = fl & 4096 ? 1 : 0; v.zap = fl & 8192 ? 1 : 0; v.slow = fl & 16384 ? 1 : 0; v.vanish = !!(fl & 32768);
+      v.dead = fl & 32 ? 1 : 0; v.out = !!(fl & 64); v.halo = fl & 128 ? 1 : 0; v.armor = !!(fl & 256); v.buffT = fl & 512 ? 1 : 0; v.hot = !!(fl & 1024); v.ult = !!(fl & 2048); v.burn = fl & 4096 ? 1 : 0; v.zap = fl & 8192 ? 1 : 0; v.slow = fl & 16384 ? 1 : 0; v.vanish = !!(fl & 32768); v.dazzle = !!(fl & 65536);
       v.mv = MOVEKEYS[a[8]] || null; v.shieldHP = a[9]; v.kos = a[10]; v.falls = a[11]; v.charge = a[12] / 10;
       if (a[13]) v.tag = 'CPU';
       v.yenMode = a[14] | 0;
@@ -7407,7 +7767,7 @@ renderAcctChip();
 /* ===== boss.js ===== */
 'use strict';
 /* ===== CLOUDTOP BRAWL — Boss Fight =====
-   10 levels against Legend Yen, each harder than the last. Beat all 10 to unlock him.
+   30 levels in three chapters (Legend Yen, Master Chuang, Mythic Hsi). Beat a chapter to unlock its boss.
    The fight runs on the game server (like an online match), so the server decides who won
    and saves your progress to your account. Your browser only sends button presses. */
 
@@ -7426,7 +7786,7 @@ function renderBoss() {
   const s = document.getElementById('scr-boss'); if (!s || G.screen !== 'boss') return;
   s.textContent = '';
   const back = el('button', { type: 'button', class: 'back', text: '← Back', on: { click: () => { SFX.play('ui'); BOSS.result = null; show('main'); } } });
-  const outer = el('div', { class: 'wrap' }, [el('header', { class: 'bar' }, [back, el('h2', { text: 'Boss Fight' }), el('p', { class: 'sub', text: 'Beat 10 levels of Legend Yen, each harder than the last, to unlock him.' })])]);
+  const outer = el('div', { class: 'wrap' }, [el('header', { class: 'bar' }, [back, el('h2', { text: 'Boss Fight' }), el('p', { class: 'sub', text: 'Three chapters, ten levels each. Beat a chapter to unlock its boss.' })])]);
   s.appendChild(outer);
   const wrap = el('div', { class: 'bs-wrap' });
   outer.appendChild(wrap);
@@ -7439,36 +7799,58 @@ function renderBoss() {
   if (!acctSignedIn()) { note('Sign in to fight the boss and save your progress on any device.', 'Sign in', () => showLogin()); return; }
   if (!ACCT.profile) { note('Couldn’t load your progress. Check your connection.', 'Try again', () => acctChanged()); return; }
 
-  const beaten = ACCT.profile.beaten | 0, total = BOSS_LEVELS.length, unlocked = MY_UNLOCKED.indexOf(BOSS_ID) >= 0;
+  const beaten = ACCT.profile.beaten | 0, total = BOSS_LEVELS.length;
   if (BOSS.sel > Math.min(total, beaten + 1)) BOSS.sel = Math.min(total, beaten + 1);
   if (BOSS.sel < 1) BOSS.sel = 1;
+  const ch = bossChapter(BOSS.sel), bossName = CHAR[ch.boss].name;
+  const has = id => MY_UNLOCKED.indexOf(id) >= 0;
 
   // result banner from the last fight
   if (BOSS.result) {
-    const r = BOSS.result;
+    const r = BOSS.result, rc = bossChapter(r.level);
     const txt = r.error ? 'The fight ended, but your result couldn’t be saved. Try again.'
-      : r.win ? (r.level >= total && unlocked ? 'LEGEND YEN UNLOCKED! He’s now in your fighter list.' : `LEVEL ${r.level} CLEARED!`)
+      : r.win ? (r.level === rc.to && has(rc.boss) ? `${CHAR[rc.boss].name.toUpperCase()} UNLOCKED! He’s now in your fighter list.` : `LEVEL ${r.level} CLEARED!`)
       : `Defeated on level ${r.level}. Try again!`;
     wrap.appendChild(el('div', { class: 'bs-banner ' + (r.win ? 'win' : 'lose'), role: 'status', text: txt }));
   }
 
+  // chapter tabs: one card per boss
+  const chaps = el('div', { class: 'bs-chaps', role: 'tablist', 'aria-label': 'Chapters' });
+  BOSS_CHAPTERS.forEach(c => {
+    const open = beaten + 1 >= c.from, done = Math.max(0, Math.min(10, beaten - c.from + 1)), on = c === ch;
+    const cv = el('canvas', { class: 'bs-chcv', 'aria-hidden': 'true' });
+    const b = el('button', { type: 'button', role: 'tab', 'aria-selected': String(on), class: 'bs-chap' + (on ? ' sel' : '') + (open ? '' : ' locked'), 'data-id': c.boss,
+      on: { click: () => { if (!open) { toast(`Beat level ${c.from - 1} to open ${c.title}.`); return; } SFX.play('ui'); BOSS.sel = Math.min(c.to, Math.max(c.from, beaten + 1)); renderBoss(); } } }, [
+      cv,
+      el('span', { class: 'bs-chtx' }, [
+        el('small', { text: c.title + ' · Levels ' + c.from + '–' + c.to }),
+        el('b', { text: open ? CHAR[c.boss].name : '???' }),
+        el('small', { text: !open ? '🔒 Beat the chapter before' : has(c.boss) ? '✓ Unlocked' : `${done}/10 cleared` })
+      ])
+    ]);
+    chaps.appendChild(b);
+    if (open) requestAnimationFrame(() => drawPortrait(cv, c.boss));
+  });
+  wrap.appendChild(panel([el('div', { class: 'sc-eyebrow', text: 'Chapters' }), chaps], 'bs-top'));
+
   // the boss card
+  const cleared = Math.max(0, Math.min(10, beaten - ch.from + 1)), got = has(ch.boss);
   const cv = el('canvas', { class: 'bs-cv', 'aria-hidden': 'true' });
-  const prog = el('div', { class: 'bs-prog' }, [el('i', { style: `width:${Math.round(100 * beaten / total)}%` })]);
+  const prog = el('div', { class: 'bs-prog' }, [el('i', { style: `width:${cleared * 10}%` })]);
   wrap.appendChild(panel([
     el('div', { class: 'bs-boss' }, [cv, el('div', {}, [
-      el('div', { class: 'sc-eyebrow', text: unlocked ? 'Unlocked' : 'Locked fighter' }),
-      el('h3', { class: 'sc-name', text: 'Legend Yen' }),
-      el('p', { class: 'muted', text: unlocked ? 'You beat all 10 levels. Legend Yen is yours in Solo and Online. You can keep fighting him for practice.' : 'The ultra max fighter. He switches between seven fighters’ styles. Beat all 10 levels to make him yours.' }),
-      el('div', { class: 'bs-progrow' }, [prog, el('b', { text: `${beaten}/${total}` })])
+      el('div', { class: 'sc-eyebrow', text: (got ? 'Unlocked · ' : 'Locked fighter · ') + ch.title }),
+      el('h3', { class: 'sc-name', text: bossName }),
+      el('p', { class: 'muted', text: got ? `You beat ${ch.title}. ${bossName} is yours in Solo and Online. Keep fighting for practice.` : `${ch.blurb} Beat levels ${ch.from}–${ch.to} to make him yours.` }),
+      el('div', { class: 'bs-progrow' }, [prog, el('b', { text: `${cleared}/10` })])
     ])])
   ], 'bs-top'));
-  requestAnimationFrame(() => drawPortrait(cv, BOSS_ID));
+  requestAnimationFrame(() => drawPortrait(cv, ch.boss));
 
-  // level ladder
+  // level ladder for this chapter
   const grid = el('div', { class: 'bs-grid', role: 'list' });
-  BOSS_LEVELS.forEach((L, i) => {
-    const n = i + 1, done = n <= beaten, open = n <= beaten + 1;
+  for (let n = ch.from; n <= ch.to; n++) {
+    const L = BOSS_LEVELS[n - 1], done = n <= beaten, open = n <= beaten + 1;
     const card = el('button', { type: 'button', role: 'listitem', class: 'bs-lv' + (done ? ' done' : '') + (open ? '' : ' locked') + (BOSS.sel === n ? ' sel' : ''), 'aria-pressed': String(BOSS.sel === n), on: { click: () => { if (!open) { toast(`Beat level ${n - 1} first.`); return; } SFX.play('ui'); BOSS.sel = n; renderBoss(); } } }, [
       el('span', { class: 'bs-n', text: open ? String(n) : '🔒' }),
       el('b', { text: L.name }),
@@ -7476,8 +7858,8 @@ function renderBoss() {
       done ? el('span', { class: 'bs-tick', text: '✓' }) : null
     ]);
     grid.appendChild(card);
-  });
-  wrap.appendChild(panel([el('div', { class: 'sc-eyebrow', text: 'Levels' }), grid]));
+  }
+  wrap.appendChild(panel([el('div', { class: 'sc-eyebrow', text: `${ch.title} levels` }), grid]));
 
   // fighter pick + start
   const L = BOSS_LEVELS[BOSS.sel - 1];
@@ -7503,7 +7885,7 @@ function renderBoss() {
   go.addEventListener('click', () => { SFX.play('ui'); bossStart(BOSS.sel, BOSS.pick); });
   wrap.appendChild(panel([
     el('div', { class: 'sc-eyebrow', text: `Level ${BOSS.sel}: ${L.name}` }),
-    el('p', { class: 'muted', text: `You get ${BOSS_PLAYER_STOCKS} lives. Legend Yen has ${L.stocks} ${L.stocks > 1 ? 'lives' : 'life'}, hits ${Math.round(L.pow * 100)}% as hard${L.kb < 1 ? ` and is ${Math.round((1 - L.kb) * 100)}% harder to launch` : ''}${L.minions.length ? `, with ${L.minions.length} helper${L.minions.length > 1 ? 's' : ''}` : ''}. 6-minute time limit.` }),
+    el('p', { class: 'muted', text: `You get ${BOSS_PLAYER_STOCKS} lives. ${bossName} has ${L.stocks} ${L.stocks > 1 ? 'lives' : 'life'}, hits ${Math.round(L.pow * 100)}% as hard${L.kb < 1 ? ` and is ${Math.round((1 - L.kb) * 100)}% harder to launch` : ''}${L.minions.length ? `, with ${L.minions.length} helper${L.minions.length > 1 ? 's' : ''}` : ''}. 6-minute time limit.` }),
     el('div', { class: 'bs-pick' }, [el('span', {}, [document.createTextNode('Your fighter: '), el('b', { id: 'bs-pick-name', text: pickName })]), picker]),
     go
   ], 'bs-go'));

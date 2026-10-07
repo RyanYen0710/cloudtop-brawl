@@ -302,6 +302,15 @@ body{touch-action:manipulation}
 .bs-ch .tile-cv{height:72px}
 .bs-ch.sel{border-color:var(--gold);box-shadow:0 0 0 2px rgba(255,181,71,.35);background:linear-gradient(180deg,#3a2f6e,#241d52)}
 .bs-pick b{color:var(--gold)}
+.bs-chaps{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:8px}
+.bs-chap{display:flex;align-items:center;gap:10px;text-align:left;padding:8px 10px;border-radius:10px;background:var(--panel2);border:2px solid var(--line2);min-width:0}
+.bs-chap.sel{border-color:var(--gold);box-shadow:0 0 0 2px rgba(255,181,71,.3);background:linear-gradient(180deg,#3a2f6e,#241d52)}
+.bs-chap.locked{opacity:.55}
+.bs-chcv{width:54px;height:62px;flex:none}
+.bs-chtx{display:flex;flex-direction:column;gap:2px;min-width:0}
+.bs-chtx b{font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bs-chtx small{font-size:11px;color:var(--mute)}
+@media (max-width:640px){.bs-chaps{grid-template-columns:minmax(0,1fr)}}
 .bs-banner{padding:14px 16px;border-radius:10px;font-family:var(--disp);font-size:20px;text-align:center}
 .bs-banner.win{background:linear-gradient(90deg,#3c7a5c,#6fe39a);color:#0c1f14}
 .bs-banner.lose{background:#3a1f2a;border:2px solid var(--coral)}
