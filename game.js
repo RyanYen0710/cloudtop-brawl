@@ -6979,18 +6979,30 @@ function renderBoss() {
 
   // fighter pick + start
   const L = BOSS_LEVELS[BOSS.sel - 1];
-  const sel = el('select', { id: 'bs-char', 'aria-label': 'Your fighter' });
-  [{ id: 'random', name: 'Random' }, ...ROSTER.filter(c => isPickable(c.id, MY_UNLOCKED))].forEach(c => {
-    const o = el('option', { value: c.id, text: c.name }); if (c.id === BOSS.pick) o.selected = true; sel.appendChild(o);
+  // fighter picker in the game's own style: portrait tiles, like the main fighter select
+  const opts = [...ROSTER.filter(c => isPickable(c.id, MY_UNLOCKED)), { id: 'random', name: 'Random' }];
+  if (!opts.some(c => c.id === BOSS.pick)) BOSS.pick = 'random';
+  const picker = el('div', { class: 'bs-chars', role: 'radiogroup', 'aria-label': 'Your fighter' });
+  opts.forEach(c => {
+    const on = c.id === BOSS.pick;
+    const t = el('button', { type: 'button', role: 'radio', 'aria-checked': String(on), class: 'tile bs-ch' + (on ? ' sel' : ''), 'data-id': c.id, title: c.name }, [
+      el('canvas', { class: 'tile-cv', 'aria-hidden': 'true' }), el('span', { class: 'tile-name', text: c.name })]);
+    t.addEventListener('click', () => {
+      SFX.play('ui'); BOSS.pick = c.id;
+      picker.querySelectorAll('.bs-ch').forEach(b => { const me = b.dataset.id === c.id; b.classList.toggle('sel', me); b.setAttribute('aria-checked', String(me)); });
+      const nm = document.getElementById('bs-pick-name'); if (nm) nm.textContent = c.name;
+    });
+    picker.appendChild(t);
   });
-  sel.addEventListener('change', () => { BOSS.pick = sel.value; });
+  requestAnimationFrame(() => picker.querySelectorAll('.bs-ch').forEach(b => drawPortrait(b.querySelector('canvas'), b.dataset.id)));
+  const pickName = (opts.find(c => c.id === BOSS.pick) || { name: 'Random' }).name;
   const go = el('button', { type: 'button', class: 'btn start', text: BOSS.busy ? 'Connecting…' : `Fight level ${BOSS.sel}` });
   if (BOSS.busy) go.disabled = true;
-  go.addEventListener('click', () => { SFX.play('ui'); bossStart(BOSS.sel, sel.value); });
+  go.addEventListener('click', () => { SFX.play('ui'); bossStart(BOSS.sel, BOSS.pick); });
   wrap.appendChild(panel([
     el('div', { class: 'sc-eyebrow', text: `Level ${BOSS.sel}: ${L.name}` }),
     el('p', { class: 'muted', text: `You get ${BOSS_PLAYER_STOCKS} lives. Legend Yen has ${L.stocks} ${L.stocks > 1 ? 'lives' : 'life'}, hits ${Math.round(L.pow * 100)}% as hard${L.kb < 1 ? ` and is ${Math.round((1 - L.kb) * 100)}% harder to launch` : ''}${L.minions.length ? `, with ${L.minions.length} helper${L.minions.length > 1 ? 's' : ''}` : ''}. 6-minute time limit.` }),
-    el('label', { class: 'bs-pick' }, [el('span', { text: 'Your fighter' }), sel]),
+    el('div', { class: 'bs-pick' }, [el('span', {}, [document.createTextNode('Your fighter: '), el('b', { id: 'bs-pick-name', text: pickName })]), picker]),
     go
   ], 'bs-go'));
 }
