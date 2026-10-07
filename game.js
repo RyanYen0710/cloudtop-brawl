@@ -1693,16 +1693,31 @@ function aiBrain(f, g, A, LV, P) {
   const DEF = AI_DEF[LV], RX = AI_RX[LV];
   const wasStun = A.stun || 0; A.stun = f.hitstun;
   if (g.ult && (g.ult.ph === 'aim' || g.ult.ph === 'lock') && !f.ledge && f.hitstun <= 0 && g.ult.slot !== f.slot) {
-    // an ultimate crosshair is hunting: stay out of the circle
+    // an ultimate crosshair is hunting. How well a CPU dodges is pure skill, set by its level (no dice rolls):
+    //  - how far away it notices the crosshair     lvl 1: only when it's on top of it   lvl 10: from far away
+    //  - how fast it reacts when the circle locks  lvl 1: ~0.5 s (too slow to escape)    lvl 10: ~0.07 s
+    //  - low levels just run straight away (even toward an edge); level 4+ steer toward open floor,
+    //    level 6+ jump when the circle is low, level 8+ roll out at the last moment
     const u = g.ult, ddx = f.x - u.ax, d = Math.hypot(ddx, f.y - f.H / 2 - u.ay);
-    if (A.udKey !== u) { A.udKey = u; A.udWill = Math.random() < 0.2 + DEF * 0.6; }
-    if (A.udWill && d < ULT_R + (u.ph === 'lock' ? 150 : 70)) {
-      const st0 = g.stage, run = ddx >= 0 ? BR : BL, edge = surfaceBelow(st0, f.x + (ddx >= 0 ? 90 : -90), f.y) === null;
-      const dir = edge ? (run === BR ? BL : BR) : run;
+    if (A.udKey !== u) { A.udKey = u; A.udAim = -1; A.udLock = -1; }
+    const notice = ULT_R * 0.6 + LV * 22, react = Math.max(3, 34 - LV * 3);
+    let go = false;
+    if (u.ph === 'aim') {
+      if (LV >= 3 && d < notice) { if (A.udAim < 0) A.udAim = g.frame; go = g.frame - A.udAim >= react; }
+      else A.udAim = -1;
+    } else {
+      if (A.udLock < 0) A.udLock = g.frame;
+      go = g.frame - A.udLock >= react && d < ULT_R + 40 + LV * 6;
+    }
+    if (go) {
+      const st0 = g.stage, run = ddx >= 0 ? BR : BL;
+      const edge = surfaceBelow(st0, f.x + (ddx >= 0 ? 110 : -110), f.y) === null;
+      const dir = LV >= 4 && edge ? (run === BR ? BL : BR) : run;      // smarter CPUs don't run off the stage
       let pr0 = 0;
-      if (f.ground && (u.ay > f.y - f.H * 1.2 || edge) && Math.random() < 0.15) pr0 |= BJ;
-      if (u.ph === 'lock' && d < ULT_R + 40 && f.ground && Math.random() < DEF) return { b: BH, pr: dir };   // roll out at the last second
-      A.held = dir; A.cd = 3; return { b: dir, pr: pr0 };
+      const lockLeft = u.ph === 'lock' ? u.lock : 99;
+      if (LV >= 8 && u.ph === 'lock' && f.ground && lockLeft <= 20 && d < ULT_R + 10) return { b: BH, pr: dir };   // roll out
+      if (LV >= 6 && f.ground && (u.ay > f.y - f.H * 1.1 || dir !== run) && (g.frame + f.slot * 7) % 24 === 0) pr0 |= BJ;
+      A.held = dir; A.cd = 2; return { b: dir, pr: pr0 };
     }
   }
   if (f.halo > 0 || f.ledge || (g.ult && g.ult.ph !== 'aim' && g.ult.ph !== 'lock') || f.hitstun > 0 || f.frozen > 0 || f.zap > 0 || f.shieldBreak > 0) { A.guard = 0; return null; }
@@ -3831,7 +3846,8 @@ function fxEvent(e, getF) {
     case 'ultfinal': spawnFx({ k: 'flash', life: 14, a: 0.7 }); break;
     case 'ultaim': spawnFx({ k: 'ring', x, y, life: 24, r0: 10, r1: 140, col: '#ffffff', lw: 5 }); break;
     case 'ultlock': spawnFx({ k: 'ring', x, y, life: 20, r0: 200, r1: 120, col: '#ff3b3b', lw: 6 }); break;
-    case 'ultmiss': spawnFx({ k: 'ring', x, y, life: 26, r0: 120, r1: 10, col: '#c9c5e6', lw: 4 }); for (let i = 0; i < 14; i++) { const an = Math.random() * 6.28, s2 = 2 + Math.random() * 4; spawnFx({ k: 'smoke', x, y, vx: Math.cos(an) * s2, vy: Math.sin(an) * s2, life: 26, col: 'rgba(200,200,220,.6)', size: 10 }); } if (typeof toast === 'function' && typeof G !== 'undefined' && G.screen === 'fight') toast('Missed! The ultimate hit nobody.'); break;
+    case 'ultmiss': spawnFx({ k: 'ring', x, y, life: 26, r0: 120, r1: 10, col: '#c9c5e6', lw: 4 }); for (let i = 0; i < 14; i++) { const an = Math.random() * 6.28, s2 = 2 + Math.random() * 4; spawnFx({ k: 'smoke', x, y, vx: Math.cos(an) * s2, vy: Math.sin(an) * s2, life: 26, col: 'rgba(200,200,220,.6)', size: 10 }); } if (typeof ultSplash === 'function' && typeof G !== 'undefined' && G.screen === 'fight') ultSplash('MISS!'); break;
+    case 'ulthitok': spawnFx({ k: 'flash', life: 8, a: 0.4 }); if (typeof ultSplash === 'function' && typeof G !== 'undefined' && G.screen === 'fight') { const uf = getF ? getF(b) : null; ultSplash(a > 1 ? 'HIT ×' + a + '!' : 'HIT!', uf ? ultDef(uf.c).colors[1] : '#ff6b2e'); } break;
     case 'ultback': spawnFx({ k: 'ring', x, y, life: 22, r0: 90, r1: 10, col: col, lw: 5 }); for (let i = 0; i < 16; i++) { const an = Math.random() * 6.28, s2 = 2 + Math.random() * 5; spawnFx({ k: 'spark', x, y, vx: Math.cos(an) * s2, vy: Math.sin(an) * s2, life: 20, col: i % 2 ? '#fff' : col, size: 3 }); } break;
     case 'frzarm': spawnFx({ k: 'ring', x, y, life: 18, r0: a ? 70 : 10, r1: a ? 10 : 70, col: '#9fe7ff', lw: 4 }); break;
     case 'frzfire': spawnFx({ k: 'ring', x, y, life: 16, r0: 10, r1: 80, col: '#ffffff', lw: 5 }); for (let i = 0; i < 12; i++) { const an = Math.random() * 6.28, s2 = 2 + Math.random() * 5; spawnFx({ k: 'spark', x, y, vx: Math.cos(an) * s2, vy: Math.sin(an) * s2, life: 18, col: i % 2 ? '#ffffff' : '#9fe7ff', size: 3 }); } break;
@@ -3987,6 +4003,7 @@ function renderScene(g, view, vw, vh, t, opts) {
   }
   drawUltCutscene(g, view, vw, vh, t);
   if (typeof drawUltAimHud === 'function') drawUltAimHud(g, view, vw, vh, t, opts.localSlot);
+  if (typeof drawUltSplash === 'function') drawUltSplash(g, vw, vh);
 }
 
 function drawTimerAndBanner(g, view, vw, vh, hudH, t, atTop, cx) {
@@ -4593,7 +4610,7 @@ Object.keys(STYLE).forEach(id => {
 const ULT_CUT = 110, ULT_FX = 130;
 /* aimed ultimates: after the splash the user vanishes and steers a crosshair (WASD / arrows).
    K fires (or it fires itself when time runs out). Only enemies inside the circle get hit. */
-const ULT_AIM = 300, ULT_LOCK = 26, ULT_R = 125, ULT_SPD = 9;
+const ULT_AIM = 300, ULT_LOCK = 38, ULT_R = 110, ULT_SPD = 6.5;
 const ULT_PH = ['cut', 'aim', 'lock', 'fx'];
 const ORB_R = 28;
 const DEFAULT_ULT = { name: 'Ultimate Burst', desc: 'A huge blast of power hits every enemy.', theme: 'plain', hits: 4, dmg: 4, final: { dmg: 18, b: 12, g: 1.35, angle: 60 } };
@@ -4693,7 +4710,7 @@ function stepUlt(g, inputs) {
       u.targets = g.fighters.filter(o => o !== f && !o.out && o.dead <= 0 && !o.vanish && o.tid !== f.tid &&
         Math.hypot(o.x - u.ax, (o.y - o.H / 2) - u.ay) < ULT_R + o.W * 0.35).map(o => o.slot);
       if (!u.targets.length) { emit(g, 'ultmiss', u.ax, u.ay, 0, f.slot); endUlt(g, f); return false; }
-      u.ph = 'fx'; u.t = ULT_CUT;
+      u.ph = 'fx'; u.t = ULT_CUT; emit(g, 'ulthitok', u.ax, u.ay, u.targets.length, f.slot);
     }
     return false;
   }
@@ -4733,15 +4750,18 @@ function aiUltAim(f, g) {
     const d = Math.hypot(o.x - u.ax, o.y - o.H / 2 - u.ay); if (d < bd) { bd = d; best = o; }
   }
   if (!best) return { b: 0, pr: BS };
-  const lead = 10 + (f.lvl || 5) * 2;
-  const tx = best.x + best.vx * lead, ty = best.y - best.H / 2 + best.vy * lead * 0.6;
+  // the CPU's hand isn't perfect: it lags behind and wobbles, so a moving target can stay ahead of it
+  const lv = clamp(f.lvl || 5, 1, 11);
+  if (A.uw == null || --A.uwT <= 0) { A.uw = (Math.random() - 0.5) * (90 - lv * 5); A.uwv = (Math.random() - 0.5) * (60 - lv * 3); A.uwT = 20 + Math.floor(Math.random() * 30); }
+  const tx = best.x + A.uw, ty = best.y - best.H / 2 + A.uwv * 0.6;
   let b = 0;
-  if (tx > u.ax + 6) b |= BR; else if (tx < u.ax - 6) b |= BL;
-  if (ty > u.ay + 6) b |= BD; else if (ty < u.ay - 6) b |= BU;
-  if (A.ultHold == null) A.ultHold = 30 + Math.floor(Math.random() * 90);
+  if (tx > u.ax + 10) b |= BR; else if (tx < u.ax - 10) b |= BL;
+  if (ty > u.ay + 10) b |= BD; else if (ty < u.ay - 10) b |= BU;
+  if (A.ultHold == null) A.ultHold = 40 + Math.floor(Math.random() * 100);
   A.ultHold--;
-  const fire = Math.hypot(tx - u.ax, ty - u.ay) < 30 && A.ultHold <= 0;
-  if (fire) A.ultHold = null;
+  // fires when it's roughly lined up (or it's been chasing a while)
+  const fire = (Math.hypot(best.x - u.ax, best.y - best.H / 2 - u.ay) < 45 && A.ultHold <= 0) || u.aim < 20;
+  if (fire) { A.ultHold = null; A.uw = null; }
   return { b, pr: fire ? BS : 0 };
 }
 
@@ -5113,6 +5133,35 @@ function drawUltAimHud(g, view, vw, vh, t, localSlot) {
   g.restore();
 }
 
+/* big MISS! / HIT! splash in the middle of the screen when an aimed ultimate lands or whiffs */
+const ULT_SPLASH = { text: '', at: 0, col: '#fff' };
+function ultSplash(text, col) { ULT_SPLASH.text = text; ULT_SPLASH.col = col; ULT_SPLASH.at = performance.now(); }
+function drawUltSplash(g, vw, vh) {
+  if (!ULT_SPLASH.text) return;
+  const ms = performance.now() - ULT_SPLASH.at, DUR = 1300;
+  if (ms > DUR) { ULT_SPLASH.text = ''; return; }
+  const k = ms / DUR;
+  const pop = k < 0.12 ? 0.3 + (k / 0.12) * 1.0 : k < 0.2 ? 1.3 - ((k - 0.12) / 0.08) * 0.3 : 1;
+  const a = k > 0.75 ? 1 - (k - 0.75) / 0.25 : 1;
+  const miss = ULT_SPLASH.text.startsWith('MISS');
+  const size = Math.min(vw * 0.2, 150);
+  g.save();
+  g.globalAlpha = a;
+  g.translate(vw / 2, vh * 0.42 + (miss ? Math.sin(ms * 0.05) * 6 * (1 - k) : 0));
+  g.rotate(miss ? -0.06 : 0.04);
+  g.scale(pop, pop);
+  g.textAlign = 'center'; g.textBaseline = 'middle';
+  g.font = `${Math.round(size)}px "Dela Gothic One", Impact, sans-serif`;
+  g.lineJoin = 'round';
+  g.lineWidth = size * 0.16; g.strokeStyle = '#120d24'; g.strokeText(ULT_SPLASH.text, 0, size * 0.04);
+  const gr = g.createLinearGradient(0, -size * 0.5, 0, size * 0.5);
+  if (miss) { gr.addColorStop(0, '#ffffff'); gr.addColorStop(1, '#9a96b8'); }
+  else { gr.addColorStop(0, '#fff6c8'); gr.addColorStop(0.5, '#ffd35c'); gr.addColorStop(1, ULT_SPLASH.col || '#ff6b2e'); }
+  g.fillStyle = gr; g.fillText(ULT_SPLASH.text, 0, 0);
+  g.lineWidth = 3; g.strokeStyle = miss ? 'rgba(255,255,255,.6)' : 'rgba(255,255,255,.85)'; g.strokeText(ULT_SPLASH.text, 0, 0);
+  g.restore();
+}
+
 ;
 /* ===== ult-new.js ===== */
 'use strict';
@@ -5407,6 +5456,7 @@ const SFX = {
       case 'ultaim': [660, 990].forEach((f, i) => setTimeout(() => this.tone(f, 0.15, 'square', 0.05), i * 80)); break;
       case 'ultlock': [1320, 1320, 1760].forEach((f, i) => setTimeout(() => this.tone(f, 0.07, 'square', 0.07), i * 110)); break;
       case 'ultmiss': this.tone(300, 0.5, 'sawtooth', 0.08, 120); break;
+      case 'ulthitok': this.hiss(0.4, 0.3, 1200, 0.6); [523, 784, 1047].forEach((f, i) => setTimeout(() => this.tone(f, 0.18, 'square', 0.08), i * 60)); break;
       case 'ultback': this.tone(500, 0.2, 'triangle', 0.08, 1000); break;
       case 'frzarm': this.tone(a ? 1400 : 700, 0.15, 'triangle', 0.07, a ? 2200 : 400); break;
       case 'frzfire': this.tone(2400, 0.3, 'triangle', 0.08, 1200); this.hiss(0.2, 0.12, 6000, 2); break;
