@@ -362,45 +362,46 @@ const ROSTER = [
   },
   {
     id: 'chuang', name: 'Master Chuang', title: 'Shutter-speed photographer', legend: true, locked: true,
-    stats: { power: 6, speed: 7, weight: 5, jump: 7, defense: 5, skill: 7 },
+    stats: { power: 8, speed: 8, weight: 6, jump: 8, defense: 6, skill: 8 },
     look: { build: 'normal', body: '#6b5638', skin: '#e5bf98', accent: '#ffd84a', hair: '#2a211b', legs: '#2f3340', extra: ['photo'] },
-    passive: 'His camera flashes dazzle: anyone caught in a flash is stunned for a moment. Photos fly in a spread.',
+    passive: 'Boss-class. His flashes dazzle (stun) anyone they catch, Film Strip fires five photos, and two Photo Traps can be set at once.',
     strongVs: ['guo', 'zephyr'], weakVs: ['titan', 'hsi'],
-    ultimate: { name: 'Final Exposure', desc: 'Frames the target in a giant viewfinder: blinding flashes, a storm of polaroids, then the shutter slams.', theme: 'photo', colors: ['#0c0b10', '#ffd84a', '#ffffff'], hits: 5, dmg: 3, final: { dmg: 20, b: 13, g: 1.4, angle: 55 } },
+    ultimate: { name: 'Final Exposure', desc: 'Frames the target in a giant viewfinder: blinding flashes, a storm of polaroids, then the shutter slams.', theme: 'photo', colors: ['#0c0b10', '#ffd84a', '#ffffff'], hits: 6, dmg: 3.2, final: { dmg: 21, b: 13.2, g: 1.42, angle: 55 } },
     specials: {
       neutral: { name: 'Flash Burst', desc: 'Pop the camera flash in front of you. Short range, but it dazzles whoever it catches.', kind: 'proj',
-        dmg: 5, b: 3, g: 0.35, angle: 30, startup: 8, end: 18, speed: 13, life: 13, size: 30, shape: 'flash', color: '#fff6c8', max: 1, pierce: true, grow: 3, maxSize: 62, zap: 16, flash: true },
-      side: { name: 'Film Strip', desc: 'Fling three fresh photos in a spread.', kind: 'proj',
-        dmg: 4, b: 3, g: 0.4, angle: 30, startup: 9, end: 14, speed: 16, life: 32, size: 14, shape: 'photo', color: '#ffffff', max: 3, spread: [-9, 0, 9] },
-      up: { name: 'Tripod Vault', desc: 'Pole-vault off his tripod and smack anyone above.', kind: 'leap',
-        vy: 19, vx: 3.5, dmg: 8, b: 6, g: 0.8, angle: 80, startup: 5, active: 12, hx: 0.2, hy: 1.0, hw: 1.3, hh: 0.7, fx: 'tripod' },
-      down: { name: 'Photo Trap', desc: 'Set a camera on a mini tripod. It flashes when an enemy walks in front of it.', kind: 'proj',
-        dmg: 9, b: 7, g: 0.9, angle: 65, startup: 12, end: 18, speed: 0, life: 600, size: 18, shape: 'cammine', color: '#ffd84a', max: 1, mine: true, zap: 18, flash: true }
+        dmg: 6, b: 4, g: 0.45, angle: 30, startup: 7, end: 17, speed: 14, life: 15, size: 34, shape: 'flash', color: '#fff6c8', max: 1, pierce: true, grow: 3.5, maxSize: 74, zap: 17, flash: true },
+      side: { name: 'Film Strip', desc: 'Fling five razor-sharp photos in a wide spread.', kind: 'proj',
+        dmg: 4.5, b: 3.4, g: 0.45, angle: 30, startup: 8, end: 14, speed: 18, life: 34, size: 15, shape: 'photo', color: '#ffffff', max: 5, spread: [-16, -8, 0, 8, 16] },
+      up: { name: 'Tripod Vault', desc: 'Pole-vault sky-high off his tripod, clipping anyone on the way up, then a big finishing smack.', kind: 'leap',
+        vy: 21, vx: 4, dmg: 3, b: 3, g: 0.3, angle: 85, rehit: 5, startup: 4, active: 18, hx: 0.2, hy: 0.8, hw: 1.5, hh: 1.1, finalB: 8, fx: 'tripod' },
+      down: { name: 'Photo Trap', desc: 'Set a camera on a mini tripod (two at once). It flashes and dazzles when an enemy walks in front of it.', kind: 'proj',
+        dmg: 11, b: 7.5, g: 0.95, angle: 65, startup: 10, end: 14, speed: 0, life: 720, size: 18, shape: 'cammine', color: '#ffd84a', max: 2, mine: true, zap: 22, flash: true }
     }
   },
   {
     id: 'hsi', name: 'Mythic Hsi', title: 'Sky-walking point guard', legend: true, locked: true,
-    stats: { power: 7, speed: 8, weight: 6, jump: 9, defense: 5, skill: 5 },
+    stats: { power: 9, speed: 9, weight: 6, jump: 9, defense: 6, skill: 6 },
     look: { build: 'normal', body: '#5b2a86', skin: '#d9a87e', accent: '#ff8a1f', hair: '#1a1410', legs: '#5b2a86', extra: ['baller'] },
-    passive: 'Triple jump. His Jump Shot bounces off the floor for extra hits, and he dunks on anyone below him.',
+    passive: 'Boss-class. Triple jump, two bouncing Jump Shots at once, an armored Crossover and a multi-hit Alley-Oop.',
     strongVs: ['chuang', 'rowan'], weakVs: ['nova', 'kiro'],
-    ultimate: { name: 'Buzzer Beater', desc: 'A giant hoop drops from the sky, basketballs rain down, then he slam-dunks the target.', theme: 'court', colors: ['#1a0f06', '#ff8a1f', '#ffe2b8'], hits: 4, dmg: 3.5, final: { dmg: 21, b: 13, g: 1.42, angle: 70 } },
+    ultimate: { name: 'Buzzer Beater', desc: 'A giant hoop drops from the sky, basketballs rain down, then he slam-dunks the target.', theme: 'court', colors: ['#1a0f06', '#ff8a1f', '#ffe2b8'], hits: 5, dmg: 3.4, final: { dmg: 21, b: 13.2, g: 1.42, angle: 70 } },
     specials: {
       neutral: { name: 'Jump Shot', desc: 'Shoot a basketball in an arc. It bounces off the floor and can hit again.', kind: 'proj',
-        dmg: 8, b: 5, g: 0.7, angle: 45, startup: 9, end: 16, speed: 11, aim: 30, grav: 0.4, life: 110, size: 18, shape: 'ball', color: '#ff8a1f', max: 1, bounce: 2 },
-      side: { name: 'Crossover', desc: 'Dribble-dash through anyone in the way.', kind: 'dash',
-        dmg: 9, b: 6.5, g: 0.85, angle: 35, startup: 5, dur: 16, vx: 13, end: 12, hx: 0.6, hy: 0.5, hw: 1.2, hh: 0.8, fx: 'dribble' },
-      up: { name: 'Alley-Oop', desc: 'Sky high off one foot, swatting anyone above.', kind: 'leap',
-        vy: 21, vx: 3, dmg: 10, b: 7, g: 0.9, angle: 85, startup: 5, active: 14, hx: 0.2, hy: 1.05, hw: 1.3, hh: 0.7, fx: 'dunk' },
+        dmg: 8, b: 5.2, g: 0.75, angle: 45, startup: 8, end: 14, speed: 12, aim: 30, grav: 0.4, life: 120, size: 19, shape: 'ball', color: '#ff8a1f', max: 2, bounce: 3 },
+      side: { name: 'Crossover', desc: 'An unstoppable dribble-dash: small hits can’t stop him, and he plows through anyone in the way.', kind: 'dash',
+        dmg: 10, b: 7, g: 0.9, angle: 35, startup: 5, dur: 18, vx: 13.5, end: 11, hx: 0.6, hy: 0.5, hw: 1.3, hh: 0.85, armor: true, fx: 'dribble' },
+      up: { name: 'Alley-Oop', desc: 'Sky high off one foot, swatting anyone above again and again, then a big finish.', kind: 'leap',
+        vy: 22, vx: 3, dmg: 3, b: 3, g: 0.3, angle: 85, rehit: 5, startup: 4, active: 18, hx: 0.2, hy: 0.9, hw: 1.4, hh: 1.0, finalB: 8.5, fx: 'dunk' },
       down: { name: 'Posterize', desc: 'Slam down like a dunk. In the air it spikes anyone below; on the ground it sends out a shockwave.', kind: 'slam',
-        fall: 26, dmg: 14, b: 8, g: 1.05, angle: 75, startup: 8, end: 18, hw: 3.8, hh: 0.5, spike: { dmg: 9, b: 5.5, g: 0.65, angle: -80 } }
+        fall: 27, dmg: 15, b: 8.2, g: 1.08, angle: 75, startup: 7, end: 15, hw: 4.4, hh: 0.55, armor: true, spike: { dmg: 10, b: 6, g: 0.7, angle: -80 } }
     }
   },
   {
     id: 'yen', name: 'Legend Yen', title: 'The ultra max legend', legend: true, locked: true,
     modes: ['zephyr', 'blaze', 'volt', 'chui', 'guo', 'lumi', 'kiro'],
-    stats: { power: 8, speed: 9, weight: 6, jump: 9, defense: 7, skill: 10 },
+    stats: { power: 9, speed: 9, weight: 7, jump: 9, defense: 8, skill: 10 },
     jumps: 3,
+    bonus: { pow: 1.15, dmgIn: 0.85, kb: 0.88 },   // the legend edge (not used in Boss Fight, where levels set the boss's strength)
     look: { build: 'normal', body: '#15131f', skin: '#e9c3a0', accent: '#ffd35c', hair: '#fff3c4', legs: '#24203a', extra: ['legend'] },
     passive: 'The ultra max fighter. Press 1–7 to switch styles at any time and use the specials of Zephyr, Blaze, Volt, Mr. Chiu, Mr. Guo, Lumi or Kiro.',
     strongVs: ['titan', 'ulfgar', 'nova'], weakVs: [],
@@ -520,10 +521,10 @@ const BOSS_LEVELS = [
   { name: 'Ultra Max',    stage: 2, cpu: 11, stocks: 5, pow: 1.65, kb: 0.56, dmgIn: 0.68, minions: [9, 9] },
   // chapter 2 — Master Chuang
   { name: 'Say Cheese',     stage: 3, cpu: 10, stocks: 1, pow: 1.10, kb: 0.95, dmgIn: 0.95, minions: [] },
-  { name: 'Overexposed',    stage: 0, cpu: 10, stocks: 2, pow: 1.10, kb: 0.92, dmgIn: 0.92, minions: [] },
-  { name: 'Darkroom',       stage: 7, cpu: 10, stocks: 2, pow: 1.15, kb: 0.90, dmgIn: 0.90, minions: [] },
-  { name: 'Red Eye',        stage: 6, cpu: 10, stocks: 2, pow: 1.20, kb: 0.88, dmgIn: 0.88, minions: [] },
-  { name: 'Panorama',       stage: 1, cpu: 11, stocks: 2, pow: 1.20, kb: 0.86, dmgIn: 0.88, minions: [] },
+  { name: 'Overexposed',    stage: 0, cpu: 10, stocks: 2, pow: 1.05, kb: 0.95, dmgIn: 0.95, minions: [] },
+  { name: 'Darkroom',       stage: 7, cpu: 10, stocks: 2, pow: 1.10, kb: 0.92, dmgIn: 0.92, minions: [] },
+  { name: 'Red Eye',        stage: 6, cpu: 10, stocks: 2, pow: 1.15, kb: 0.90, dmgIn: 0.90, minions: [] },
+  { name: 'Panorama',       stage: 1, cpu: 10, stocks: 2, pow: 1.20, kb: 0.86, dmgIn: 0.88, minions: [] },
   { name: 'Long Exposure',  stage: 4, cpu: 11, stocks: 3, pow: 1.25, kb: 0.84, dmgIn: 0.86, minions: [] },
   { name: 'Burst Mode',     stage: 2, cpu: 11, stocks: 3, pow: 1.30, kb: 0.80, dmgIn: 0.84, minions: [4] },
   { name: 'Golden Hour',    stage: 5, cpu: 11, stocks: 3, pow: 1.35, kb: 0.76, dmgIn: 0.82, minions: [] },
@@ -894,6 +895,7 @@ function runAct(f, inp, g, dirX) {
     }
     case 'slam': {
       a.t++;
+      f.armor = !!m.armor && a.sub < 2;              // armored slams can't be knocked out of the wind-up or the fall
       if (a.sub === 0) {
         f.pose = 'slam'; f.pt = Math.min(1, a.t / S); a.noGrav = !f.ground;
         if (!f.ground) { f.vx *= 0.8; f.vy = -0.5; }
@@ -1078,10 +1080,11 @@ function applyHit(att, tgt, h, dir, g, proj) {
     if (tgt.shieldHP <= 0) breakShield(tgt, g);
     return 'block';
   }
-  const pow = att.ph.pm * (att.buffT > 0 ? att.buffPow : 1) * (att.boss ? att.boss.pow : 1);
-  const dmg = h.dmg * pow * tgt.ph.dt * (tgt.boss ? tgt.boss.dmgIn : 1);
+  const aB = !att.boss && att.c && att.c.bonus, tB = !tgt.boss && tgt.c && tgt.c.bonus;
+  const pow = att.ph.pm * (att.buffT > 0 ? att.buffPow : 1) * (att.boss ? att.boss.pow : 1) * (aB ? aB.pow : 1);
+  const dmg = h.dmg * pow * tgt.ph.dt * (tgt.boss ? tgt.boss.dmgIn : 1) * (tB ? tB.dmgIn : 1);
   tgt.dmg = Math.min(999, tgt.dmg + dmg);
-  const kb = (h.b + tgt.dmg * h.g / 10) * tgt.ph.wf * (0.85 + 0.15 * Math.min(pow, 1.6)) * (tgt.boss ? tgt.boss.kb : 1);
+  const kb = (h.b + tgt.dmg * h.g / 10) * tgt.ph.wf * (0.85 + 0.15 * Math.min(pow, 1.6)) * (tgt.boss ? tgt.boss.kb : 1) * (tB ? tB.kb : 1);
   const hl = Math.min(14, Math.round(3 + dmg * 0.45));
   if (!proj) att.hitlag = hl;
   tgt.hitlag = hl;

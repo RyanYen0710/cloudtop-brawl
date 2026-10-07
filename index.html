@@ -41,6 +41,10 @@ button:disabled{cursor:not-allowed}
 .mbtn:hover{background:#2c2560;border-color:var(--gold);transform:skewX(-8deg) translateX(6px)}
 .mbtn.primary{background:linear-gradient(90deg,#ff6b5b,#ffb547);border-color:#ffd48a;color:#1a0f18}
 .mbtn.primary span{color:#3b1c20}
+.credit{position:absolute;top:calc(14px + env(safe-area-inset-top,0px));right:calc(16px + env(safe-area-inset-right,0px));z-index:3;display:flex;align-items:center;gap:8px;padding:7px 14px;border-radius:999px;background:rgba(14,11,32,.82);border:2px solid var(--gold);box-shadow:0 4px 16px rgba(0,0,0,.35);pointer-events:none}
+.credit span{font:700 11px var(--ui);letter-spacing:.18em;text-transform:uppercase;color:var(--gold)}
+.credit b{font-family:var(--disp);font-weight:400;font-size:17px;color:#fff3c4;letter-spacing:.01em}
+@media (max-width:560px){.credit{top:calc(10px + env(safe-area-inset-top,0px));right:10px;padding:4px 10px;gap:6px}.credit span{font-size:9px}.credit b{font-size:13px}}
 .main-foot{margin-top:auto;display:flex;gap:10px;align-items:center;flex-wrap:wrap;color:var(--dim);font-size:13px}
 
 /* generic */
@@ -321,13 +325,14 @@ body{touch-action:manipulation}
   <canvas id="cv" aria-label="Battle arena"></canvas>
 
   <section id="scr-main" class="screen">
+    <div class="credit" aria-label="Created by Ryan Yen"><span>Creator</span><b>Ryan Yen</b></div>
     <div class="main-panel">
       <div class="logo"><span class="l1">CLOUDTOP</span><span class="l2">BRAWL</span></div>
       <p class="tag">Launch your rivals off the arena. Higher damage % means they fly farther. Last fighter standing wins.</p>
       <nav class="menu" aria-label="Main menu">
         <button type="button" class="mbtn primary" id="go-solo"><b>Solo vs CPU</b><span>You against 1 to 3 computer fighters</span></button>
         <button type="button" class="mbtn" id="go-online"><b>Online with friends</b><span>Host a lobby, invite friends, add CPUs</span></button>
-        <button type="button" class="mbtn" id="go-boss"><b>Boss Fight</b><span>Beat 10 levels to unlock Legend Yen</span></button>
+        <button type="button" class="mbtn" id="go-boss"><b>Boss Fight</b><span>30 levels, 3 bosses to unlock</span></button>
         <button type="button" class="mbtn" id="go-controls"><b>How to play</b><span>Keyboard, touch and gamepad controls</span></button>
       </nav>
       <div class="main-foot"><button type="button" class="mini acct-btn" id="acct-btn" hidden>Sign in</button><span id="main-count">17 fighters · 8 stages · CPU levels 1–10</span><button type="button" class="mini" data-open-settings>Settings</button></div>
