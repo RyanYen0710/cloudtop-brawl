@@ -410,6 +410,7 @@ function drawUltWorld(g, view, t) {
     tg.forEach(o => { g.strokeStyle = col[1]; g.lineWidth = 6; circle(g, o.x, o.y - o.H / 2, 30 + (k % 20) * 4); g.stroke(); });
   }
   g.restore();
+  if (typeof drawUltActor === 'function') drawUltActor(g, view, c, t);   // the fighter acts it out (ult-act.js)
   if (typeof drawUltStyle === 'function') drawUltStyle(g, view, t);
 }
 
