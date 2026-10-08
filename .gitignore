@@ -1,0 +1,8 @@
+server/src/worker.js
+server/.wrangler/
+.wrangler/
+node_modules/
+.DS_Store
+*.log
+.dev.vars
+.env
