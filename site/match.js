@@ -431,8 +431,16 @@ function aiThinkCore(f, g) {
   const st = g.stage;
   if (g.ult && g.ult.ph !== 'aim' && g.ult.ph !== 'lock') return { b: 0, pr: 0 };
   if (f.ult) {
-    if (A.ultWait == null) A.ultWait = Math.round(20 + Math.random() * 70);
-    if (--A.ultWait <= 0 && !f.ledge && f.hitstun <= 0) { A.ultWait = null; return { b: 0, pr: BZ }; }
+    const kind = typeof ultKind === 'function' ? ultKind(ultDef(f.c)) : 'aim';
+    if (kind === 'close') {
+      // close-range ultimate: only press it when someone is right in front, otherwise keep fighting to get close
+      if (!f.ledge && f.hitstun <= 0 && ultEnemies(f, g).some(o => ultInClose(f, o))) { A.ultWait = null; return { b: 0, pr: BZ }; }
+      const t0 = nearestEnemy(f, g);
+      if (t0 && f.ground && Math.abs(t0.x - f.x) < ULT_CLOSE_W && Math.sign(t0.x - f.x) === -f.face) return { b: t0.x > f.x ? BR : BL, pr: 0 };   // turn around
+    } else {
+      if (A.ultWait == null) A.ultWait = Math.round(20 + Math.random() * 70);
+      if (--A.ultWait <= 0 && !f.ledge && f.hitstun <= 0) { A.ultWait = null; return { b: 0, pr: BZ }; }
+    }
   }
   let ns = st.solids[0], nd = 1e9;
   for (const s of st.solids) { const d = Math.abs(clamp(f.x, s.x, s.x + s.w) - f.x) + Math.max(0, f.y - s.y) * 0.3; if (d < nd) { nd = d; ns = s; } }
@@ -460,7 +468,16 @@ function aiThinkCore(f, g) {
     return { b, pr };
   }
   let t = nearestEnemy(f, g);
-  if (g.orb && !f.ult && (!t || Math.hypot(g.orb.x - f.x, g.orb.y - f.y) < Math.hypot(t.x - f.x, t.y - f.y) * 1.3 || (A.orbFocus = (A.orbFocus || 0) > 0 ? A.orbFocus - 1 : (Math.random() < 0.004 ? 240 : 0)) > 0)) {
+  // the orb is only worth chasing when it's close and nearer than any opponent. If someone is right
+  // next to us, or just hit us, fight them instead of turning our back to grab the orb.
+  if (f.dmg > (A.lastDmg == null ? f.dmg : A.lastDmg)) A.hurtT = g.frame;
+  A.lastDmg = f.dmg;
+  const orbD = g.orb ? Math.hypot(g.orb.x - f.x, g.orb.y - f.y) : 1e9, foeD = t ? Math.hypot(t.x - f.x, t.y - f.y) : 1e9;
+  const underAttack = A.hurtT != null && g.frame - A.hurtT < 150 && foeD < 420;
+  // the longer an orb floats around untouched, the more willing CPUs get to go for it (about 8 s in)
+  if (A.orbKey !== g.orb) { A.orbKey = g.orb; A.orbT = 0; } else if (g.orb) A.orbT++;
+  const orbOld = A.orbT > 480;
+  if (g.orb && !f.ult && (!t || (!underAttack && foeD > 170 && (orbD < 420 && orbD < foeD || orbOld && orbD < foeD * 1.3)))) {
     t = { x: g.orb.x, y: g.orb.y + f.H * 0.5, W: 50, H: 50, act: null, isOrb: true };
   }
   if (!t) return { b, pr };
