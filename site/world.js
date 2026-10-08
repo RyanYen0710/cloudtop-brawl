@@ -143,7 +143,7 @@ function fxEvent(e, getF) {
     case 'orbhit': for (let i = 0; i < 6; i++) { const an = Math.random() * 6.28; spawnFx({ k: 'spark', x, y, vx: Math.cos(an) * 4, vy: Math.sin(an) * 4, life: 14, col: `hsl(${Math.random() * 360},100%,70%)`, size: 3 }); } break;
     case 'orbget': case 'orbspawn': spawnFx({ k: 'ring', x, y, life: 30, r0: 10, r1: 160, col: '#ffffff', lw: 6 }); for (let i = 0; i < 24; i++) { const an = Math.random() * 6.28, s = 3 + Math.random() * 8; spawnFx({ k: 'spark', x, y, vx: Math.cos(an) * s, vy: Math.sin(an) * s, life: 30, col: `hsl(${i * 15},100%,65%)`, size: 4 }); } break;
     case 'ult': spawnFx({ k: 'flash', life: 12, a: 0.6 }); break;
-    case 'ulthit': for (let i = 0; i < 8; i++) { const an = Math.random() * 6.28, s = 3 + Math.random() * 6; spawnFx({ k: 'spark', x, y, vx: Math.cos(an) * s, vy: Math.sin(an) * s, life: 16, col: i % 2 ? '#fff' : col, size: 3 }); } break;
+    case 'ulthit': if (typeof ultHitFx === 'function') ultHitFx(x, y, a, b, col, getF); for (let i = 0; i < (a === 2 ? 0 : 8); i++) { const an = Math.random() * 6.28, s = 3 + Math.random() * 6; spawnFx({ k: 'spark', x, y, vx: Math.cos(an) * s, vy: Math.sin(an) * s, life: 16, col: i % 2 ? '#fff' : col, size: 3 }); } break;
     case 'ultfinal': spawnFx({ k: 'flash', life: 14, a: 0.7 }); break;
     case 'ultaim': spawnFx({ k: 'ring', x, y, life: 24, r0: 10, r1: 140, col: '#ffffff', lw: 5 }); break;
     case 'ultlock': spawnFx({ k: 'ring', x, y, life: 20, r0: 200, r1: 120, col: '#ff3b3b', lw: 6 }); break;
