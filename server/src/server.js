@@ -96,6 +96,15 @@ function isOwner(u, env) {
   const list = String(env.OWNER_EMAILS || '').toLowerCase().split(',').map(s => s.trim()).filter(Boolean);
   return !!(u && u.verified && u.email && list.indexOf(u.email) >= 0);
 }
+/* gift fighters: the hidden GIFT_FIGHTERS secret lists "email=fighterId" pairs (comma separated).
+   A signed-in, verified email on that list gets only its own fighter, straight away (never Legend Yen). */
+function giftsFor(u, env) {
+  if (!(u && u.verified && u.email)) return [];
+  const me = String(u.email).toLowerCase();
+  return String(env.GIFT_FIGHTERS || '').split(/[,;\n]/).map(s => s.split('='))
+    .filter(([e, id]) => e && id && e.trim().toLowerCase() === me)
+    .map(([, id]) => id.trim()).filter(id => id !== 'yen' && CHAR[id] && CHAR[id].locked);
+}
 const toUsername = n => { const v = String(n || '').trim().replace(/\s+/g, '_').replace(/[^A-Za-z0-9_]/g, '').slice(0, 16); return NAME_RE.test(v) ? v : ''; };
 
 export class Accounts {
@@ -132,6 +141,7 @@ export class Accounts {
         if (p.beaten < BOSS_LEVELS.length) { p.beaten = BOSS_LEVELS.length; dirty = true; }
         if (!p.owner) { p.owner = true; dirty = true; }
       }
+      if (Array.isArray(d.gift)) d.gift.forEach(id => { if (id !== 'yen' && CHAR[id] && CHAR[id].locked && p.unlocked.indexOf(id) < 0) { p.unlocked.push(id); dirty = true; } });
       if (dirty) await st.put('profile', p);
       return json(p);
     }
@@ -232,7 +242,7 @@ export class Room {
     try {
       const u = await verifyIdToken(token, this.env);
       c.owner = isOwner(u, this.env);
-      const p = await acct(this.env, u.uid, 'get', { name: toUsername(u.name), owner: c.owner });
+      const p = await acct(this.env, u.uid, 'get', { name: toUsername(u.name), owner: c.owner, gift: giftsFor(u, this.env) });
       c.uid = u.uid; c.unlocked = Array.isArray(p.unlocked) ? p.unlocked : []; c.pname = p.name || '';
       this.send(c, { acct: { name: p.name, beaten: p.beaten, unlocked: c.unlocked } });
     } catch (e) { c.uid = null; c.owner = false; c.unlocked = []; this.send(c, { acct: null, err: String(e.message || 'auth') }); }
@@ -377,7 +387,7 @@ export default {
       try { u = await verifyIdToken(tok, env); } catch (e) { return json({ error: String(e.message || 'auth') }, 401, cors); }
       if (!(await hit(env, 'uid:' + u.uid, 'api'))) return json({ error: 'slow-down' }, 429, cors);
       if (url.pathname === '/api/me' && req.method === 'GET') {
-        const p = await acct(env, u.uid, 'get', { name: toUsername(u.name), owner: isOwner(u, env) });
+        const p = await acct(env, u.uid, 'get', { name: toUsername(u.name), owner: isOwner(u, env), gift: giftsFor(u, env) });
         if (p && p.name) await acct(env, NAMES, 'claim', { name: p.name, uid: u.uid });   // reserve the name this player already uses
         return json(p, 200, cors);
       }
