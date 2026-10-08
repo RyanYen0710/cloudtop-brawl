@@ -36,6 +36,7 @@ function buildRoster() {
   [...ROSTER.filter(c => !c.locked || MY_UNLOCKED.indexOf(c.id) >= 0), { id: 'random', name: 'Random' }].forEach(c => {
     const b = document.createElement('button');
     b.className = 'tile'; b.type = 'button'; b.dataset.id = c.id;
+    if (c.ultimate && c.ultimate.colors) { b.style.setProperty('--t1', c.ultimate.colors[1]); b.style.setProperty('--t2', c.ultimate.colors[0]); }   // each fighter's own colors
     b.innerHTML = `<canvas class="tile-cv" aria-hidden="true"></canvas><span class="tile-name">${esc(c.name)}</span>`;
     b.addEventListener('mouseenter', () => { SETUP.hover = c.id; renderStatCard(); });
     b.addEventListener('mouseleave', () => { SETUP.hover = null; renderStatCard(); });
@@ -177,7 +178,26 @@ function renderSetup() {
     st.textContent = n.length < 2 ? 'Add at least one opponent' : !teamsOk ? 'Put fighters on both teams' : 'Start battle';
     if (G.training) st.textContent = 'Start training';
   }
+  // short summary of the rules on the Rules button in the top bar
+  const sum = document.getElementById('cs-rules-sum');
+  if (sum) {
+    const stn = SETUP.stage < 0 ? 'Random stage' : (STAGES[SETUP.stage] || STAGES[0]).name;
+    sum.textContent = G.training ? stn : `${stn} \u00b7 ${SETUP.stocks} ${SETUP.stocks === 1 ? 'stock' : 'stocks'} \u00b7 ${SETUP.time}:00${SETUP.teams ? ' \u00b7 Teams' : ''}`;
+  }
   renderStatCard();
+}
+
+/* the Rules button opens a side drawer with stage / stocks / time / mode */
+function setRulesOpen(open) {
+  const d = document.getElementById('cs-drawer'), b = document.getElementById('cs-rules-btn');
+  if (!d) return;
+  d.hidden = !open; if (b) b.setAttribute('aria-expanded', open ? 'true' : 'false');
+}
+if (document.getElementById('cs-rules-btn')) {
+  document.getElementById('cs-rules-btn').addEventListener('click', () => { SFX.play('ui'); setRulesOpen(true); });
+  document.getElementById('cs-rules-close').addEventListener('click', () => { SFX.play('ui'); setRulesOpen(false); });
+  document.getElementById('cs-drawer').addEventListener('click', e => { if (e.target.id === 'cs-drawer') setRulesOpen(false); });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape' && !document.getElementById('cs-drawer').hidden) setRulesOpen(false); });
 }
 
 document.addEventListener('click', e => {
