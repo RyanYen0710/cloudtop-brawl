@@ -48,7 +48,7 @@ const ROSTER = [
     look: { build: 'bulky', body: '#3d312e', skin: '#b58d69', accent: '#d9483b', extra: ['ape'] },
     passive: 'Super armor while winding up punches and rushes, so small hits can’t stop him.',
     strongVs: ['zephyr', 'nova'], weakVs: ['tseng', 'mira'],
-    ultimate: { name: 'Kaiju Rampage', desc: 'Grows into a giant and pounds the whole stage.', theme: 'jungle', colors: ['#0f2a17', '#6dbb4a', '#d9483b'], hits: 3, dmg: 6, final: { dmg: 22, b: 13, g: 1.4, angle: 75 } },
+    ultimate: { style: 'stomp', name: 'Kaiju Rampage', desc: 'Grows into a giant and stomps the ground, bouncing the target up, then slams them away.', theme: 'jungle', colors: ['#0f2a17', '#6dbb4a', '#d9483b'], hits: 3, dmg: 6, final: { dmg: 22, b: 13, g: 1.4, angle: 75 } },
     specials: {
       neutral: { name: 'Mega Punch', desc: 'Hold to charge a ground-shaking punch. Super armor while winding up.', kind: 'melee',
         dmg: 15, b: 8.5, g: 1.3, angle: 32, startup: 13, active: 6, end: 19, hx: 1.25, hy: 0.6, hw: 1.5, hh: 0.45, charge: 70, armor: true, lunge: 3 },
@@ -66,7 +66,7 @@ const ROSTER = [
     look: { build: 'normal', body: '#ece0c4', skin: '#e3bd95', accent: '#c62f2a', hair: '#f5f5f5', extra: ['robe', 'beard', 'topknot'] },
     passive: 'Cloud Walk lets him fly anywhere for 5 seconds, once per trip into the air.',
     strongVs: ['titan', 'rivet'], weakVs: ['zephyr', 'nova'],
-    ultimate: { name: 'Heavenly Dragon Emperor', desc: 'Summons a golden dragon that sweeps across the sky.', theme: 'dragon', colors: ['#7a0a0a', '#d4a017', '#ff3b30'], hits: 6, dmg: 4, final: { dmg: 20, b: 13, g: 1.45, angle: 60 } },
+    ultimate: { style: 'dragon', name: 'Heavenly Dragon Emperor', desc: 'A golden dragon coils around the target, carries them into the sky and hurls them.', theme: 'dragon', colors: ['#7a0a0a', '#d4a017', '#ff3b30'], hits: 6, dmg: 4, final: { dmg: 20, b: 13, g: 1.45, angle: 60 } },
     specials: {
       neutral: { name: 'Qi Orb', desc: 'Push a sphere of golden qi that passes through enemies.', kind: 'proj',
         dmg: 9, b: 4, g: 0.6, angle: 35, startup: 12, end: 18, speed: 7, life: 80, size: 20, shape: 'orb', color: '#ffd35c', max: 2, pierce: true },
@@ -84,7 +84,7 @@ const ROSTER = [
     look: { build: 'slim', body: '#252a4d', skin: '#e6b98f', accent: '#34d1bf', extra: ['ninja'] },
     passive: 'Triple jump and the fastest run in the game, but light and easy to launch.',
     strongVs: ['rivet', 'mira'], weakVs: ['titan', 'nova'],
-    ultimate: { name: 'Thousand Wind Cuts', desc: 'Vanishes and slashes every enemy from every direction.', theme: 'slash', colors: ['#06101c', '#34d1bf', '#e6ecff'], hits: 12, dmg: 2.5, final: { dmg: 14, b: 12, g: 1.3, angle: 45 } },
+    ultimate: { style: 'slash', name: 'Thousand Wind Cuts', desc: 'Vanishes and slashes the target from every side, knocking them around, then one last cut.', theme: 'slash', colors: ['#06101c', '#34d1bf', '#e6ecff'], hits: 12, dmg: 2.5, final: { dmg: 14, b: 12, g: 1.3, angle: 45 } },
     specials: {
       neutral: { name: 'Shuriken', desc: 'Flick a fast throwing star. Weak, but three can be out at once.', kind: 'proj',
         dmg: 4, b: 2.5, g: 0.25, angle: 20, startup: 5, end: 9, speed: 15, life: 45, size: 10, shape: 'star', color: '#e6ecff', max: 3 },
@@ -102,7 +102,7 @@ const ROSTER = [
     look: { build: 'normal', body: '#8a95a8', skin: '#6d778a', accent: '#ff8a1f', extra: ['robot'] },
     passive: 'Controls space from far away with lasers, rockets and mines.',
     strongVs: ['titan', 'tseng'], weakVs: ['zephyr', 'nova'],
-    ultimate: { name: 'Orbital Strike', desc: 'Locks on to every enemy and calls down satellite lasers.', theme: 'tech', colors: ['#1a1006', '#ff8a1f', '#ff3b3b'], hits: 4, dmg: 5, final: { dmg: 18, b: 12, g: 1.35, angle: 88 } },
+    ultimate: { style: 'beams', name: 'Orbital Strike', desc: 'Satellite lasers rain on the circle. Get out fast and some of them miss.', theme: 'tech', colors: ['#1a1006', '#ff8a1f', '#ff3b3b'], hits: 4, dmg: 5, final: { dmg: 18, b: 12, g: 1.35, angle: 88 } },
     specials: {
       neutral: { name: 'Arm Laser', desc: 'A long, fast laser bolt.', kind: 'proj',
         dmg: 6, b: 3, g: 0.4, angle: 15, startup: 10, end: 14, speed: 18, life: 50, size: 8, shape: 'laser', color: '#ff5a3c', max: 2 },
@@ -120,7 +120,7 @@ const ROSTER = [
     look: { build: 'normal', body: '#c9d2e3', skin: '#f0c9a8', accent: '#3a6bd6', hair: '#e8c35a', extra: ['knight'] },
     passive: 'Best defense in the game. Her Mirror Shield sends projectiles back, faster.',
     strongVs: ['rivet', 'tseng', 'mira'], weakVs: ['titan'],
-    ultimate: { name: 'Judgment of Light', desc: 'Pillars of holy light strike every enemy at once.', theme: 'holy', colors: ['#0e1a4a', '#ffd35c', '#ffffff'], hits: 5, dmg: 4, final: { dmg: 19, b: 12, g: 1.4, angle: 70 } },
+    ultimate: { style: 'pillars', name: 'Judgment of Light', desc: 'Pillars of holy light rise under the target and launch them straight up.', theme: 'holy', colors: ['#0e1a4a', '#ffd35c', '#ffffff'], hits: 5, dmg: 4, final: { dmg: 19, b: 12, g: 1.4, angle: 70 } },
     specials: {
       neutral: { name: 'Crescent Slash', desc: 'Hold to charge a wide sword arc with long reach.', kind: 'melee',
         dmg: 10, b: 6, g: 1.05, angle: 38, startup: 12, active: 6, end: 20, hx: 1.3, hy: 0.6, hw: 1.9, hh: 0.9, charge: 50, fx: 'arc' },
@@ -139,7 +139,7 @@ const ROSTER = [
     passive: 'Press F to arm the Freeze Ray: her next Ice Shard freezes the target solid. 30-second cooldown.',
     freezeRay: { cd: 1800, freeze: 55 },
     strongVs: ['titan', 'tseng'], weakVs: ['zephyr', 'nova', 'blaze'],
-    ultimate: { name: 'Absolute Zero', desc: 'Freezes the whole stage, then shatters every enemy.', theme: 'ice', colors: ['#06182e', '#9fe7ff', '#ffffff'], hits: 1, dmg: 4, freeze: true, final: { dmg: 24, b: 12, g: 1.4, angle: 80 } },
+    ultimate: { style: 'shatter', name: 'Absolute Zero', desc: 'Freezes the target solid, then shatters the ice with a sideways blast.', theme: 'ice', colors: ['#06182e', '#9fe7ff', '#ffffff'], hits: 1, dmg: 4, freeze: true, final: { dmg: 24, b: 12, g: 1.4, angle: 80 } },
     specials: {
       neutral: { name: 'Ice Shard', desc: 'Fire an icy shard. With the Freeze Ray armed (F), it freezes whoever it hits.', kind: 'proj',
         dmg: 6, b: 3, g: 0.3, angle: 30, startup: 10, end: 16, speed: 10, life: 55, size: 12, shape: 'shard', color: '#9fe7ff', max: 1 },
@@ -157,7 +157,7 @@ const ROSTER = [
     look: { build: 'normal', body: '#2b1d1d', skin: '#e8b48c', accent: '#ff6a1a', hair: '#ffb02e', extra: ['flame'] },
     passive: 'Every fire attack sets enemies ablaze, so they keep taking damage while they burn.',
     strongVs: ['mira', 'titan'], weakVs: ['nova', 'rivet'],
-    ultimate: { name: 'Inferno Phoenix', desc: 'A blazing phoenix dives through every enemy and the stage erupts in flame.', theme: 'fire', colors: ['#2a0600', '#ff6a1a', '#ffd35c'], hits: 6, dmg: 3.5, final: { dmg: 21, b: 13, g: 1.4, angle: 55 } },
+    ultimate: { style: 'phoenix', name: 'Inferno Phoenix', desc: 'A blazing phoenix dives through the target again and again and leaves them burning.', theme: 'fire', colors: ['#2a0600', '#ff6a1a', '#ffd35c'], hits: 6, dmg: 3.5, final: { dmg: 21, b: 13, g: 1.4, angle: 55 } },
     specials: {
       neutral: { name: 'Fireball', desc: 'Throw a roaring fireball that sets the target on fire.', kind: 'proj',
         dmg: 7, b: 3.5, g: 0.5, angle: 30, startup: 9, end: 14, speed: 11, life: 60, size: 20, shape: 'fire', color: '#ff7a1a', max: 2, burn: 180 },
@@ -175,7 +175,7 @@ const ROSTER = [
     look: { build: 'slim', body: '#1b2440', skin: '#d9b08c', accent: '#ffe14a', hair: '#fff38a', extra: ['storm'] },
     passive: 'Has the fastest projectile in the game and can call lightning down on enemies from the sky.',
     strongVs: ['rivet', 'titan'], weakVs: ['nova', 'nyx'],
-    ultimate: { name: 'Wrath of the Storm', desc: 'Storm clouds roll in and lightning strikes every enemy over and over.', theme: 'storm', colors: ['#070a1c', '#ffe14a', '#7ad7ff'], hits: 8, dmg: 3, final: { dmg: 19, b: 13, g: 1.4, angle: 80 } },
+    ultimate: { style: 'storm', name: 'Wrath of the Storm', desc: 'Lightning strikes the circle at random. Keep moving and some bolts miss.', theme: 'storm', colors: ['#070a1c', '#ffe14a', '#7ad7ff'], hits: 8, dmg: 3, final: { dmg: 19, b: 13, g: 1.4, angle: 80 } },
     specials: {
       neutral: { name: 'Thunderbolt', desc: 'Fire a crackling bolt that flies faster than any other projectile.', kind: 'proj',
         dmg: 5, b: 3, g: 0.35, angle: 20, startup: 6, end: 10, speed: 22, life: 34, size: 12, shape: 'bolt', color: '#ffe14a', max: 2, pierce: true },
@@ -193,7 +193,7 @@ const ROSTER = [
     look: { build: 'slim', body: '#17122b', skin: '#c9c2e8', accent: '#a35cff', extra: ['reaper'] },
     passive: 'Bends space: black holes drag enemies in, and the scythe reaches farther than any other weapon.',
     strongVs: ['zephyr', 'volt'], weakVs: ['nova', 'titan'],
-    ultimate: { name: 'Event Horizon', desc: 'Opens a black hole that swallows the whole stage, then lets it explode.', theme: 'void', colors: ['#05020d', '#a35cff', '#e8d9ff'], hits: 6, dmg: 3.5, final: { dmg: 22, b: 13, g: 1.45, angle: 70 } },
+    ultimate: { style: 'vortex', name: 'Event Horizon', desc: 'A black hole drags the target into the middle, then explodes outward.', theme: 'void', colors: ['#05020d', '#a35cff', '#e8d9ff'], hits: 6, dmg: 3.5, final: { dmg: 22, b: 13, g: 1.45, angle: 70 } },
     specials: {
       neutral: { name: 'Black Hole', desc: 'Launch a slow black hole that drags enemies in, then bursts.', kind: 'proj',
         dmg: 2, b: 1.5, g: 0.1, angle: 50, startup: 14, end: 18, speed: 2.6, life: 110, size: 30, shape: 'void', color: '#a35cff', max: 1, pierce: true, rehit: 12, pull: 0.38, pullR: 220,
@@ -212,7 +212,7 @@ const ROSTER = [
     look: { build: 'normal', body: '#4a5d2a', skin: '#c98e62', accent: '#b5412b', hair: '#7a3f1d', legs: '#5a3b22', extra: ['archer'] },
     passive: 'The best range in the game: charge arrows until they pierce, rain them from the sky, or plant a blast arrow.',
     strongVs: ['nyx', 'tseng'], weakVs: ['zephyr', 'nova'],
-    ultimate: { name: 'Thousand Arrow Volley', desc: 'The sky fills with arrows that rain down on every enemy.', theme: 'arrows', colors: ['#10180a', '#9bc45a', '#f2e3b3'], hits: 10, dmg: 2.2, final: { dmg: 18, b: 12.5, g: 1.35, angle: 50 } },
+    ultimate: { style: 'arrows', name: 'Thousand Arrow Volley', desc: 'A storm of arrows rains on the circle. Escape it and the arrows stop finding you.', theme: 'arrows', colors: ['#10180a', '#9bc45a', '#f2e3b3'], hits: 10, dmg: 2.2, final: { dmg: 18, b: 12.5, g: 1.35, angle: 50 } },
     specials: {
       neutral: { name: 'Power Shot', desc: 'Hold to draw the bow further. A full draw fires a glowing arrow that pierces.', kind: 'proj',
         dmg: 7, b: 3.2, g: 0.55, angle: 20, startup: 10, end: 12, speed: 16, life: 55, size: 14, shape: 'arrow', color: '#e8d9b0', max: 3, charge: 50, chargeMul: 1.4 },
@@ -230,7 +230,7 @@ const ROSTER = [
     look: { build: 'bulky', body: '#6b7c86', skin: '#ecccab', accent: '#2fd6ff', hair: '#eef2f5', cape: '#1f4e5f', metal: '#c08a3e', extra: ['thunder'] },
     passive: 'His hammer always flies back to his hand, and his thunder splits the sky. Heavy and hard to launch.',
     strongVs: ['nyx', 'blaze'], weakVs: ['zephyr', 'rowan'],
-    ultimate: { name: 'Hammer of the Heavens', desc: 'A giant hammer of lightning crashes down from the sky onto every enemy.', theme: 'thunder', colors: ['#041018', '#2fd6ff', '#eef2f5'], hits: 4, dmg: 5, final: { dmg: 23, b: 13.5, g: 1.45, angle: 80 } },
+    ultimate: { style: 'hammer', name: 'Hammer of the Heavens', desc: 'One giant hammer of lightning crashes down. Slow, but it hits the hardest.', theme: 'thunder', colors: ['#041018', '#2fd6ff', '#eef2f5'], hits: 4, dmg: 5, final: { dmg: 23, b: 13.5, g: 1.45, angle: 80 } },
     specials: {
       neutral: { name: 'Thunder Spear', desc: 'Hurl a spear of pure lightning that pierces through enemies.', kind: 'proj',
         dmg: 7, b: 4.2, g: 0.75, angle: 30, startup: 17, end: 20, speed: 14, life: 45, size: 22, shape: 'javelin', color: '#9ff0ff', max: 1, pierce: true },
@@ -249,7 +249,7 @@ const ROSTER = [
     look: { build: 'slim', body: '#1f8a5b', skin: '#f2c14e', accent: '#f28b2c', hair: '#8be06a', legs: '#e0a93a', belly: '#e9f5d0', extra: ['bird'] },
     passive: 'Five mid-air jumps and the longest flight in the game: Soar lasts 7 seconds.',
     strongVs: ['titan', 'ulfgar'], weakVs: ['volt', 'rowan'],
-    ultimate: { name: 'Emerald Tempest', desc: 'A giant tornado of leaves swallows every enemy and flings them skyward.', theme: 'leaf', colors: ['#04160d', '#3fcf7a', '#f2e36b'], hits: 9, dmg: 2.5, final: { dmg: 18, b: 13, g: 1.4, angle: 88 } },
+    ultimate: { style: 'tornado', name: 'Emerald Tempest', desc: 'A tornado of leaves spins the target up and flings them in a random direction.', theme: 'leaf', colors: ['#04160d', '#3fcf7a', '#f2e36b'], hits: 9, dmg: 2.5, final: { dmg: 18, b: 13, g: 1.4, angle: 88 } },
     specials: {
       neutral: { name: 'Leaf Tornado', desc: 'Send out a tornado of leaves that carries enemies up, then bursts.', kind: 'proj',
         dmg: 3, b: 3.4, g: 0.2, angle: 88, startup: 10, end: 14, speed: 5, life: 90, size: 36, shape: 'leafnado', color: '#6fd35a', max: 1, pierce: true, rehit: 9, tall: true, yoff: 18,
@@ -268,7 +268,7 @@ const ROSTER = [
     look: { build: 'normal', body: '#1d5f8a', skin: '#e2b48f', accent: '#3fe0d0', hair: '#2a1d18', legs: '#2b3446', extra: ['tamer'] },
     passive: 'A summoner: every special throws a Tide Orb that releases a creature to fight for him. His partner is a shark.',
     strongVs: ['blaze', 'titan'], weakVs: ['volt', 'rowan'],
-    ultimate: { name: 'Megalodon Tide', desc: 'A tidal wave floods the stage and a giant shark bursts out of it.', theme: 'ocean', colors: ['#021a2e', '#1fa3d6', '#bff6ff'], hits: 6, dmg: 3.5, final: { dmg: 21, b: 13, g: 1.4, angle: 70 } },
+    ultimate: { style: 'sharks', name: 'Megalodon Tide', desc: 'A school of sharks charges in from both sides, then a giant shark launches the target. Tough targets can survive it.', theme: 'ocean', colors: ['#021a2e', '#1fa3d6', '#bff6ff'], hits: 6, dmg: 3.5, final: { dmg: 21, b: 13, g: 1.4, angle: 70 } },
     specials: {
       neutral: { name: 'Shark Summon', desc: 'Lob a Tide Orb. Where it lands (or hits), a shark bursts out and charges forward, biting again and again.', kind: 'proj',
         dmg: 3, b: 2, g: 0.2, angle: 40, startup: 10, end: 16, speed: 10, aim: 28, grav: 0.45, life: 70, size: 16, shape: 'capture', color: '#3fe0d0', max: 1, land: true,
@@ -288,7 +288,7 @@ const ROSTER = [
     look: { build: 'slim', body: '#2a2d34', skin: '#e8c19c', accent: '#e8354a', hair: '#151515', legs: '#3a3f4a', extra: ['agent'] },
     passive: 'Hold the special button to keep firing the Ghostor. He can shoot, throw daggers and knife people while hovering.',
     strongVs: ['rowan', 'nyx'], weakVs: ['nova', 'titan'],
-    ultimate: { name: 'Phantom Barrage', desc: 'Locks on to every enemy and empties a glowing magazine into them.', theme: 'tactical', colors: ['#0a0c12', '#e8354a', '#f2f4f8'], hits: 14, dmg: 1.8, final: { dmg: 17, b: 12.5, g: 1.35, angle: 40 } },
+    ultimate: { style: 'barrage', name: 'Phantom Barrage', desc: 'Empties a glowing magazine that pushes the target back with every shot.', theme: 'tactical', colors: ['#0a0c12', '#e8354a', '#f2f4f8'], hits: 14, dmg: 1.8, final: { dmg: 17, b: 12.5, g: 1.35, angle: 40 } },
     specials: {
       neutral: { name: 'Ghostor', desc: 'A silenced pistol that fires really fast. Hold the button to keep shooting (up to 8 shots).', kind: 'proj',
         dmg: 2.1, b: 1.6, g: 0.12, angle: 18, startup: 5, end: 10, speed: 26, life: 26, size: 8, shape: 'bullet', color: '#ffe9a8', max: 8, jitter: 1.2, auto: { every: 6, max: 8 } },
@@ -306,7 +306,7 @@ const ROSTER = [
     look: { build: 'normal', body: '#1b1033', skin: '#a8734f', accent: '#ff3df0', hair: '#18ffd1', legs: '#241640', extra: ['dj'] },
     passive: 'Sound waves grow bigger the farther they travel, and the Bass Drop blasts everyone away.',
     strongVs: ['zephyr', 'kiro'], weakVs: ['nova', 'guo'],
-    ultimate: { name: 'Final Encore', desc: 'The stage turns into a concert and the speakers blast every enemy to the beat.', theme: 'concert', colors: ['#0b0420', '#ff3df0', '#18ffd1'], hits: 8, dmg: 3, final: { dmg: 20, b: 13, g: 1.4, angle: 60 } },
+    ultimate: { style: 'encore', name: 'Final Encore', desc: 'The speakers blast the target left and right to the beat, then the final chord.', theme: 'concert', colors: ['#0b0420', '#ff3df0', '#18ffd1'], hits: 8, dmg: 3, final: { dmg: 20, b: 13, g: 1.4, angle: 60 } },
     specials: {
       neutral: { name: 'Sound Wave', desc: 'Send out a ring of sound that gets bigger as it travels and passes through enemies.', kind: 'proj',
         dmg: 7, b: 4.2, g: 0.62, angle: 30, startup: 10, end: 16, speed: 7.5, life: 58, size: 18, shape: 'soundwave', color: '#18ffd1', max: 1, pierce: true, grow: 0.9, maxSize: 64 },
@@ -324,7 +324,7 @@ const ROSTER = [
     look: { build: 'normal', body: '#4a3426', skin: '#e9c7a6', accent: '#e6b84a', hair: '#d8d8e0', legs: '#2e2219', extra: ['clock'] },
     passive: 'Bends time: Rewind sends him back to where he was a second ago and undoes some damage, and the Time Field slows enemies down.',
     strongVs: ['blaze', 'volt'], weakVs: ['zephyr', 'echo'],
-    ultimate: { name: 'Stopped Clock', desc: 'Freezes time for everyone else, then lets all the hits land at once.', theme: 'clock', colors: ['#120d06', '#e6b84a', '#fff4d6'], hits: 1, dmg: 4, freeze: true, final: { dmg: 23, b: 13, g: 1.42, angle: 65 } },
+    ultimate: { style: 'clock', name: 'Stopped Clock', desc: 'Freezes time. Every hit is stored up, then they all land at once.', theme: 'clock', colors: ['#120d06', '#e6b84a', '#fff4d6'], hits: 1, dmg: 4, freeze: true, final: { dmg: 23, b: 13, g: 1.42, angle: 65 } },
     specials: {
       neutral: { name: 'Bouncing Gear', desc: 'Toss a spinning gear that bounces along the ground three times.', kind: 'proj',
         dmg: 6, b: 4, g: 0.55, angle: 45, startup: 9, end: 14, speed: 8.5, aim: 18, grav: 0.5, life: 110, size: 20, shape: 'gear', color: '#e6b84a', max: 2, bounce: 3 },
@@ -342,7 +342,7 @@ const ROSTER = [
     look: { build: 'small', body: '#f3f0e6', skin: '#f1cdb0', accent: '#7cff6b', hair: '#ff7ab8', legs: '#54446e', extra: ['alchemist'] },
     passive: 'Every potion is a surprise: fire burns, frost freezes and toxic slows. Small and floaty.',
     strongVs: ['titan', 'ulfgar'], weakVs: ['zephyr', 'guo'],
-    ultimate: { name: 'Grand Elixir', desc: 'Brews a giant cauldron that boils over and splashes every enemy.', theme: 'alchemy', colors: ['#0d1a10', '#7cff6b', '#ff7ab8'], hits: 7, dmg: 3, final: { dmg: 20, b: 13, g: 1.4, angle: 80 } },
+    ultimate: { style: 'elixir', name: 'Grand Elixir', desc: 'A giant cauldron splashes the target with poison that slows and burns them.', theme: 'alchemy', colors: ['#0d1a10', '#7cff6b', '#ff7ab8'], hits: 7, dmg: 3, final: { dmg: 20, b: 13, g: 1.4, angle: 80 } },
     specials: {
       neutral: { name: 'Mystery Potion', desc: 'Lob a random potion. It smashes into a puddle of fire (burns), frost (freezes) or toxic goo (slows).', kind: 'proj',
         dmg: 4, b: 2.5, g: 0.3, angle: 50, startup: 9, end: 15, speed: 10, aim: 35, grav: 0.45, life: 80, size: 14, shape: 'potion', color: '#7cff6b', max: 2, land: true,
@@ -365,7 +365,7 @@ const ROSTER = [
     look: { build: 'normal', body: '#6b5638', skin: '#e5bf98', accent: '#ffd84a', hair: '#2a211b', legs: '#2f3340', extra: ['photo'] },
     passive: 'Boss-class. His flashes dazzle (stun) anyone they catch, Film Strip fires five photos, and two Photo Traps can be set at once.',
     strongVs: ['guo', 'zephyr'], weakVs: ['titan', 'hsi'],
-    ultimate: { name: 'Final Exposure', desc: 'Frames the target in a giant viewfinder: blinding flashes, a storm of polaroids, then the shutter slams.', theme: 'photo', colors: ['#0c0b10', '#ffd84a', '#ffffff'], hits: 6, dmg: 3.2, final: { dmg: 21, b: 13.2, g: 1.42, angle: 55 } },
+    ultimate: { style: 'photo', name: 'Final Exposure', desc: 'Blinding flashes, a storm of polaroids, then the shutter slams and leaves them dazed.', theme: 'photo', colors: ['#0c0b10', '#ffd84a', '#ffffff'], hits: 6, dmg: 3.2, final: { dmg: 21, b: 13.2, g: 1.42, angle: 55 } },
     specials: {
       neutral: { name: 'Flash Burst', desc: 'Pop the camera flash in front of you. Short range, but it dazzles whoever it catches.', kind: 'proj',
         dmg: 6, b: 4, g: 0.45, angle: 30, startup: 7, end: 17, speed: 14, life: 15, size: 34, shape: 'flash', color: '#fff6c8', max: 1, pierce: true, grow: 3.5, maxSize: 74, zap: 17, flash: true },
@@ -383,7 +383,7 @@ const ROSTER = [
     look: { build: 'normal', body: '#5b2a86', skin: '#d9a87e', accent: '#ff8a1f', hair: '#1a1410', legs: '#5b2a86', extra: ['baller'] },
     passive: 'Boss-class. Triple jump, two bouncing Jump Shots at once, an armored Crossover and a multi-hit Alley-Oop.',
     strongVs: ['chuang', 'rowan'], weakVs: ['nova', 'kiro'],
-    ultimate: { name: 'Buzzer Beater', desc: 'A giant hoop drops from the sky, basketballs rain down, then he slam-dunks the target.', theme: 'court', colors: ['#1a0f06', '#ff8a1f', '#ffe2b8'], hits: 5, dmg: 3.4, final: { dmg: 21, b: 13.2, g: 1.42, angle: 70 } },
+    ultimate: { style: 'court', name: 'Buzzer Beater', desc: 'Basketballs bounce the target around, then he slam-dunks them.', theme: 'court', colors: ['#1a0f06', '#ff8a1f', '#ffe2b8'], hits: 5, dmg: 3.4, final: { dmg: 21, b: 13.2, g: 1.42, angle: 70 } },
     specials: {
       neutral: { name: 'Jump Shot', desc: 'Shoot a basketball in an arc. It bounces off the floor and can hit again.', kind: 'proj',
         dmg: 8, b: 5.2, g: 0.75, angle: 45, startup: 8, end: 14, speed: 12, aim: 30, grav: 0.4, life: 120, size: 19, shape: 'ball', color: '#ff8a1f', max: 2, bounce: 3 },
@@ -404,7 +404,7 @@ const ROSTER = [
     look: { build: 'normal', body: '#15131f', skin: '#e9c3a0', accent: '#ffd35c', hair: '#fff3c4', legs: '#24203a', extra: ['legend'] },
     passive: 'The ultra max fighter. Press 1–7 to switch styles at any time and use the specials of Zephyr, Blaze, Volt, Mr. Chiu, Mr. Guo, Lumi or Kiro.',
     strongVs: ['titan', 'ulfgar', 'nova'], weakVs: [],
-    ultimate: { name: 'Legend Ascension', desc: 'All seven styles strike at once in a storm of light.', theme: 'legend', colors: ['#0b0716', '#ffd35c', '#ffffff'], hits: 7, dmg: 3.2, final: { dmg: 22, b: 13.5, g: 1.45, angle: 60 } },
+    ultimate: { style: 'legend', name: 'Legend Ascension', desc: 'All seven styles strike at once in a storm of light. The strongest ultimate.', theme: 'legend', colors: ['#0b0716', '#ffd35c', '#ffffff'], hits: 7, dmg: 3.2, final: { dmg: 22, b: 13.5, g: 1.45, angle: 60 } },
     specials: null
   }
 ];
