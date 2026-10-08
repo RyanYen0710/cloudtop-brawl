@@ -341,6 +341,52 @@ body{touch-action:manipulation}
 .bs-banner.win{background:linear-gradient(90deg,#3c7a5c,#6fe39a);color:#0c1f14}
 .bs-banner.lose{background:#3a1f2a;border:2px solid var(--coral)}
 @media (max-width:800px){.bs-wrap{grid-template-columns:minmax(0,1fr)}.bs-cv{width:84px;height:100px}}
+/* main menu hub: big tiles (Single Player / Online / How to Play) around a fighter showcase */
+.hub{position:relative;z-index:1;width:100%;height:100%;display:flex;flex-direction:column;gap:12px;padding:clamp(12px,3vh,26px) clamp(14px,3vw,34px) 0;background:radial-gradient(ellipse at 50% 55%,rgba(14,11,32,.35),rgba(14,11,32,.82))}
+.hub-top{display:flex;align-items:flex-end;gap:10px;min-height:0;padding-right:170px}
+.hub-logo .l2{font-size:clamp(34px,6vw,58px)}
+.hub-logo .l1{font-size:11px}
+.hub-grid{position:relative;flex:1;min-height:0;display:grid;grid-template-columns:1.2fr 1fr;grid-template-rows:1fr 1fr;gap:12px}
+.hub-grid[hidden]{display:none}
+.hub-tile{position:relative;overflow:hidden;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;padding:18px 24px;border:4px solid rgba(0,0,0,.35);border-radius:6px;color:#fff;text-align:center;cursor:pointer;
+  clip-path:polygon(0 0,100% 0,100% 100%,0 100%);transition:transform .12s,filter .12s,box-shadow .12s;box-shadow:inset 0 0 0 2px rgba(255,255,255,.12)}
+.hub-tile::before{content:"";position:absolute;inset:0;background:repeating-linear-gradient(115deg,rgba(255,255,255,.07) 0 26px,transparent 26px 70px);pointer-events:none}
+.hub-tile .ht-ico{width:clamp(44px,9vh,92px);height:auto;fill:rgba(255,255,255,.9);filter:drop-shadow(0 4px 0 rgba(0,0,0,.25))}
+.hub-tile b{font-family:var(--disp);font-weight:400;font-size:clamp(26px,5vh,54px);line-height:1;letter-spacing:.01em;paint-order:stroke;-webkit-text-stroke:6px rgba(0,0,0,.35);text-shadow:0 4px 0 rgba(0,0,0,.25)}
+.hub-tile span{font:700 clamp(11px,1.8vh,15px) var(--ui);opacity:.9;letter-spacing:.04em}
+.hub-tile:hover,.hub-tile:focus-visible{transform:scale(1.025);filter:brightness(1.12);outline:none;box-shadow:inset 0 0 0 4px #fff,0 0 0 4px rgba(255,211,92,.85),0 10px 30px rgba(0,0,0,.45);z-index:2}
+.hub-tile:active{transform:scale(.99)}
+.ht-solo,.ht-cpu{grid-row:1/3;background:linear-gradient(135deg,#ff5a3d,#c8102e 70%)}
+.ht-solo,.ht-cpu{clip-path:polygon(0 0,100% 0,93% 100%,0 100%);padding-right:8%}
+.ht-online,.ht-train{clip-path:polygon(0 0,100% 0,100% 100%,6% 100%);padding-left:9%}
+.ht-help,.ht-boss{clip-path:polygon(0 0,100% 0,100% 100%,0 100%);margin-left:-4%;padding-left:8%}
+.ht-solo b,.ht-cpu b{font-size:clamp(34px,8vh,78px)}
+.ht-solo .ht-ico,.ht-cpu .ht-ico{width:clamp(60px,15vh,140px)}
+.ht-online{background:linear-gradient(135deg,#ffb52e,#e8811c 70%)}
+.ht-help{background:linear-gradient(135deg,#2fa8ff,#1b5fd8 70%)}
+.ht-train{background:linear-gradient(135deg,#3fd47a,#14934a 70%)}
+.ht-boss{background:linear-gradient(135deg,#c26bff,#6a1fc8 70%)}
+.hub-orb{position:absolute;left:53.5%;top:50%;width:clamp(120px,30vh,250px);aspect-ratio:1;transform:translate(-50%,-50%);border-radius:50%;overflow:hidden;border:8px solid #120d24;box-shadow:0 0 0 4px #ffb547,0 12px 40px rgba(0,0,0,.55);z-index:3;pointer-events:none}
+.hub-orb canvas{width:100%;height:100%;display:block}
+.hub-orb span{position:absolute;left:0;right:0;bottom:10%;text-align:center;font:700 12px var(--ui);letter-spacing:.12em;text-transform:uppercase;color:#fff;text-shadow:0 2px 4px #000}
+.hub-sub .hub-orb{display:none}
+.hub-back{margin:0 auto 6px 18px;padding:8px 18px;border-radius:999px;background:rgba(14,11,32,.85);border:2px solid var(--gold);color:#fff3c4;font:700 14px var(--ui)}
+.hub-back:hover,.hub-back:focus-visible{background:#2c2560;outline:none}
+.hub-foot{display:flex;align-items:center;gap:12px;flex-wrap:wrap;justify-content:space-between;padding:10px 4px calc(10px + env(safe-area-inset-bottom,0px));border-top:2px solid rgba(255,255,255,.08);color:var(--dim);font-size:13px}
+.hub-tip{flex:1;min-width:180px;text-align:center;font:700 15px var(--ui);color:#fff3c4}
+.hub-side{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+@media (max-width:700px){
+  .hub-grid{grid-template-columns:1fr 1fr;grid-template-rows:1.25fr 1fr}
+  .ht-solo,.ht-cpu{grid-row:auto;grid-column:1/3}
+  .hub-orb{display:none}
+  #scr-main .hub-tile{padding:12px;clip-path:none;margin:0}
+  .hub-top{padding-right:150px}
+  .hub-tile b{font-size:clamp(20px,6vw,30px)}
+  .ht-solo b,.ht-cpu b{font-size:clamp(30px,9vw,44px)}
+  .hub-tip{display:none}
+}
+@media (max-height:460px){.hub-top{display:none}.hub-tile span{display:none}}
+@media (prefers-reduced-motion:reduce){.hub-tile{transition:none}}
 </style>
 
 <div id="app">
@@ -348,17 +394,38 @@ body{touch-action:manipulation}
 
   <section id="scr-main" class="screen">
     <div class="credit" aria-label="Founder: Ryan Yen"><span>Founder</span><b>Ryan Yen</b></div>
-    <div class="main-panel">
-      <div class="logo"><span class="l1">CLOUDTOP</span><span class="l2">BRAWL</span></div>
-      <p class="tag">Launch your rivals off the arena. Higher damage % means they fly farther. Last fighter standing wins.</p>
-      <nav class="menu" aria-label="Main menu">
-        <button type="button" class="mbtn primary" id="go-solo"><b>Solo vs CPU</b><span>You against 1 to 3 computer fighters</span></button>
-        <button type="button" class="mbtn" id="go-training"><b>Training Lab</b><span>Practice any fighter on a dummy that never runs out of lives</span></button>
-        <button type="button" class="mbtn" id="go-online"><b>Online with friends</b><span>Host a lobby, invite friends, add CPUs</span></button>
-        <button type="button" class="mbtn" id="go-boss"><b>Boss Fight</b><span>30 levels, 3 bosses to unlock</span></button>
-        <button type="button" class="mbtn" id="go-controls"><b>How to play</b><span>Keyboard, touch and gamepad controls</span></button>
+    <div class="hub">
+      <div class="hub-top">
+        <div class="logo hub-logo"><span class="l1">CLOUDTOP</span><span class="l2">BRAWL</span></div>
+        <button type="button" class="hub-back" id="hub-back" hidden>← Back</button>
+      </div>
+      <nav class="hub-grid" id="hub-home" aria-label="Main menu">
+        <button type="button" class="hub-tile ht-solo" id="go-single" data-tip="Fight CPUs, practice in the Training Lab, or take on the bosses.">
+          <svg class="ht-ico" viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="16" r="9"/><path d="M18 58l4-22-8-6 6-6 12 6 12-6 6 6-8 6 4 22h-8l-6-16-6 16z"/></svg>
+          <b>Single Player</b><span>Vs CPU · Training Lab · Boss Fight</span></button>
+        <button type="button" class="hub-tile ht-online" id="go-online" data-tip="Host a lobby, send friends a 4-letter code, add CPUs.">
+          <svg class="ht-ico" viewBox="0 0 64 64" aria-hidden="true"><path d="M32 6a26 26 0 1 0 0 52 26 26 0 0 0 0-52zm0 6c3 3 6 9 7 17H25c1-8 4-14 7-17zm-8 3c-2 4-4 9-4 14h-8a20 20 0 0 1 12-14zm16 0a20 20 0 0 1 12 14h-8c0-5-2-10-4-14zM12 35h8c0 5 2 10 4 14a20 20 0 0 1-12-14zm13 0h14c-1 8-4 14-7 17-3-3-6-9-7-17zm19 0h8a20 20 0 0 1-12 14c2-4 4-9 4-14z"/></svg>
+          <b>Online</b><span>Play with friends</span></button>
+        <button type="button" class="hub-tile ht-help" id="go-controls" data-tip="Keyboard, touch and gamepad controls.">
+          <svg class="ht-ico" viewBox="0 0 64 64" aria-hidden="true"><path d="M18 18h28c8 0 14 8 14 20 0 8-3 12-7 12-5 0-7-8-12-8H23c-5 0-7 8-12 8-4 0-7-4-7-12 0-12 6-20 14-20zm-2 9v5h-5v4h5v5h4v-5h5v-4h-5v-5zm28 1a3 3 0 1 0 0 6 3 3 0 0 0 0-6zm6 6a3 3 0 1 0 0 6 3 3 0 0 0 0-6z"/></svg>
+          <b>How to Play</b><span>Controls</span></button>
+        <div class="hub-orb" aria-hidden="true"><canvas id="hub-cv"></canvas><span id="hub-name"></span></div>
       </nav>
-      <div class="main-foot"><button type="button" class="mini acct-btn" id="acct-btn" hidden>Sign in</button><span id="main-count">17 fighters · 8 stages · CPU levels 1–10</span><button type="button" class="mini" data-open-settings>Settings</button></div>
+      <nav class="hub-grid hub-sub" id="hub-single" aria-label="Single player" hidden>
+        <button type="button" class="hub-tile ht-cpu" id="go-solo" data-tip="You against 1 to 3 computer fighters. Pick their level from 1 to 10.">
+          <svg class="ht-ico" viewBox="0 0 64 64" aria-hidden="true"><path d="M10 8l20 20-4 4L6 12V8zm44 0h4v4L38 32l-4-4zM24 34l6 6-10 10 4 4-4 4-12-12 4-4 4 4zm16 0l10 10 4-4 4 4-12 12-4-4 4-4-10-10z"/></svg>
+          <b>Vs CPU</b><span>1 to 3 computer fighters</span></button>
+        <button type="button" class="hub-tile ht-train" id="go-training" data-tip="Practice any fighter on a dummy that never runs out of lives.">
+          <svg class="ht-ico" viewBox="0 0 64 64" aria-hidden="true"><path d="M32 4a28 28 0 1 0 0 56 28 28 0 0 0 0-56zm0 8a20 20 0 1 1 0 40 20 20 0 0 1 0-40zm0 8a12 12 0 1 0 0 24 12 12 0 0 0 0-24zm0 7a5 5 0 1 1 0 10 5 5 0 0 1 0-10z"/></svg>
+          <b>Training Lab</b><span>Practice moves</span></button>
+        <button type="button" class="hub-tile ht-boss" id="go-boss" data-tip="30 levels and 3 bosses to unlock. Needs a signed-in account.">
+          <svg class="ht-ico" viewBox="0 0 64 64" aria-hidden="true"><path d="M6 20l12 10 14-20 14 20 12-10-6 30H12zm6 34h40v6H12z"/></svg>
+          <b>Boss Fight</b><span>30 levels · 3 bosses</span></button>
+      </nav>
+      <div class="hub-foot">
+        <span class="hub-tip" id="hub-tip"></span>
+        <span class="hub-side"><span id="main-count">17 fighters · 8 stages · CPU levels 1–10</span><button type="button" class="mini acct-btn" id="acct-btn" hidden>Sign in</button><button type="button" class="mini" data-open-settings>Settings</button></span>
+      </div>
     </div>
   </section>
 
@@ -569,5 +636,6 @@ body{touch-action:manipulation}
 <script src="settings-ui.js"></script>
 <script src="boss.js"></script>
 <script src="intro.js"></script>
+<script src="menu.js"></script>
 
 </html>
