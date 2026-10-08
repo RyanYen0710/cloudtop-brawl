@@ -14,6 +14,7 @@ const DEFAULT_BINDS = {
 /* keys the game already uses for something else */
 const RESERVED_KEYS = { Escape: 'removing a key', KeyP: 'pause', KeyH: 'hiding the hints', KeyR: 'reset in Training Lab', Tab: 'moving around the page' };
 for (let i = 1; i <= 7; i++) { RESERVED_KEYS['Digit' + i] = 'Legend Yen’s styles'; RESERVED_KEYS['Numpad' + i] = 'Legend Yen’s styles'; }
+RESERVED_KEYS.KeyY = 'Legend Yen’s own style';
 function loadBinds() {
   const b = JSON.parse(JSON.stringify(DEFAULT_BINDS));
   try { const s = JSON.parse(localStorage.getItem('cb.keys') || 'null'); if (s) for (const k in b) if (Array.isArray(s[k])) b[k] = [String(s[k][0] || ''), String(s[k][1] || '')]; } catch (e) { }
@@ -48,12 +49,12 @@ const IN = { keys: new Set(), press: 0, prev: 0, touch: 0, counters: [0, 0, 0, 0
 
 function keyBits() { let b = 0; IN.keys.forEach(k => { b |= KEYMAP[k] || 0; }); return b | ((IN.mode || 0) << 10); }
 
-/* number keys 1–7 pick a style (only Legend Yen uses it) */
+/* number keys 1–7 pick a style, Y picks his own Legend style (only Legend Yen uses it) */
 window.addEventListener('keydown', e => {
   const m = /^(?:Digit|Numpad)([1-7])$/.exec(e.code);
-  if (!m || !IN.active || typeof G === 'undefined' || G.screen !== 'fight') return;
+  if (!(m || e.code === 'KeyY') || !IN.active || typeof G === 'undefined' || G.screen !== 'fight') return;
   if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT')) return;
-  IN.mode = +m[1];
+  IN.mode = m ? +m[1] : 8;
 });
 
 window.addEventListener('keydown', e => {
