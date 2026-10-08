@@ -4,7 +4,7 @@
    every hit takes at least 1, and big hits take more. Whoever breaks it holds
    their ultimate for 20 seconds. Press Z (or the ULT button) to unleash it. */
 
-const ULT_CUT = 110, ULT_FX = 130;
+const ULT_CUT = 90, ULT_FX = 130;
 /* aimed ultimates: after the splash the user vanishes and steers a crosshair (WASD / arrows).
    K fires (or it fires itself when time runs out). Only enemies inside the circle get hit. */
 const ULT_AIM = 300, ULT_LOCK = 15, ULT_R = 110, ULT_SPD = 6.5;
@@ -43,6 +43,19 @@ const ULT_STYLES = {
   legend: { hit: (o, i, u, g) => ultPush(o, g, ultRnd(-10, 10), ultRnd(-10, 4)), angle: () => ultRnd(50, 70), finMul: 1.05 }
 };
 const ULT_PH = ['cut', 'aim', 'lock', 'fx'];
+/* three kinds of ultimate (set per fighter in data.js as ultimate.kind):
+   aim   - steer the red circle, then fire (the original kind)
+   all   - no aiming: hits every opponent on the stage, but launches a bit softer
+   close - the opponent has to be right in front of you when you press it; miss and it's wasted */
+const ULT_KIND_MUL = { aim: 1, all: 0.85, close: 1.05 };
+const ULT_CLOSE_W = 230, ULT_CLOSE_BACK = 30, ULT_CLOSE_UP = 90;
+const ultKind = def => (def && ULT_KIND_MUL[def.kind] ? def.kind : 'aim');
+const ultEnemies = (f, g) => g.fighters.filter(o => o !== f && !o.out && o.dead <= 0 && !o.vanish && o.tid !== f.tid);
+/* is o inside f's close-range ultimate box (in front of f)? */
+function ultInClose(f, o) {
+  const rel = (o.x - f.x) * (f.face || 1);
+  return rel > -ULT_CLOSE_BACK - o.W * 0.3 && rel < ULT_CLOSE_W + o.W * 0.3 && o.y > f.y - f.H - ULT_CLOSE_UP && o.y - o.H < f.y + 40;
+}
 const ORB_R = 28;
 const DEFAULT_ULT = { name: 'Ultimate Burst', desc: 'A huge blast of power hits every enemy.', theme: 'plain', hits: 4, dmg: 4, final: { dmg: 18, b: 12, g: 1.35, angle: 60 } };
 function ultDef(c) {
@@ -124,7 +137,16 @@ function stepUlt(g, inputs) {
   if (!f) { g.ult = null; return false; }
   if (u.ph === 'cut') {
     u.t++; f.vanish = true;
-    if (u.t >= ULT_CUT) { u.ph = 'aim'; emit(g, 'ultaim', u.ax, u.ay, 0, f.slot); }
+    if (u.t >= ULT_CUT) {
+      const kind = ultKind(ultDef(f.c));
+      if (kind === 'aim') { u.ph = 'aim'; emit(g, 'ultaim', u.ax, u.ay, 0, f.slot); return true; }
+      const tg = ultEnemies(f, g).filter(o => kind === 'all' || ultInClose(f, o));
+      if (!tg.length) { emit(g, 'ultmiss', f.x + (f.face || 1) * 120, f.y - f.H / 2, 0, f.slot); endUlt(g, f); return false; }
+      u.targets = tg.map(o => o.slot);
+      if (kind === 'all') { const m = g.stage.solids[0]; u.ax = m.x + m.w / 2; u.ay = m.y - 170; }
+      else { u.ax = tg[0].x; u.ay = tg[0].y - tg[0].H / 2; }
+      u.ph = 'fx'; emit(g, 'ulthitok', u.ax, u.ay, tg.length, f.slot);
+    }
     return true;
   }
   if (u.ph === 'aim' || u.ph === 'lock') {
@@ -170,8 +192,8 @@ function stepUlt(g, inputs) {
       if (!inside(o)) { emit(g, 'ultmiss', o.x, o.y - o.H / 2, 0, f.slot); return; }
       if (u.bank) o.dmg = Math.min(999, o.dmg + u.bank);
       const fin = Object.assign({}, def.final, st.after || {}, {
-        b: ULT_FIN_B * (st.finMul || 1) * ultRnd(0.85, 1.1),
-        g: ULT_FIN_G * (st.finMul || 1),
+        b: ULT_FIN_B * (st.finMul || 1) * ULT_KIND_MUL[ultKind(def)] * ultRnd(0.85, 1.1),
+        g: ULT_FIN_G * (st.finMul || 1) * ULT_KIND_MUL[ultKind(def)],
         angle: st.angle ? st.angle(o, u, f) : def.final.angle
       });
       const dir = st.dir ? st.dir(o, u, f) : (Math.sign(o.x - u.ax) || f.face);
@@ -418,6 +440,7 @@ function drawChineseFrame(g, vw, vh) {
 /* the big cutscene splash when an ultimate starts (like Smash) */
 function drawUltCutscene(g, view, vw, vh, t) {
   const c = ultCtx(view); if (!c || c.u.t > ULT_CUT || (c.u.ph && c.u.ph !== 'cut')) return;
+  if (typeof drawUltIntro === 'function' && drawUltIntro(g, view, c, vw, vh, t)) return;   // per-fighter opening scene (ult-intro.js)
   const { f, def } = c, col = def.colors, k = c.u.t;
   const inA = Math.min(1, k / 14), outA = Math.min(1, (ULT_CUT - k) / 14), a = inA * outA;
   g.save();
