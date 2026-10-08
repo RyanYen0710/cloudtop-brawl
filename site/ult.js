@@ -7,7 +7,41 @@
 const ULT_CUT = 110, ULT_FX = 130;
 /* aimed ultimates: after the splash the user vanishes and steers a crosshair (WASD / arrows).
    K fires (or it fires itself when time runs out). Only enemies inside the circle get hit. */
-const ULT_AIM = 300, ULT_LOCK = 38, ULT_R = 110, ULT_SPD = 6.5;
+const ULT_AIM = 300, ULT_LOCK = 15, ULT_R = 110, ULT_SPD = 6.5;
+/* the finisher itself is quick: small hits, then the big blow at FX_FINAL, done at FX_END.
+   The art was drawn for ULT_FX frames, so it plays sped up by ULT_ART to match. */
+const ULT_FX_FINAL = 60, ULT_FX_END = 72, ULT_ART = ULT_FX / ULT_FX_END;
+/* final blow: launches hard but is never a sure KO — lighter targets at low damage usually survive */
+const ULT_FIN_B = 4, ULT_FIN_G = 0.8;
+const ultRnd = (a, b) => a + Math.random() * (b - a);
+const ultPush = (o, g, dx, dy) => { const B = g.stage.blast; o.x = clamp(o.x + dx, B.l + 120, B.r - 120); o.y = clamp(o.y + dy, B.t + 120, B.b - 40); };
+/* how each fighter's ultimate behaves once someone is caught.
+   free: the target can still move and only gets hit while inside the circle (skill to escape part of it)
+   chance: each small hit only lands this often
+   hit(o,i,…): what a small hit does; tick(o,k,…): every frame; angle/dir: the final launch; after: extra status */
+const ULT_STYLES = {
+  basic: {},
+  sharks: { chance: 0.8, hit: (o, i, u, g) => ultPush(o, g, (i % 2 ? -1 : 1) * 16, 0), angle: () => ultRnd(18, 34), dir: () => Math.random() < 0.5 ? -1 : 1, finMul: 0.96 },
+  stomp: { hit: (o, i, u, g) => ultPush(o, g, 0, -22), tick: (o, k, u, g) => { if (k % 4 === 0) ultPush(o, g, 0, 6); }, angle: () => ultRnd(76, 86), finMul: 1.3 },
+  dragon: { tick: (o, k, u, g) => { if (k > 8 && k < ULT_FX_FINAL - 4) ultPush(o, g, Math.sin(k * 0.2) * 4, -2.6); }, angle: () => ultRnd(42, 58), finMul: 1.15 },
+  slash: { hit: (o, i, u, g) => ultPush(o, g, ultRnd(-12, 12), ultRnd(-8, 6)), angle: () => ultRnd(35, 55), dir: () => Math.random() < 0.5 ? -1 : 1, finMul: 0.99 },
+  beams: { free: true, reach: 1.25, chance: 0.85, finMul: 1.52 },
+  pillars: { hit: (o, i, u, g) => ultPush(o, g, 0, -10), angle: () => ultRnd(84, 90), finMul: 1.44 },
+  shatter: { angle: () => ultRnd(20, 35), finMul: 0.59 },
+  phoenix: { hit: (o, i, u, g) => ultPush(o, g, (i % 2 ? -1 : 1) * 10, -4), angle: () => ultRnd(45, 60), after: { burn: 240 }, finMul: 0.5 },
+  storm: { free: true, reach: 1.35, chance: 0.65, finMul: 1.24 },
+  vortex: { tick: (o, k, u, g) => { if (k < ULT_FX_FINAL) { o.x += (u.ax - o.x) * 0.08; o.y += ((u.ay + o.H / 2) - o.y) * 0.08; } }, angle: () => ultRnd(45, 70), dir: (o, u) => Math.sign(o.x - u.ax) || (Math.random() < 0.5 ? -1 : 1), finMul: 0.98 },
+  arrows: { free: true, reach: 1.3, chance: 0.75, angle: () => ultRnd(25, 40), finMul: 0.51 },
+  hammer: { angle: () => ultRnd(80, 88), finMul: 1.5 },
+  tornado: { tick: (o, k, u, g) => { if (k > 6 && k < ULT_FX_FINAL - 2) ultPush(o, g, Math.cos(k * 0.35) * 7, -2); }, angle: () => ultRnd(35, 145), finMul: 1.32 },
+  barrage: { hit: (o, i, u, g, f) => ultPush(o, g, (Math.sign(o.x - u.ax) || 1) * 5, 0), angle: () => ultRnd(20, 32), finMul: 0.34 },
+  encore: { hit: (o, i, u, g) => ultPush(o, g, (i % 2 ? -1 : 1) * 14, -3), angle: () => ultRnd(52, 68), finMul: 0.68 },
+  clock: { stored: true, angle: () => ultRnd(55, 72), finMul: 0.78 },
+  elixir: { angle: () => ultRnd(60, 80), after: { slow: 300, burn: 300 }, finMul: 0.92 },
+  photo: { angle: () => ultRnd(55, 70), finMul: 0.68 },
+  court: { hit: (o, i, u, g) => ultPush(o, g, ultRnd(-8, 8), i % 2 ? -18 : 14), angle: () => ultRnd(70, 82), finMul: 1.23 },
+  legend: { hit: (o, i, u, g) => ultPush(o, g, ultRnd(-10, 10), ultRnd(-10, 4)), angle: () => ultRnd(50, 70), finMul: 1.05 }
+};
 const ULT_PH = ['cut', 'aim', 'lock', 'fx'];
 const ORB_R = 28;
 const DEFAULT_ULT = { name: 'Ultimate Burst', desc: 'A huge blast of power hits every enemy.', theme: 'plain', hits: 4, dmg: 4, final: { dmg: 18, b: 12, g: 1.35, angle: 60 } };
@@ -113,28 +147,42 @@ function stepUlt(g, inputs) {
   }
   // 'fx': the themed finisher plays on whoever got caught (the rest of the match keeps going)
   u.t++;
-  const def = ultDef(f.c), k = u.t - ULT_CUT;
+  const def = ultDef(f.c), st = ULT_STYLES[def.style] || ULT_STYLES.basic, k = u.t - ULT_CUT;
   const tg = u.targets.map(s => g.fighters.find(x => x.slot === s)).filter(o => o && !o.out && o.dead <= 0);
+  // free styles: the target can keep moving; hits only land while they're still inside the (slightly bigger) circle
+  const inside = o => !st.free || Math.hypot(o.x - u.ax, (o.y - o.H / 2) - u.ay) < ULT_R * (st.reach || 1.2) + o.W * 0.35;
   f.vanish = true; f.inv = Math.max(f.inv, 4);
-  if (k === 1 && def.freeze) tg.forEach(o => { o.frozen = 100; emit(g, 'freeze', o.x, o.y - o.H / 2); });
-  const hits = def.hits || 3, finalAt = 112;
-  if (k < finalAt) tg.forEach(o => { if (!def.freeze) o.hitlag = 2; });
+  if (k === 1 && def.freeze) tg.forEach(o => { o.frozen = ULT_FX_FINAL + 4; emit(g, 'freeze', o.x, o.y - o.H / 2); });
+  const hits = def.hits || 3;
+  if (k < ULT_FX_FINAL && !st.free) tg.forEach(o => { if (!def.freeze) o.hitlag = 2; });
+  if (st.tick && k < ULT_FX_FINAL) tg.forEach(o => st.tick(o, k, u, g, f));
   for (let i = 0; i < hits; i++) {
-    if (k === 12 + Math.floor(i * 90 / hits)) tg.forEach(o => {
-      o.dmg = Math.min(999, o.dmg + def.dmg * f.ph.pm * o.ph.dt);
+    if (k === 6 + Math.floor(i * (ULT_FX_FINAL - 14) / hits)) tg.forEach(o => {
+      if (!inside(o) || (st.chance && Math.random() > st.chance)) { emit(g, 'ulthit', u.ax + ultRnd(-60, 60), u.ay + ultRnd(-40, 40), 2, f.slot); return; }
+      const d = def.dmg * f.ph.pm * o.ph.dt;
+      if (st.stored) u.bank = (u.bank || 0) + d; else o.dmg = Math.min(999, o.dmg + d);
+      if (st.hit) st.hit(o, i, u, g, f);
       emit(g, 'ulthit', o.x, o.y - o.H / 2, 6, f.slot);
     });
   }
-  if (k === finalAt) {
-    const fin = Object.assign({}, def.final, { b: def.final.b * 0.85, g: def.final.g * 0.9 });
+  if (k === ULT_FX_FINAL) {
     tg.forEach(o => {
+      if (!inside(o)) { emit(g, 'ultmiss', o.x, o.y - o.H / 2, 0, f.slot); return; }
+      if (u.bank) o.dmg = Math.min(999, o.dmg + u.bank);
+      const fin = Object.assign({}, def.final, st.after || {}, {
+        b: ULT_FIN_B * (st.finMul || 1) * ultRnd(0.85, 1.1),
+        g: ULT_FIN_G * (st.finMul || 1),
+        angle: st.angle ? st.angle(o, u, f) : def.final.angle
+      });
+      const dir = st.dir ? st.dir(o, u, f) : (Math.sign(o.x - u.ax) || f.face);
       o.hitlag = 0; o.frozen = 0; o.inv = 0; o.ledge = null;
-      applyHit(f, o, fin, Math.sign(o.x - u.ax) || f.face, g, true);
+      applyHit(f, o, fin, dir, g, true);
     });
+    u.bank = 0;
     g.shake = 24;
     emit(g, 'ultfinal', u.ax, u.ay, 0, f.slot);
   }
-  if (k >= ULT_FX) endUlt(g, f);
+  if (k >= ULT_FX_END) endUlt(g, f);
   return false;
 }
 
@@ -198,7 +246,9 @@ function ultCtx(view) {
   const u = view.ult; if (!u) return null;
   const f = view.fighters.find(x => x.slot === u.slot); if (!f) return null;
   const tg = (u.targets || []).map(s => view.fighters.find(x => x.slot === s)).filter(o => o && !o.out && !o.dead);
-  return { u, f, tg, def: ultDef(f.c), k: u.t - ULT_CUT };
+  // the finisher art was drawn for ULT_FX frames; play it sped up so it lines up with the quicker hits
+  const k = u.t - ULT_CUT;
+  return { u, f, tg, def: ultDef(f.c), k: u.ph === 'fx' || (!u.ph && k > 0) ? Math.round(k * ULT_ART) : k };
 }
 
 /* world-space effects during the ultimate */
@@ -338,6 +388,7 @@ function drawUltWorld(g, view, t) {
     tg.forEach(o => { g.strokeStyle = col[1]; g.lineWidth = 6; circle(g, o.x, o.y - o.H / 2, 30 + (k % 20) * 4); g.stroke(); });
   }
   g.restore();
+  if (typeof drawUltStyle === 'function') drawUltStyle(g, view, t);
 }
 
 /* screen tint during the ultimate: the whole stage takes on the fighter's theme */
