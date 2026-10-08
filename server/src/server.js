@@ -182,7 +182,7 @@ export class Room {
     this.state = state; this.env = env;
     this.clients = new Map();   // player id -> { id, ws, pres }
     this.srv = {};              // the server's own shared state (match snapshots, results)
-    this.g = null; this.timer = null; this.gid = 0; this.code = '';
+    this.g = null; this.timer = null; this.gid = 0; this.code = ''; this.bossPaused = false;
   }
 
   async fetch(req) {
@@ -226,6 +226,7 @@ export class Room {
     if (m.ping) { this.send(c, { pong: m.ping }); return; }
     if (typeof m.auth === 'string') { this.auth(c, m.auth); return; }
     if (m.cmd === 'boss') { this.startBoss(c, m); return; }
+    if (m.cmd === 'pause') { this.pauseBoss(c, m); return; }
     if (m.d && typeof m.d === 'object' && !Array.isArray(m.d)) {
       if (m.full) c.pres = {};
       srvApply(c.pres, m.d);
@@ -276,11 +277,31 @@ export class Room {
     this.g = makeGame({ stage: cfg.stage, stocks: cfg.stocks, time: cfg.time, teams: true, slots });
     this.g.orbNext = 2400;
     this.ended = false; this.lastSent = -9; this.last = Date.now();
-    this.bossRun = { uid: c.uid, level, gid: this.gid };
+    this.bossPaused = false;
+    this.bossRun = { uid: c.uid, peer: c.id, level, gid: this.gid };
     const fm = this.g.fighters.map(f => [f.slot, f.c.id, f.tid, f.name.slice(0, 16), f.color, f.tag.slice(0, 16), f.team, f.boss ? 1 : 0]);
     this.srv = { boss: { gid: this.gid, lvl: level, st: cfg.stage, sk: cfg.stocks, fm } };
     this.broadcast({ from: 'srv', d: { boss: this.srv.boss } });
     this.timer = setInterval(() => this.tick(), 8);
+  }
+
+  pauseBoss(c, m) {
+    const run = this.bossRun;
+    if (!this.boss || !run || !this.g || this.g.over || this.clients.get(c.id) !== c ||
+        c.uid !== run.uid || c.id !== run.peer || m.gid !== run.gid || typeof m.paused !== 'boolean') return;
+    if (this.bossPaused !== m.paused) {
+      this.bossPaused = m.paused;
+      // Discard elapsed wall time: paused time must never be simulated on resume.
+      this.last = Date.now();
+      if (m.paused) { clearInterval(this.timer); this.timer = null; }
+      else {
+        this.g.fighters.forEach(f => { if (f.ctrl.type === 'remote') this.input(f); });
+        this.timer = setInterval(() => this.tick(), 8);
+      }
+    }
+    this.srv.bossPause = { gid: run.gid, paused: this.bossPaused };
+    this.srv.gs = srvEncodeState(this.g, this.gid);
+    this.broadcast({ from: 'srv', d: { bossPause: this.srv.bossPause, gs: this.srv.gs } });
   }
 
   start(cfg, gid, hostC) {
@@ -304,7 +325,7 @@ export class Room {
 
   stop(silent) {
     if (this.timer) { clearInterval(this.timer); this.timer = null; }
-    this.bossRun = null;
+    this.bossRun = null; this.bossPaused = false;
     this.g = null;
     if (!silent || Object.keys(this.srv).length) { this.srv = {}; this.broadcast({ from: 'srv', d: { gs: null, res: null } }); }
   }
@@ -328,7 +349,7 @@ export class Room {
   }
 
   tick() {
-    const g = this.g; if (!g) return;
+    const g = this.g; if (!g || this.bossPaused) return;
     const now = Date.now();
     let n = Math.floor((now - this.last) / TICK);
     if (n <= 0) return;

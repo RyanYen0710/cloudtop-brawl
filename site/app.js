@@ -80,7 +80,7 @@ function enterFight() {
   const stg = (G.mode === 'guest' || G.remote) ? (STAGES[NET.lb && NET.lb.st] || STAGES[0]) : (G.game ? G.game.stage : STAGES[0]);
   musicPlay(stg.id);
   HINTS.shown = false; updateHintsVisibility();
-  const solo = G.mode === 'solo';
+  const solo = G.mode === 'solo' || G.mode === 'boss';
   document.getElementById('pause-btn').textContent = solo ? 'Pause' : 'Menu';
   document.getElementById('p-resume').textContent = solo ? 'Resume' : 'Keep fighting';
   document.getElementById('p-setup').hidden = G.mode === 'guest';
@@ -212,15 +212,18 @@ function backToSetup() {
   showSetup();
   if (G.mode === 'host' && NET.room) hostSync(NET.room.peers());
 }
-function togglePause(v) {
+function togglePause(v, confirmed) {
   if (G.screen !== 'fight') return;
+  if (G.mode === 'boss' && !confirmed) { bossPause(v); return; }
   document.getElementById('pause').hidden = !v;
-  G.paused = v && G.mode === 'solo';
+  G.paused = v && (G.mode === 'solo' || G.mode === 'boss');
   IN.active = !v;
+  if (v && G.mode === 'boss') { IN.keys.clear(); IN.touch = 0; IN.press = 0; IN.prev = 0; }
 }
 window.addEventListener('keydown', e => {
+  if (e.repeat) return;
   if (e.code === 'Escape' && G.screen === 'fight') togglePause(document.getElementById('pause').hidden);
-  if ((e.code === 'Enter' || e.code === 'KeyP') && G.screen === 'fight' && G.mode === 'solo' && e.code === 'KeyP') togglePause(document.getElementById('pause').hidden);
+  if (e.code === 'KeyP' && G.screen === 'fight' && (G.mode === 'solo' || G.mode === 'boss')) togglePause(document.getElementById('pause').hidden);
 });
 
 /* ---------- attract-mode battle behind the menus ---------- */
