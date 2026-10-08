@@ -253,6 +253,7 @@ function makeGame(cfg) {
       color: cfg.teams ? TEAM_COLORS[s.team] : SLOT_COLORS[s.slot], tag: s.tag || ('P' + (s.slot + 1))
     });
     f.face = f.x < st.cx ? 1 : -1;
+    if (f.c.modes) f.yenMode = f.c.modes.length - 1;   // Legend Yen starts in his own Legend style
     g.fighters.push(f);
   });
   return g;
@@ -261,7 +262,7 @@ function makeGame(cfg) {
 function decodeIn(o) {
   const b = o ? o.b : 0, p = o ? o.pr : 0;
   return {
-    mode: (b >> 10) & 7,
+    mode: (b >> 10) & 15,
     l: !!(b & BL), r: !!(b & BR), u: !!(b & BU), d: !!(b & BD), jump: !!(b & BJ), atk: !!(b & BA), sp: !!(b & BS), sm: !!(b & BM), sh: !!(b & BH), z: !!(b & BZ),
     lp: !!(p & BL), rp: !!(p & BR), up: !!(p & BU), dp: !!(p & BD), jp: !!(p & BJ), ap: !!(p & BA), spp: !!(p & BS), smp: !!(p & BM), shp: !!(p & BH), zp: !!(p & BZ)
   };
@@ -344,13 +345,13 @@ function aiThink(f, g) {
     const t = nearestEnemy(f, g);
     if (!f.frzOn && !(f.frzCD > 0) && t && Math.abs(t.x - f.x) < 520 && Math.random() < 0.02 * clamp(f.lvl || 5, 1, 11) / 5) A.frzV = A.frzV === 2 ? 4 : 2;
     else if (A.frzV % 2 === 0 && !f.frzOn) A.frzV = A.frzV === 2 ? 3 : 1;
-    r.b = (r.b & ~(7 << 10)) | (A.frzV << 10);
+    r.b = (r.b & ~(15 << 10)) | (A.frzV << 10);
   }
   if (f.c.modes && !f.out && f.dead <= 0 && f.ai) {
     if (f.ai.modeT == null) f.ai.modeT = 120 + Math.floor(Math.random() * 240);
     if (--f.ai.modeT <= 0) {
       f.ai.modeT = 240 + Math.floor(Math.random() * 420);
-      const m = Math.floor(Math.random() * f.c.modes.length);
+      const m = Math.random() < 0.35 ? f.c.modes.length - 1 : Math.floor(Math.random() * f.c.modes.length);   // likes his own style most
       r.b |= (m + 1) << 10;
     }
   }
