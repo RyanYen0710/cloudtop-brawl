@@ -170,6 +170,9 @@ function onBossSrv(d) {
     enterFight();
     toast(`Level ${b.lvl}: ${BOSS_LEVELS[b.lvl - 1].name}. Good luck!`);
   }
+  if (d.bossPause && d.bossPause.gid === BOSS.gid && G.mode === 'boss') {
+    togglePause(d.bossPause.paused, true);
+  }
   if (d.bossRes && d.bossRes.gid === BOSS.gid && G.mode === 'boss') {
     const r = d.bossRes;
     if (ACCT.profile && !r.error) { ACCT.profile.beaten = r.beaten; setUnlocked(r.unlocked); }
@@ -177,6 +180,14 @@ function onBossSrv(d) {
     BOSS.result = r;
     setTimeout(() => { bossCleanup(); showBoss(); if (r.win) SFX.play('orbget'); }, 600);
   }
+}
+function bossPause(paused) {
+  if (!SRV.ws || SRV.ws.readyState !== 1) { onBossDrop(); return; }
+  try {
+    // Send neutral input before resuming so held buttons don't carry across the pause.
+    if (!paused) presence({ ib: 0, ic: IN.counters.slice() });
+    SRV.ws.send(JSON.stringify({ cmd: 'pause', gid: BOSS.gid, paused }));
+  } catch (e) { onBossDrop(); }
 }
 function onBossDrop() {
   if (G.mode !== 'boss' && !BOSS.pending) return;
@@ -187,7 +198,8 @@ function bossQuit() { bossCleanup(); showBoss(); toast('You left the fight.'); }
 function bossCleanup() {
   BOSS.pending = null; BOSS.busy = false;
   closeRelay(); NET.room = null; NET.lb = null; NET.vf = null;
-  G.remote = false; G.game = null;
+  G.remote = false; G.game = null; G.paused = false;
+  document.getElementById('pause').hidden = true;
   if (G.mode === 'boss') G.mode = 'solo';
   if (G.screen === 'boss') renderBoss();
 }

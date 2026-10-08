@@ -76,7 +76,7 @@ function onServerMsg(raw) {
   if (!r || m.full) { r = { pres: {} }; RELAY.remote.set(m.from, r); }
   r.seen = performance.now();
   applyPatch(r.pres, m.d);
-  if (m.from === 'srv' && (m.d.boss || m.d.bossRes) && typeof onBossSrv === 'function') onBossSrv(m.d);
+  if (m.from === 'srv' && (m.d.boss || m.d.bossRes || m.d.bossPause) && typeof onBossSrv === 'function') onBossSrv(m.d);
   if (m.from === 'srv' && m.d.gs) {
     if (NET.role === 'guest' && NET.lb && NET.lb.sv) ingestSnap(m.d.gs, NET.lb.gid);
     else if (G.remote) ingestSnap(m.d.gs, NET.gid);
@@ -559,6 +559,7 @@ function decodeRes(lb) {
 function snapPair() {
   const buf = NET.snaps; if (!buf || !buf.length) return null;
   const now = performance.now(), last = buf[buf.length - 1], F = 1000 / 60;
+  if (G.mode === 'boss' && G.paused) return { a: last.s, b: last.s, k: 1, rf: last.t };
   const delay = clamp(3 + (NET.jit / F) * 2.2, 3, 12);
   const target = last.t + (now - last.at) / F - delay;
   if (NET.rf == null || Math.abs(NET.rf - target) > 30) NET.rf = target;
@@ -637,6 +638,7 @@ function guestView() {
 }
 
 function guestSendInput() {
+  if (G.mode === 'boss' && G.paused) return;
   const li = pollLocal();
   const key = IN.counters.join(',');
   if (li.b !== NET.lastB || key !== NET.lastIcKey) {
