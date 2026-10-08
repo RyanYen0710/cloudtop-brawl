@@ -89,7 +89,7 @@ const ROSTER = [
       neutral: { name: 'Shuriken', desc: 'Flick a fast throwing star. Weak, but three can be out at once.', kind: 'proj',
         dmg: 4, b: 2.5, g: 0.25, angle: 20, startup: 5, end: 9, speed: 15, life: 45, size: 10, shape: 'star', color: '#e6ecff', max: 3 },
       side: { name: 'Shadow Step', desc: 'Vanish and reappear behind the closest enemy with a slash.', kind: 'teleport',
-        behind: true, startup: 10, inv: 14, dmg: 8, b: 6, g: 0.8, angle: 40, active: 5, end: 14, hx: 0.9, hy: 0.55, hw: 1.3, hh: 0.5 },
+        behind: true, startup: 5, inv: 14, dmg: 8, b: 6, g: 0.8, angle: 40, active: 5, end: 14, hx: 0.9, hy: 0.55, hw: 1.3, hh: 0.5 },
       up: { name: 'Whirlwind', desc: 'Spin upward inside a tornado, hitting several times.', kind: 'leap',
         vy: 17, vx: 4, dmg: 3, b: 3, g: 0.3, angle: 85, rehit: 5, startup: 5, active: 20, hx: 0, hy: 0.6, hw: 1.8, hh: 1.4, finalB: 7, pose: 'spin' },
       down: { name: 'Smoke Bomb', desc: 'Poof backward in a cloud of smoke, untouchable for a moment.', kind: 'teleport',
