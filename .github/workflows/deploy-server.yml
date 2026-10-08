@@ -1,5 +1,5 @@
 # Updates the game server on Cloudflare after Ryan approves and merges a change into main.
-# The Cloudflare key lives in the "production" environment, which only the main branch can use.
+# The Cloudflare key lives in the "cloudflare-server" environment, which only the main branch can use.
 name: Deploy game server
 on:
   push:
@@ -17,7 +17,7 @@ concurrency: deploy-server
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    environment: production
+    environment: cloudflare-server
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
