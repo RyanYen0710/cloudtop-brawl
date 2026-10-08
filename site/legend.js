@@ -113,8 +113,8 @@ function legendEl() {
   return el;
 }
 
-/* the key for each style: 1–7 for the borrowed ones, Y for his own */
-const modeKey = (c, i) => (CHAR[c.modes[i]].hidden ? 'Y' : String(i + 1));
+/* the key for each style (Y and 1–7 unless changed in Settings → Controls) */
+const modeKey = (c, i) => (typeof styleKeyLabel === 'function' ? styleKeyLabel(c, i) : (CHAR[c.modes[i]].hidden ? 'Y' : String(i + 1)));
 
 /* gold swooshes for his own Legend specials */
 if (typeof SWOOSH_NEW !== 'undefined') SWOOSH_NEW.legend = function (g, f, t, m, kind) {
@@ -151,7 +151,7 @@ if (typeof SWOOSH_NEW !== 'undefined') SWOOSH_NEW.legend = function (g, f, t, m,
 function showStylePop(f, intro) {
   const el = legendEl(), c = f.c, cur = f.yenMode | 0, m = CHAR[c.modes[cur]];
   el.style.setProperty('--pc', m.look.accent);
-  el.innerHTML = `<p class="sp-sub">${intro ? (TOUCH.on ? 'Tap STYLE to switch' : 'Press Y or 1–7 to switch style') : 'Style'}</p>
+  el.innerHTML = `<p class="sp-sub">${intro ? (TOUCH.on ? 'Tap STYLE to switch' : 'Press a style key to switch') : 'Style'}</p>
     <div class="sp-big"><span class="sp-num">${modeKey(c, cur)}</span><span>${esc(m.name)}</span></div>
     <div class="sp-row">${c.modes.map((id, i) => `<i class="${i === cur ? 'on' : ''}" style="--c:${CHAR[id].look.accent}" title="${esc(CHAR[id].name)}">${modeKey(c, i)}</i>`).join('')}</div>`;
   // sits bottom-left above the damage cards; if the left key-hint bar is stacked above the cards, go just above it
