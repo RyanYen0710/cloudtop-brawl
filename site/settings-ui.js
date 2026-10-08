@@ -18,7 +18,10 @@ function kbMsg(t, cls) { const m = document.getElementById('kb-msg'); if (m) { m
 function renderKeybinds() {
   const box = document.getElementById('keybinds'); if (!box) return;
   box.textContent = '';
+  let lastGroup = null;
   BIND_ACTIONS.forEach(([id, name]) => {
+    const group = FIGHTER_BINDS.indexOf(id) >= 0 ? 'Fighter keys' : 'Everyone';
+    if (group !== lastGroup) { lastGroup = group; const h = document.createElement('h4'); h.className = 'kb-head'; h.textContent = group; box.appendChild(h); }
     const lab = document.createElement('span'); lab.textContent = name; box.appendChild(lab);
     [0, 1].forEach(slot => {
       const code = (BINDS[id] || [])[slot] || '';

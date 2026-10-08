@@ -24,6 +24,12 @@ function localFighterNow() {
   if (G.mode === 'guest' || G.remote) return (NET.vf || []).find(x => x.slot === slot) || null;
   return G.game ? G.game.fighters.find(x => x.ctrl && x.ctrl.type === 'local') || null : null;
 }
+/* Legend Yen's style keys for the hint chip: "Y 1–7" when the number keys are in order, otherwise every key */
+function styleKeysHint(c, k) {
+  const labs = c.modes.map((id, i) => styleKeyLabel(c, i)), own = labs.filter((l, i) => CHAR[c.modes[i]].hidden), rest = labs.filter((l, i) => !CHAR[c.modes[i]].hidden);
+  const inOrder = rest.every((l, i) => l === String(i + 1));
+  return own.map(k).join('') + (inOrder && rest.length > 2 ? k(rest[0]) + k('\u2013') + k(rest[rest.length - 1]) : rest.map(k).join(''));
+}
 function hintKey() { const id = localCharId(); const f = CHAR[id] && CHAR[id].modes ? localFighterNow() : null; return CHAR[id] ? id + ':' + (f ? f.yenMode | 0 : 0) : null; }
 function buildHints() {
   const el = document.getElementById('hints'), L = document.getElementById('hints-l'), R = document.getElementById('hints-r');
@@ -50,7 +56,7 @@ function buildHints() {
     { id: 'spD', keys: k(bindLabel('down')) + k(bindLabel('sp')), name: sp.down ? sp.down.name : '—' },
     { id: 'ult', keys: k(bindLabel('ult')), name: (c.ultimate || DEFAULT_ULT).name, cls: 'h-ult' },
     ...(c.freezeRay ? [{ id: 'frz', keys: k(bindLabel('frz')), name: 'Freeze Ray' }] : []),
-    ...(c.modes ? [{ id: 'mode', keys: k('Y') + k('1') + k('–') + k('7'), name: 'Style: ' + styleName }] : [])
+    ...(c.modes ? [{ id: 'mode', keys: styleKeysHint(c, k), name: 'Style: ' + styleName }] : [])
   ];
   const chip = r => `<div class="h-row${r.cls ? ' ' + r.cls : ''}" data-h="${r.id}"><span class="h-keys">${r.keys}</span><b class="h-name">${esc(r.name)}</b></div>`;
   L.innerHTML = `<span class="h-tag">Moves</span>` + left.map(chip).join('');

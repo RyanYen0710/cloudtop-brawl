@@ -5,19 +5,33 @@
 const BIND_ACTIONS = [
   ['left', 'Move left', BL], ['right', 'Move right', BR], ['up', 'Up / aim up', BU], ['down', 'Down / drop', BD],
   ['jump', 'Jump', BJ], ['atk', 'Attack', BA], ['sp', 'Special', BS], ['sm', 'Smash attack', BM],
-  ['sh', 'Shield / dodge', BH], ['ult', 'Ultimate', BZ], ['frz', 'Freeze Ray (Mira Frost)', 0]
+  ['sh', 'Shield / dodge', BH], ['ult', 'Ultimate', BZ], ['frz', 'Freeze Ray (Mira Frost)', 0],
+  // Legend Yen's styles: ys8 is his own Legend style, ys1–ys7 are the borrowed ones (in the order of his modes)
+  ['ys8', 'Legend style (Legend Yen)', 0], ['ys1', 'Zephyr style (Legend Yen)', 0], ['ys2', 'Blaze style (Legend Yen)', 0],
+  ['ys3', 'Volt style (Legend Yen)', 0], ['ys4', 'Mr. Chiu style (Legend Yen)', 0], ['ys5', 'Mr. Guo style (Legend Yen)', 0],
+  ['ys6', 'Lumi style (Legend Yen)', 0], ['ys7', 'Kiro style (Legend Yen)', 0]
 ];
+/* keys that only matter for one fighter (shown under "Fighter keys" in Settings) */
+const FIGHTER_BINDS = ['frz', 'ys8', 'ys1', 'ys2', 'ys3', 'ys4', 'ys5', 'ys6', 'ys7'];
 const DEFAULT_BINDS = {
   left: ['KeyA', 'ArrowLeft'], right: ['KeyD', 'ArrowRight'], up: ['KeyW', 'ArrowUp'], down: ['KeyS', 'ArrowDown'],
-  jump: ['Space', ''], atk: ['KeyJ', ''], sp: ['KeyK', 'KeyX'], sm: ['KeyU', 'KeyC'], sh: ['KeyL', 'ShiftLeft'], ult: ['KeyZ', ''], frz: ['KeyF', '']
+  jump: ['Space', ''], atk: ['KeyJ', ''], sp: ['KeyK', 'KeyX'], sm: ['KeyU', 'KeyC'], sh: ['KeyL', 'ShiftLeft'], ult: ['KeyZ', ''], frz: ['KeyF', ''],
+  ys8: ['KeyY', ''], ys1: ['Digit1', 'Numpad1'], ys2: ['Digit2', 'Numpad2'], ys3: ['Digit3', 'Numpad3'], ys4: ['Digit4', 'Numpad4'],
+  ys5: ['Digit5', 'Numpad5'], ys6: ['Digit6', 'Numpad6'], ys7: ['Digit7', 'Numpad7']
 };
 /* keys the game already uses for something else */
 const RESERVED_KEYS = { Escape: 'removing a key', KeyP: 'pause', KeyH: 'hiding the hints', KeyR: 'reset in Training Lab', Tab: 'moving around the page' };
-for (let i = 1; i <= 7; i++) { RESERVED_KEYS['Digit' + i] = 'Legend Yen’s styles'; RESERVED_KEYS['Numpad' + i] = 'Legend Yen’s styles'; }
-RESERVED_KEYS.KeyY = 'Legend Yen’s own style';
 function loadBinds() {
   const b = JSON.parse(JSON.stringify(DEFAULT_BINDS));
-  try { const s = JSON.parse(localStorage.getItem('cb.keys') || 'null'); if (s) for (const k in b) if (Array.isArray(s[k])) b[k] = [String(s[k][0] || ''), String(s[k][1] || '')]; } catch (e) { }
+  try {
+    const s = JSON.parse(localStorage.getItem('cb.keys') || 'null');
+    if (s) {
+      for (const k in b) if (Array.isArray(s[k])) b[k] = [String(s[k][0] || ''), String(s[k][1] || '')];
+      // actions added after this player saved their keys: drop any default key they already use for something else
+      const used = new Set(); for (const k in s) if (Array.isArray(s[k]) && b[k]) s[k].forEach(c => { if (c) used.add(c); });
+      for (const k in b) if (!Array.isArray(s[k])) b[k] = b[k].map(c => (used.has(c) ? '' : c));
+    }
+  } catch (e) { }
   return b;
 }
 let BINDS = loadBinds();
@@ -49,12 +63,13 @@ const IN = { keys: new Set(), press: 0, prev: 0, touch: 0, counters: [0, 0, 0, 0
 
 function keyBits() { let b = 0; IN.keys.forEach(k => { b |= KEYMAP[k] || 0; }); return b | ((IN.mode || 0) << 10); }
 
-/* number keys 1–7 pick a style, Y picks his own Legend style (only Legend Yen uses it) */
+/* Legend Yen's style keys (Y and 1–7 unless changed in Settings → Controls) */
+function styleBindId(c, i) { return c.modes && CHAR[c.modes[i]] && CHAR[c.modes[i]].hidden ? 'ys8' : 'ys' + (i + 1); }
+function styleKeyLabel(c, i) { return bindLabel(styleBindId(c, i)); }
 window.addEventListener('keydown', e => {
-  const m = /^(?:Digit|Numpad)([1-7])$/.exec(e.code);
-  if (!(m || e.code === 'KeyY') || !IN.active || typeof G === 'undefined' || G.screen !== 'fight') return;
+  if (!IN.active || typeof G === 'undefined' || G.screen !== 'fight' || e.repeat) return;
   if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT')) return;
-  IN.mode = m ? +m[1] : 8;
+  for (let n = 1; n <= 8; n++) if ((BINDS['ys' + n] || []).includes(e.code)) { IN.mode = n; return; }
 });
 
 window.addEventListener('keydown', e => {
