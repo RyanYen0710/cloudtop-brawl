@@ -83,7 +83,7 @@ function renderStatCard() {
   }).join('');
   const key = { neutral: 'B', side: '→ B', up: '↑ B', down: '↓ B' };
   const specials = c.modes
-    ? c.modes.map((id, i) => `<li><span class="sp-k">${i + 1}</span><div><b>${esc(CHAR[id].name)} style</b><span>${esc(['neutral', 'side', 'up', 'down'].map(w => CHAR[id].specials[w].name).join(' · '))}</span></div></li>`).join('')
+    ? c.modes.map((id, i) => `<li><span class="sp-k">${CHAR[id].hidden ? 'Y' : i + 1}</span><div><b>${esc(CHAR[id].name)} style</b><span>${esc(['neutral', 'side', 'up', 'down'].map(w => CHAR[id].specials[w].name).join(' · '))}</span></div></li>`).join('')
     : ['neutral', 'side', 'up', 'down'].map(w => {
       const m = c.specials[w]; if (!m) return '';
       return `<li><span class="sp-k">${key[w]}</span><div><b>${esc(m.name)}</b><span>${esc(m.desc || '')}</span></div></li>`;
