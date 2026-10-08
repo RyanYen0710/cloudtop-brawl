@@ -50,7 +50,7 @@ function buildHints() {
     { id: 'spD', keys: k(bindLabel('down')) + k(bindLabel('sp')), name: sp.down ? sp.down.name : '—' },
     { id: 'ult', keys: k(bindLabel('ult')), name: (c.ultimate || DEFAULT_ULT).name, cls: 'h-ult' },
     ...(c.freezeRay ? [{ id: 'frz', keys: k(bindLabel('frz')), name: 'Freeze Ray' }] : []),
-    ...(c.modes ? [{ id: 'mode', keys: k('1') + k('–') + k('7'), name: 'Style: ' + styleName }] : [])
+    ...(c.modes ? [{ id: 'mode', keys: k('Y') + k('1') + k('–') + k('7'), name: 'Style: ' + styleName }] : [])
   ];
   const chip = r => `<div class="h-row${r.cls ? ' ' + r.cls : ''}" data-h="${r.id}"><span class="h-keys">${r.keys}</span><b class="h-name">${esc(r.name)}</b></div>`;
   L.innerHTML = `<span class="h-tag">Moves</span>` + left.map(chip).join('');
