@@ -203,19 +203,23 @@ input,select{-webkit-user-select:text;user-select:text}
 .tb-m{right:calc(100px * var(--ts));bottom:calc(86px * var(--ts));width:calc(58px * var(--ts));height:calc(58px * var(--ts));font-size:calc(10px * var(--ts));background:rgba(255,181,71,.45);border-color:#ffe0a8}
 .tb-s{right:calc(176px * var(--ts));bottom:calc(40px * var(--ts));width:calc(56px * var(--ts));height:calc(56px * var(--ts));font-size:calc(9px * var(--ts));background:rgba(199,164,255,.4);border-color:#e3d3ff}
 #rotate-hint{position:absolute;left:50%;top:40%;transform:translateX(-50%);display:flex;gap:10px;align-items:center;background:rgba(17,14,36,.92);border:1px solid var(--gold);border-radius:10px;padding:10px 12px;font-size:14px;font-weight:600;width:max-content;max-width:calc(100% - 32px)}
-#hints{position:absolute;left:calc(12px + env(safe-area-inset-left,0px));top:50%;transform:translateY(-58%);width:228px;display:flex;flex-direction:column;gap:4px;padding:10px;border-radius:12px;background:rgba(17,14,36,.72);border:1px solid rgba(255,255,255,.12);pointer-events:none}
-.h-row{display:grid;grid-template-columns:78px minmax(0,1fr);gap:8px;align-items:center;padding:4px 6px;border-radius:7px;transition:background .08s}
-.h-row.on{background:rgba(255,181,71,.28)}
+#hints{position:absolute;inset:0;pointer-events:none;z-index:4}
+#hints[hidden]{display:none}
+.hints-side{position:absolute;bottom:6px;display:flex;flex-wrap:wrap;align-content:center;align-items:center;gap:5px;padding:6px 8px;border-radius:10px;background:rgba(17,14,36,.72);border:1px solid rgba(255,255,255,.12)}
+.hints-l{left:calc(10px + env(safe-area-inset-left,0px));justify-content:flex-start}
+.hints-r{right:calc(10px + env(safe-area-inset-right,0px));justify-content:flex-end}
+.h-tag{font:700 10px var(--ui);letter-spacing:.12em;text-transform:uppercase;color:var(--gold);margin-right:2px;white-space:nowrap}
+.hints-r .h-tag{order:-1}
+.h-row{display:inline-flex;align-items:center;gap:5px;padding:3px 7px 3px 4px;border-radius:7px;background:rgba(255,255,255,.05);transition:background .08s;white-space:nowrap}
+.h-row.on{background:rgba(255,181,71,.32)}
 .h-row.on kbd{background:var(--gold);color:#1a0f18;border-color:#ffe0a8}
-.h-keys{display:flex;flex-wrap:wrap;gap:2px}
-.h-keys kbd{margin:0;min-width:20px;padding:0 4px;font-size:11px}
-.h-txt{display:flex;flex-direction:column;line-height:1.15;min-width:0}
-.h-txt b{font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.h-txt small{font-size:11px;color:var(--mute)}
-.h-sep{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.12em;color:var(--gold);margin:6px 6px 0}
-.h-foot{font-size:11px;color:var(--dim);margin:4px 6px 0}
+.h-ult{background:rgba(255,77,94,.16)}
+.h-keys{display:inline-flex;gap:2px}
+.h-keys kbd{margin:0;min-width:18px;padding:0 4px;font-size:11px}
+.h-name{font-size:12px;max-width:150px;overflow:hidden;text-overflow:ellipsis}
+.h-foot{font-size:10px;color:var(--dim);white-space:nowrap}
 .h-foot kbd{font-size:10px;padding:0 4px}
-@media (max-width:760px),(max-height:520px){#hints{width:188px;padding:6px;transform:translateY(-50%)}.h-txt small{display:none}.h-row{grid-template-columns:66px minmax(0,1fr);padding:2px 4px}}
+@media (max-width:760px),(max-height:520px){.h-name{font-size:11px;max-width:110px}.hints-side{padding:4px 6px;gap:4px}}
 .tb-u{right:calc(176px * var(--ts));bottom:calc(112px * var(--ts));width:calc(64px * var(--ts));height:calc(64px * var(--ts));font-size:calc(14px * var(--ts));border-color:#fff;background:conic-gradient(from 0deg,#ff4d5e,#ffc93c,#4be08a,#3da5ff,#c7a4ff,#ff4d5e);color:#120d24;animation:ultpulse 1s ease-in-out infinite}
 @keyframes ultpulse{50%{transform:scale(1.1)}}
 .h-row.ready{background:linear-gradient(90deg,rgba(255,77,94,.35),rgba(61,165,255,.35));animation:ultpulse 1s ease-in-out infinite}
@@ -592,7 +596,7 @@ body{touch-action:manipulation}
   </section>
 
   <section id="scr-fight" class="screen" hidden>
-    <div id="hints" hidden></div>
+    <div id="hints" hidden><div class="hints-side hints-l" id="hints-l" aria-label="Move and attack keys"></div><div class="hints-side hints-r" id="hints-r" aria-label="Special move keys"></div></div>
     <div class="fight-top"><span id="ping" class="ping" hidden></span><button type="button" id="fs-btn" hidden>Full screen</button><button type="button" data-open-settings>Settings</button><button type="button" id="pause-btn">Pause</button></div>
   </section>
 
