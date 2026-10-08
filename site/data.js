@@ -397,12 +397,12 @@ const ROSTER = [
   },
   {
     id: 'yen', name: 'Legend Yen', title: 'The ultra max legend', legend: true, locked: true,
-    modes: ['zephyr', 'blaze', 'volt', 'chui', 'guo', 'lumi', 'kiro'],
+    modes: ['zephyr', 'blaze', 'volt', 'chui', 'guo', 'lumi', 'kiro', 'yenlegend'],   // the last one is his own Legend style (key Y)
     stats: { power: 9, speed: 9, weight: 7, jump: 9, defense: 8, skill: 10 },
     jumps: 3,
     bonus: { pow: 1.15, dmgIn: 0.85, kb: 0.88 },   // the legend edge (not used in Boss Fight, where levels set the boss's strength)
     look: { build: 'normal', body: '#15131f', skin: '#e9c3a0', accent: '#ffd35c', hair: '#fff3c4', legs: '#24203a', extra: ['legend'] },
-    passive: 'The ultra max fighter. Press 1–7 to switch styles at any time and use the specials of Zephyr, Blaze, Volt, Mr. Chiu, Mr. Guo, Lumi or Kiro.',
+    passive: 'The ultra max fighter. Press Y for his own Legend style, or 1–7 to switch to the specials of Zephyr, Blaze, Volt, Mr. Chiu, Mr. Guo, Lumi or Kiro.',
     strongVs: ['titan', 'ulfgar', 'nova'], weakVs: [],
     ultimate: { style: 'legend', kind: 'all', name: 'Legend Ascension', desc: 'All seven styles strike at once in a storm of light. The strongest ultimate.', theme: 'legend', colors: ['#0b0716', '#ffd35c', '#ffffff'], hits: 7, dmg: 3.2, final: { dmg: 22, b: 13.5, g: 1.45, angle: 60 } },
     specials: null
@@ -459,13 +459,27 @@ const SHAPES = ['orb', 'star', 'laser', 'fist', 'mine', 'shard', 'spike', 'fire'
 /* 'random' is a pick, not a fighter: it becomes a real fighter when the battle starts */
 /* fighters this player has unlocked (filled in after signing in) */
 let MY_UNLOCKED = [];
-function isPick(id) { return id === 'random' || !!CHAR[id]; }
+function isPick(id) { return id === 'random' || (!!CHAR[id] && !CHAR[id].hidden); }
 /* locked fighters (the Boss Fight bosses) can only be picked after unlocking them in Boss Fight */
-function isPickable(id, unlocked) { return id === 'random' || (!!CHAR[id] && (!CHAR[id].locked || !!(unlocked && unlocked.indexOf(id) >= 0))); }
+function isPickable(id, unlocked) { return id === 'random' || (!!CHAR[id] && !CHAR[id].hidden && (!CHAR[id].locked || !!(unlocked && unlocked.indexOf(id) >= 0))); }
 function resolvePick(id) { if (id !== 'random') return id; const pool = ROSTER.filter(c => !c.legend); return pool[Math.floor(Math.random() * pool.length)].id; }
 const CHAR = {};
 ROSTER.forEach(c => { CHAR[c.id] = c; });
-/* Legend Yen borrows the specials of whichever style is switched on (keys 1–7) */
+/* Legend Yen's own style (key Y): not a fighter you can pick, just his own set of specials, the best in the game */
+CHAR.yenlegend = {
+  id: 'yenlegend', name: 'Legend', hidden: true, locked: true, legend: true, look: { accent: '#ffd35c' },
+  specials: {
+    neutral: { name: 'Legend Orb', desc: 'A big golden orb that flies through everyone in its way.', kind: 'proj',
+      dmg: 13, b: 6.5, g: 0.95, angle: 35, startup: 8, end: 14, speed: 13, life: 70, size: 26, shape: 'orb', color: '#ffd35c', max: 2, pierce: true },
+    side: { name: 'Golden Flash', desc: 'Flash behind the closest enemy and land a heavy golden slash.', kind: 'teleport', fx: 'legend',
+      behind: true, startup: 4, inv: 16, dmg: 13, b: 7.5, g: 1.0, angle: 40, active: 6, end: 12, hx: 0.9, hy: 0.55, hw: 1.4, hh: 0.55 },
+    up: { name: 'Ascension', desc: 'Rocket upward in a spinning column of light that hits again and again.', kind: 'leap', fx: 'legend',
+      vy: 19, vx: 5, dmg: 3, b: 3, g: 0.3, angle: 85, rehit: 4, startup: 4, active: 22, hx: 0, hy: 0.6, hw: 2, hh: 1.5, finalB: 9, pose: 'spin' },
+    down: { name: 'Legend Quake', desc: 'Slam down (or plunge from the air) and send golden shockwaves both ways.', kind: 'slam', fx: 'legend',
+      fall: 28, dmg: 16, b: 8.6, g: 1.12, angle: 70, startup: 7, end: 14, hw: 5, hh: 0.55, armor: true, spike: { dmg: 11, b: 6.5, g: 0.7, angle: -80 } }
+  }
+};
+/* Legend Yen borrows the specials of whichever style is switched on (keys 1–7, Y = his own) */
 ROSTER.forEach(c => { if (c.modes) c.specials = CHAR[c.modes[0]].specials; });
 function fSpecials(f) {
   const c = f.c;
