@@ -118,9 +118,12 @@ function showStylePop(f, intro) {
   el.innerHTML = `<p class="sp-sub">${intro ? (TOUCH.on ? 'Tap STYLE to switch' : 'Press 1–7 to switch style') : 'Style'}</p>
     <div class="sp-big"><span class="sp-num">${cur + 1}</span><span>${esc(m.name)}</span></div>
     <div class="sp-row">${c.modes.map((id, i) => `<i class="${i === cur ? 'on' : ''}" style="--c:${CHAR[id].look.accent}" title="${esc(CHAR[id].name)}">${i + 1}</i>`).join('')}</div>`;
-  const h = document.getElementById('hints');
-  const hr = h && !h.hidden && h.style.visibility !== 'hidden' ? h.getBoundingClientRect() : null;
-  el.style.left = (hr && hr.width ? Math.round(hr.right + 12) : (innerWidth < 560 ? 10 : 16)) + 'px';
+  // sits bottom-left above the damage cards; if the left key-hint bar is stacked above the cards, go just above it
+  const h = document.getElementById('hints'), hl = document.getElementById('hints-l');
+  const hr = h && !h.hidden && hl ? hl.getBoundingClientRect() : null;
+  const base = innerWidth < 560 ? 96 : 118;
+  el.style.left = (innerWidth < 560 ? 10 : 16) + 'px';
+  el.style.bottom = (hr && hr.height ? Math.max(base, Math.round(innerHeight - hr.top + 10)) : base) + 'px';
   el.classList.add('show');
   clearTimeout(LEGEND.hideT);
   LEGEND.hideT = setTimeout(() => el.classList.remove('show'), intro ? 3200 : 1800);
