@@ -5,14 +5,13 @@
 const BIND_ACTIONS = [
   ['left', 'Move left', BL], ['right', 'Move right', BR], ['up', 'Up / aim up', BU], ['down', 'Down / drop', BD],
   ['jump', 'Jump', BJ], ['atk', 'Attack', BA], ['sp', 'Special', BS], ['sm', 'Smash attack', BM],
-  ['sh', 'Shield / dodge', BH], ['ult', 'Ultimate', BZ], ['frz', 'Freeze Ray (Mira Frost)', 0],
+  ['sh', 'Shield / dodge', BH], ['ult', 'Ultimate', BZ], ['frz', 'Freeze Ray', 0],
   // Legend Yen's styles: ys8 is his own Legend style, ys1–ys7 are the borrowed ones (in the order of his modes)
-  ['ys8', 'Legend style (Legend Yen)', 0], ['ys1', 'Zephyr style (Legend Yen)', 0], ['ys2', 'Blaze style (Legend Yen)', 0],
-  ['ys3', 'Volt style (Legend Yen)', 0], ['ys4', 'Mr. Chiu style (Legend Yen)', 0], ['ys5', 'Mr. Guo style (Legend Yen)', 0],
-  ['ys6', 'Lumi style (Legend Yen)', 0], ['ys7', 'Kiro style (Legend Yen)', 0]
+  ['ys8', 'Legend style', 0], ['ys1', 'Zephyr style', 0], ['ys2', 'Blaze style', 0], ['ys3', 'Volt style', 0],
+  ['ys4', 'Mr. Chiu style', 0], ['ys5', 'Mr. Guo style', 0], ['ys6', 'Lumi style', 0], ['ys7', 'Kiro style', 0]
 ];
-/* keys that only matter for one fighter (shown under "Fighter keys" in Settings) */
-const FIGHTER_BINDS = ['frz', 'ys8', 'ys1', 'ys2', 'ys3', 'ys4', 'ys5', 'ys6', 'ys7'];
+/* keys that only matter for one fighter: which fighter they belong to (shown under "Fighters" in Settings) */
+const FIGHTER_BINDS = { frz: 'Mira Frost', ys8: 'Legend Yen', ys1: 'Legend Yen', ys2: 'Legend Yen', ys3: 'Legend Yen', ys4: 'Legend Yen', ys5: 'Legend Yen', ys6: 'Legend Yen', ys7: 'Legend Yen' };
 const DEFAULT_BINDS = {
   left: ['KeyA', 'ArrowLeft'], right: ['KeyD', 'ArrowRight'], up: ['KeyW', 'ArrowUp'], down: ['KeyS', 'ArrowDown'],
   jump: ['Space', ''], atk: ['KeyJ', ''], sp: ['KeyK', 'KeyX'], sm: ['KeyU', 'KeyC'], sh: ['KeyL', 'ShiftLeft'], ult: ['KeyZ', ''], frz: ['KeyF', ''],
