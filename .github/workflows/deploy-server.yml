@@ -1,0 +1,33 @@
+# Updates the game server on Cloudflare after Ryan approves and merges a change into main.
+# The Cloudflare key lives in the "cloudflare-server" environment, which only the main branch can use.
+name: Deploy game server
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'server/**'
+      - 'site/data.js'
+      - 'site/engine.js'
+      - 'site/match.js'
+      - 'site/stages2.js'
+      - 'site/stages.js'
+      - 'site/ult.js'
+  workflow_dispatch:
+concurrency: deploy-server
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: cloudflare-server
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Build the server (game rules + server code)
+        working-directory: server
+        run: sh build.sh ../site && node --check src/worker.js
+      - name: Upload to Cloudflare
+        working-directory: server
+        run: npx --yes wrangler@4 deploy
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
