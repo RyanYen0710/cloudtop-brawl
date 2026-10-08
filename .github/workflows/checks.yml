@@ -1,0 +1,22 @@
+# Quick safety checks on every pull request (no secrets are used here).
+name: Checks
+on:
+  pull_request:
+  push:
+    branches: [main]
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Every game file is valid JavaScript
+        run: for f in site/*.js; do node --check "$f" || exit 1; done
+      - name: The server still builds
+        working-directory: server
+        run: sh build.sh ../site && node --check src/worker.js
+      - name: No private email or keys in the code
+        run: |
+          if grep -rIn --exclude-dir=.git -E "@gmail\.com|CLOUDFLARE_API_TOKEN *=|-----BEGIN" . | grep -v "secrets.CLOUDFLARE_API_TOKEN"; then echo "Found something private"; exit 1; fi
