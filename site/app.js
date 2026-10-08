@@ -292,7 +292,7 @@ function draw() {
   if (typeof tickLegend === 'function') tickLegend(view, hud);
   if (typeof tickFreezeRay === 'function') tickFreezeRay(view, hud);
   if (typeof tickTrainingHud === 'function') tickTrainingHud();
-  renderScene(ctx, view, vw, vh, G.t, { hud, tags: hud, hudTop: hud && TOUCH.on, localSlot: hud ? localSlotNow() : null, touchHint: TOUCH.on, leftPad: hud && HINTS.shown ? (vw < 760 || vh < 520 ? 196 : 244) : 0 });
+  renderScene(ctx, view, vw, vh, G.t, { hud, tags: hud, hudTop: hud && TOUCH.on, localSlot: hud ? localSlotNow() : null, touchHint: TOUCH.on, leftPad: 0 });   // the key hints now sit along the bottom, beside the damage cards
   if (!hud) { ctx.fillStyle = G.screen === 'main' ? 'rgba(10,8,26,.28)' : 'rgba(10,8,26,.62)'; ctx.fillRect(0, 0, vw, vh); }
 }
 
