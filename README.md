@@ -4,6 +4,8 @@ A Smash-style fighting game that runs in the browser. Play at **https://cloudtop
 
 Founder: **Ryan Yen**
 
+_(Test change to show how pull requests work — do not merge.)_
+
 ## Working on the game together
 1. Make a branch for your change (one feature per branch).
 2. Commit your work there and open a **pull request**.
