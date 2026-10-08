@@ -1,6 +1,7 @@
 'use strict';
 /* ===== CLOUDTOP BRAWL — Legend Yen: the ultra max fighter =====
-   Keys 1–7 (or the STYLE button on phones) switch between the styles of
+   Y is his own Legend style (the strongest specials in the game). Keys 1–7
+   (or the STYLE button on phones) switch to the styles of
    Zephyr, Blaze, Volt, Mr. Chiu, Mr. Guo, Lumi and Kiro. A pop-up in the
    bottom-left corner shows which style is on. */
 
@@ -63,7 +64,7 @@ const LOOK_LEGEND = {
   }
 };
 
-/* seven little style orbs circling Legend Yen; the active one is bigger */
+/* eight little style orbs circling Legend Yen; the active one is bigger */
 function drawLegendOrbs(g, f, t) {
   if (!f.c || !f.c.modes || f.frozen > 0) return;
   const n = f.c.modes.length, cur = f.yenMode | 0, cx = f.x, cy = f.y - f.H * 0.55;
@@ -112,12 +113,47 @@ function legendEl() {
   return el;
 }
 
+/* the key for each style: 1–7 for the borrowed ones, Y for his own */
+const modeKey = (c, i) => (CHAR[c.modes[i]].hidden ? 'Y' : String(i + 1));
+
+/* gold swooshes for his own Legend specials */
+if (typeof SWOOSH_NEW !== 'undefined') SWOOSH_NEW.legend = function (g, f, t, m, kind) {
+  if (!f.hot) return;
+  g.globalCompositeOperation = 'lighter';
+  const b = hbox(f, m), cx = b.x + b.w / 2, cy = b.y + b.h / 2, dir = f.face || 1;
+  if (kind === 'leap') {
+    // spinning column of light
+    for (let i = 0; i < 3; i++) {
+      const ph = (t * 0.08 + i / 3) % 1;
+      g.strokeStyle = i % 2 ? 'rgba(255,255,255,.75)' : 'rgba(255,211,92,.85)'; g.lineWidth = 4 - i;
+      g.beginPath(); g.ellipse(cx, b.y + b.h * (1 - ph), b.w * 0.5, b.w * 0.14, 0, t * 0.4 + i, t * 0.4 + i + 4.4); g.stroke();
+    }
+    const lg = g.createLinearGradient(b.x, 0, b.x + b.w, 0);
+    lg.addColorStop(0, 'rgba(255,211,92,0)'); lg.addColorStop(0.5, 'rgba(255,240,190,.35)'); lg.addColorStop(1, 'rgba(255,211,92,0)');
+    g.fillStyle = lg; g.fillRect(b.x, b.y, b.w, b.h);
+  } else if (kind === 'slam') {
+    // golden shock rings along the ground
+    for (let i = 0; i < 3; i++) {
+      const r = b.w * (0.2 + ((t * 0.05 + i / 3) % 1) * 0.5);
+      g.strokeStyle = `rgba(255,${200 + i * 20},${90 + i * 50},${0.85 - i * 0.2})`; g.lineWidth = 5 - i;
+      g.beginPath(); g.ellipse(cx, b.y + b.h * 0.8, r, r * 0.18, 0, 0, Math.PI * 2); g.stroke();
+    }
+  } else {
+    // big golden crescent slash
+    g.shadowColor = '#ffd35c'; g.shadowBlur = 16;
+    [[10, 'rgba(255,211,92,.55)'], [4, '#ffffff']].forEach(([w, col]) => {
+      g.strokeStyle = col; g.lineWidth = w; g.lineCap = 'round';
+      g.beginPath(); g.arc(cx - dir * b.w * 0.15, cy, b.w * 0.55, dir > 0 ? -1.3 : Math.PI - 1.0, dir > 0 ? 1.0 : Math.PI + 1.3); g.stroke();
+    });
+  }
+};
+
 function showStylePop(f, intro) {
   const el = legendEl(), c = f.c, cur = f.yenMode | 0, m = CHAR[c.modes[cur]];
   el.style.setProperty('--pc', m.look.accent);
-  el.innerHTML = `<p class="sp-sub">${intro ? (TOUCH.on ? 'Tap STYLE to switch' : 'Press 1–7 to switch style') : 'Style'}</p>
-    <div class="sp-big"><span class="sp-num">${cur + 1}</span><span>${esc(m.name)}</span></div>
-    <div class="sp-row">${c.modes.map((id, i) => `<i class="${i === cur ? 'on' : ''}" style="--c:${CHAR[id].look.accent}" title="${esc(CHAR[id].name)}">${i + 1}</i>`).join('')}</div>`;
+  el.innerHTML = `<p class="sp-sub">${intro ? (TOUCH.on ? 'Tap STYLE to switch' : 'Press Y or 1–7 to switch style') : 'Style'}</p>
+    <div class="sp-big"><span class="sp-num">${modeKey(c, cur)}</span><span>${esc(m.name)}</span></div>
+    <div class="sp-row">${c.modes.map((id, i) => `<i class="${i === cur ? 'on' : ''}" style="--c:${CHAR[id].look.accent}" title="${esc(CHAR[id].name)}">${modeKey(c, i)}</i>`).join('')}</div>`;
   // sits bottom-left above the damage cards; if the left key-hint bar is stacked above the cards, go just above it
   const h = document.getElementById('hints'), hl = document.getElementById('hints-l');
   const hr = h && !h.hidden && hl ? hl.getBoundingClientRect() : null;
