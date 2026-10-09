@@ -245,7 +245,7 @@ input,select{-webkit-user-select:text;user-select:text}
 .set-sep{font-weight:700;text-transform:uppercase;letter-spacing:.14em;font-size:12px;color:var(--gold);margin-top:4px}
 .set-row select{font:inherit;font-size:13px;color:var(--ink);background:#15122f;border:1px solid var(--line2);border-radius:6px;padding:5px 6px;grid-column:span 2}
 .set-card{max-height:calc(100% - 16px);overflow-y:auto}
-body{touch-action:manipulation}
+html,body,body *{touch-action:manipulation}   /* no double-tap zoom anywhere (the fight area and touch pads keep touch-action:none below) */
 .touch-on #scr-fight{padding-top:calc(78px + env(safe-area-inset-top,0px))}
 @media (max-height:420px){.touch-on #scr-fight{padding-top:66px}}
 @media (max-height:500px){.fight-top button{padding:4px 10px;font-size:12px}}
@@ -726,7 +726,7 @@ body.tester-on #go-online .tt-off{display:block;font-weight:800;color:#ffd35c}
 <script src="input.js?v=20261008g"></script>
 <script src="setup.js?v=20261009-tester2"></script>
 <script src="music.js?v=20261008b"></script>
-<script src="touch.js?v=20261008b"></script>
+<script src="touch.js?v=20261009-zoom"></script>
 <script src="hints.js?v=20261008f"></script>
 <script src="freeze.js?v=20261008b"></script>
 <script src="training.js?v=20261009-tester2"></script>
