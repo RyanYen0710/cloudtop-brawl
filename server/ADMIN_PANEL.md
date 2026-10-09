@@ -8,17 +8,18 @@ owner always has access. No new role or email list is introduced.
 ## Before merging
 
 An authorized Cloudflare maintainer must configure the existing `TESTER_EMAILS`
-secret on `cloudtop-brawl-server` to contain only the requested verified account.
-Ryan keeps his existing owner access through `OWNER_EMAILS`; no new Ryan identity
-is configured. Remove any other tester entries if access must be limited to
-these two people. Do not paste real addresses into tracked files or the PR.
+secret on `cloudtop-brawl-server` to contain only the two verified accounts
+confirmed by the requester: their account and Ryan’s account. Ryan also keeps
+his existing owner access through `OWNER_EMAILS`. Remove any other tester entries
+and confirm owner membership belongs only to Ryan to limit access to these two
+people. Do not paste real addresses into tracked files or the PR.
 
 ```sh
 cd server
 npx --yes wrangler@4 secret put TESTER_EMAILS
 ```
 
-The requested account is configured locally in the Git-ignored `server/.dev.vars`.
+Both confirmed accounts are configured locally in the Git-ignored `server/.dev.vars`.
 This does not configure the live Worker. No Durable Object migration or extra
 storage binding is required. After Ryan approves and merges, the existing
 workflows deploy the site and server. Sign out and back in on the real site
