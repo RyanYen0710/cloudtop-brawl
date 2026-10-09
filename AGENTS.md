@@ -10,7 +10,7 @@ Every change goes through a pull request that Ryan approves. Read this whole fil
    same time. Touch only the lines your feature needs, so pull requests don't collide.
 4. **Never put secrets in the code:** no emails, passwords, API keys or tokens. The owner email is a hidden
    Cloudflare secret (`OWNER_EMAILS`). The Firebase config in `site/firebase-config.js` is meant to be public.
-5. **Never weaken security:** keep the Content-Security-Policy in `site/_headers` and `vercel.json`, show
+5. **Never weaken security:** keep the Content-Security-Policy in `site/_headers`, show
    player-typed text with `textContent` (never `innerHTML`), and leave unlocks, Boss Fight results and the owner
    check on the **server** only.
 6. **Don't break the owner unlock.** The server gives the owner account every locked fighter and every Boss Fight
@@ -72,5 +72,5 @@ Online matches and Boss Fight run on the server, which bundles these site files:
 - The GitHub "Checks" workflow runs the first two automatically on every pull request.
 
 ## How changes go live (handled for you)
-Ryan approves and merges → Cloudflare Pages updates the website (cloudtop-brawl.pages.dev) in about a minute →
+Ryan approves and merges → Cloudflare Pages updates the website (cloudtop-brawl.com) in about a minute →
 GitHub Actions updates the game server if server or game-rule files changed. Never try to deploy yourself.

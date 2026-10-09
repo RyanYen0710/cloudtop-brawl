@@ -1,7 +1,0 @@
-{
-  "outputDirectory": "site",
-  "redirects": [
-    { "source": "/", "destination": "https://cloudtop-brawl.pages.dev/", "permanent": true },
-    { "source": "/:path*", "destination": "https://cloudtop-brawl.pages.dev/:path*", "permanent": true }
-  ]
-}

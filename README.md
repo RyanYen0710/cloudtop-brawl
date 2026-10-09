@@ -1,6 +1,6 @@
 # Cloudtop Brawl
 
-A Smash-style fighting game that runs in the browser. Play at **https://cloudtop-brawl.pages.dev**
+A Smash-style fighting game that runs in the browser. Play at **https://cloudtop-brawl.com**
 
 Founder: **Ryan Yen**
 
@@ -28,4 +28,4 @@ rules every change must follow.
 npx serve site
 ```
 Then open the address it prints. Solo, Training Lab and Online with friends work there and on preview links.
-Sign-in, Boss Fight and account settings only work on the real website (cloudtop-brawl.pages.dev).
+Sign-in, Boss Fight and account settings only work on the real website (cloudtop-brawl.com).
