@@ -10,7 +10,7 @@ Every change goes through a pull request that Ryan approves. Read this whole fil
    same time. Touch only the lines your feature needs, so pull requests don't collide.
 4. **Never put secrets in the code:** no emails, passwords, API keys or tokens. The owner email is a hidden
    Cloudflare secret (`OWNER_EMAILS`). The Firebase config in `site/firebase-config.js` is meant to be public.
-5. **Never weaken security:** keep the Content-Security-Policy in `site/_headers` and `vercel.json`, show
+5. **Never weaken security:** keep the Content-Security-Policy in `site/_headers`, show
    player-typed text with `textContent` (never `innerHTML`), and leave unlocks, Boss Fight results and the owner
    check on the **server** only.
 6. **Don't break the owner unlock.** The server gives the owner account every locked fighter and every Boss Fight
