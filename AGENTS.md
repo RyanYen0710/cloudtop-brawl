@@ -72,5 +72,5 @@ Online matches and Boss Fight run on the server, which bundles these site files:
 - The GitHub "Checks" workflow runs the first two automatically on every pull request.
 
 ## How changes go live (handled for you)
-Ryan approves and merges → Cloudflare Pages updates the website (cloudtop-brawl.pages.dev) in about a minute →
+Ryan approves and merges → Cloudflare Pages updates the website (cloudtop-brawl.com) in about a minute →
 GitHub Actions updates the game server if server or game-rule files changed. Never try to deploy yourself.
