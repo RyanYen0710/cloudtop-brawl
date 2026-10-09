@@ -8,8 +8,9 @@ const BOSS = { pending: null, busy: false, result: null, pick: 'random', sel: 1,
 
 /* ---------- Tester mode ----------
    Uses the existing server tester permission, including the owner.
-   Every fighter and every Boss Fight level is open, and nothing is saved to the account:
-   the server refuses test runs from anyone else and never records their results. */
+   The yellow Tester button switches the whole menu into tester mode (and back): Vs CPU, Training Lab and
+   Boss Fight get every fighter and every Boss Fight level, and nothing is saved to the account.
+   Online stays normal. The server refuses test runs from anyone else and never records their results. */
 const TESTER = { on: false };
 function isTesterAcct() { return !!(acctSignedIn() && ACCT.profile && ACCT.profile.tester); }
 function myPicks() { return TESTER.on ? ROSTER.map(c => c.id) : MY_UNLOCKED; }
@@ -17,7 +18,9 @@ function setTester(on) {
   on = !!(on && isTesterAcct());
   if (TESTER.on === on) return;
   TESTER.on = on;
-  document.body.classList.toggle('tester-on', on);
+  document.body.classList.toggle('tester-on', on);   // the menu shows the TESTER tags and the yellow bar
+  const tb = document.getElementById('go-tester');
+  if (tb) { tb.setAttribute('aria-pressed', String(on)); tb.textContent = on ? 'Tester: ON' : 'Tester'; }
   const bar = document.getElementById('tester-bar'); if (bar) bar.hidden = !on;
   BOSS.result = null;
   const r = document.getElementById('roster'); if (r) r.textContent = '';   // rebuild the fighter grid
@@ -28,13 +31,6 @@ function testerUpdate() {
   if (typeof adminUpdate === 'function') adminUpdate();
 }
 
-function showTester() { setTester(true); BOSS.result = null; bossScreen(); show('boss'); renderBoss(); }
-function testerSolo() {
-  setTester(true);
-  G.mode = 'solo'; G.training = false; SETUP.slots = defaultSlots('solo');
-  const c = loadLocal('cb.char'); if (isPickable(c, myPicks())) SETUP.slots[0].char = c;
-  SETUP.edit = 0; SETUP.teams = false; showSetup();
-}
 
 function bossScreen() {
   let s = document.getElementById('scr-boss');
@@ -50,8 +46,8 @@ function renderBoss() {
   s.textContent = '';
   if (TESTER.on && !isTesterAcct()) setTester(false);
   const T = TESTER.on;
-  const back = el('button', { type: 'button', class: 'back', text: T ? '← Testing' : '← Back', on: { click: () => { SFX.play('ui'); BOSS.result = null; setTester(false); if (T) showTesting(); else show('main'); } } });
-  const outer = el('div', { class: 'wrap' }, [el('header', { class: 'bar' }, [back, el('h2', { text: T ? 'Boss testing' : 'Boss Fight' }), el('p', { class: 'sub', text: T ? 'Every fighter and every level. Nothing here is saved to your account.' : 'Three chapters, ten levels each. Beat a chapter to unlock its boss.' })])]);
+  const back = el('button', { type: 'button', class: 'back', text: '← Back', on: { click: () => { SFX.play('ui'); BOSS.result = null; show('main'); } } });
+  const outer = el('div', { class: 'wrap' }, [el('header', { class: 'bar' }, [back, el('h2', { text: T ? 'Boss Fight (Tester)' : 'Boss Fight' }), el('p', { class: 'sub', text: T ? 'Every fighter and every level. Nothing here is saved to your account.' : 'Three chapters, ten levels each. Beat a chapter to unlock its boss.' })])]);
   s.appendChild(outer);
   const wrap = el('div', { class: 'bs-wrap' });
   outer.appendChild(wrap);
@@ -70,13 +66,12 @@ function renderBoss() {
   const ch = bossChapter(BOSS.sel), bossName = CHAR[ch.boss].name;
   const has = id => MY_UNLOCKED.indexOf(id) >= 0;
 
-  // Test runs: a clear banner, level navigation and all-fighter CPU practice.
+  // Tester mode: a clear banner, quick level stepping and a bug-report shortcut.
   if (T) wrap.appendChild(panel([
     el('div', { class: 'bs-banner test', role: 'note', text: 'TEST RUN · Results here are not saved to your account' }),
     el('div', { class: 'ad-actions' }, [
       el('button', { type: 'button', class: 'mini', text: '← Previous level', ...(BOSS.sel === 1 ? { disabled: '' } : {}), on: { click: () => { BOSS.sel = Math.max(1, BOSS.sel - 1); renderBoss(); } } }),
       el('button', { type: 'button', class: 'mini', text: 'Next level →', ...(BOSS.sel === total ? { disabled: '' } : {}), on: { click: () => { BOSS.sel = Math.min(total, BOSS.sel + 1); renderBoss(); } } }),
-      el('button', { type: 'button', class: 'btn', text: 'Vs CPU with every fighter', on: { click: () => { SFX.play('ui'); testerSolo(); } } }),
       el('button', { type: 'button', class: 'mini', text: 'Report a bug', on: { click: showBugReport } })
     ])
   ], 'bs-top'));
@@ -248,5 +243,7 @@ function bossCleanup() {
   if (G.screen === 'boss') renderBoss();
 }
 
-document.getElementById('go-boss') && document.getElementById('go-boss').addEventListener('click', () => { SFX.play('ui'); BOSS.result = null; setTester(false); showBoss(); });
+document.getElementById('go-boss') && document.getElementById('go-boss').addEventListener('click', () => { SFX.play('ui'); BOSS.result = null; showBoss(); });
+// the Tester button turns tester mode on, and pressing it again turns it off
+document.getElementById('go-tester') && document.getElementById('go-tester').addEventListener('click', () => { SFX.play('ui'); if (isTesterAcct()) setTester(!TESTER.on); });
 testerUpdate();

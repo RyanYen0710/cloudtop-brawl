@@ -1,7 +1,6 @@
 'use strict';
 /* Private controls are enabled by /api/me; every privileged action is checked again by the server. */
 const ADMIN = { uid: null, tab: 'accounts', target: null, reports: [], cursor: null, loaded: false, busy: false, message: '', filter: 'all' };
-const TESTING = { level: 1, fighter: 'tseng' };
 const BUG = { busy: false, message: '', draft: null, context: null };
 const ADMIN_ERRORS = {
   'not-admin': 'This account does not have admin access.', signin: 'Please sign in again.',
@@ -35,8 +34,7 @@ function adminUpdate() {
     ADMIN.uid = uid; ADMIN.target = null; ADMIN.reports = []; ADMIN.cursor = null; ADMIN.loaded = false;
     ADMIN.busy = false; ADMIN.message = ''; BUG.draft = null;
     if (typeof setTester === 'function') setTester(false);
-    ['admin', 'testing'].forEach(id => { const screen = document.getElementById('scr-' + id); if (screen) screen.textContent = ''; });
-    if (G.screen === 'testing') { if (uid) renderTesting(); else show('main'); }
+    const adm = document.getElementById('scr-admin'); if (adm) adm.textContent = '';
     if (G.screen === 'admin') { if (uid) renderAdmin(); else show('main'); }
   }
 }
@@ -72,39 +70,6 @@ function renderAdmin() {
   else renderAdminReports(pane);
 }
 function adminMessage(text) { ADMIN.message = text; const p = document.getElementById('ad-msg'); if (p) p.textContent = text; }
-function showTesting() {
-  adminUpdate(); if (!isTesterAcct()) { toast('Tester access is required.'); return; }
-  setTester(false); adminSection('testing'); show('testing'); renderTesting();
-}
-function renderTesting() {
-  const screen = adminSection('testing'); screen.textContent = '';
-  if (!isTesterAcct()) { show('main'); return; }
-  const pane = el('div', { class: 'wrap ad-wrap' }); screen.appendChild(pane);
-  pane.appendChild(el('header', { class: 'bar' }, [adminButton('← Back', () => { setTester(false); show('main'); }, 'back'),
-    el('h2', { text: 'Testing' }), el('span', { class: 'ad-badge', text: 'TEST RUNS · NOT SAVED' })]));
-  renderTestingTools(pane);
-}
-function renderTestingTools(pane) {
-  const card = el('div', { class: 'card ad-card' }); pane.appendChild(card);
-  card.append(el('h3', { text: 'Jump straight into a boss fight' }), el('p', { class: 'muted', text: 'All levels and fighters are available here. Test results never change saved progress.' }));
-  const level = adminSelect(BOSS_LEVELS.map((l, i) => [i + 1, 'Level ' + (i + 1) + ' · ' + l.name]), TESTING.level);
-  const fighter = adminSelect(ROSTER.filter(c => !c.hidden).map(c => [c.id, c.name]), TESTING.fighter);
-  level.addEventListener('change', () => { TESTING.level = +level.value; renderTesting(); });
-  fighter.addEventListener('change', () => { TESTING.fighter = fighter.value; });
-  card.appendChild(el('div', { class: 'ad-row' }, [adminField('Boss level', level), adminField('Your fighter', fighter)]));
-  BOSS_CHAPTERS.forEach(ch => {
-    const grid = el('div', { class: 'ad-levels' });
-    for (let n = ch.from; n <= ch.to; n++) grid.appendChild(adminButton(String(n), () => { TESTING.level = n; renderTesting(); }, 'mini' + (TESTING.level === n ? ' sel' : '')));
-    card.append(el('h4', { text: ch.title + ' · ' + CHAR[ch.boss].name }), grid);
-  });
-  const l = BOSS_LEVELS[TESTING.level - 1];
-  card.append(el('p', { class: 'muted', text: l.name + ' · Boss lives: ' + l.stocks + ' · CPU: ' + l.cpu + ' · Helpers: ' + l.minions.length }),
-    el('div', { class: 'ad-actions' }, [adminButton('Fight level ' + TESTING.level, () => {
-      BOSS.sel = TESTING.level; BOSS.pick = TESTING.fighter; showTester(); bossStart(TESTING.level, TESTING.fighter);
-    }, 'btn start'), adminButton('Browse all boss levels', () => { BOSS.sel = TESTING.level; showTester(); }, 'btn'),
-    adminButton('Vs CPU · all fighters', testerSolo, 'btn'),
-    adminButton('Training · all fighters', () => { setTester(true); startTrainingSetup(); }, 'btn')]));
-}
 function renderAdminAccount(pane) {
   const card = el('div', { class: 'card ad-card' }); pane.appendChild(card);
   const form = el('form', { class: 'ad-row' });
@@ -149,7 +114,8 @@ function renderAdminAccount(pane) {
     edit.addEventListener('submit', async e => {
       e.preventDefault(); if (ADMIN.busy || ADMIN.target !== target) return;
       const unlocked = [...grants.querySelectorAll('input:checked')].map(c => c.value);
-      if (!window.confirm('Save changes for ' + (p.name || target.uid) + '?\nLevels cleared: ' + p.beaten + ' → ' + beaten.value + '\nBoss wins: ' + p.wins + ' → ' + wins.value + '\nSelected fighter grants: ' + unlocked.length + '\nReason: ' + reason.value.trim())) return;
+      if (!(await gameConfirm('Save changes for ' + (p.name || target.uid) + '?\nLevels cleared: ' + p.beaten + ' → ' + beaten.value + '\nBoss wins: ' + p.wins + ' → ' + wins.value + '\nSelected fighter grants: ' + unlocked.length + '\nReason: ' + reason.value.trim()))) return;
+      if (ADMIN.busy || ADMIN.target !== target) return;
       ADMIN.busy = true; save.disabled = true; adminMessage('Saving changes…');
       try {
         await adminPost('/api/admin/account', { uid: target.uid, revision: p.revision || 0, beaten: +beaten.value, wins: +wins.value, unlocked, reason: reason.value.trim() });
@@ -257,7 +223,5 @@ function renderBugReport() {
   });
 }
 document.getElementById('go-admin').addEventListener('click', showAdmin);
-document.getElementById('go-tester').addEventListener('click', showTesting);
-document.getElementById('exit-testing').addEventListener('click', () => { setTester(false); show('main'); });
 document.getElementById('go-bug-report').addEventListener('click', showBugReport);
 adminUpdate();
