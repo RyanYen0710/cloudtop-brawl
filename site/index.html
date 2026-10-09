@@ -401,16 +401,17 @@ body{touch-action:manipulation}
 @media (prefers-reduced-motion:reduce){.hub-tile{transition:none}}
 /* ----- character select (Smash-style): big roster on top, player panels along the bottom ----- */
 #scr-setup.cs{padding:0}
-.cs-wrap{position:relative;height:100%;display:flex;flex-direction:column;gap:10px;padding:10px clamp(10px,2vw,22px) calc(10px + env(safe-area-inset-bottom,0px));background:linear-gradient(180deg,rgba(18,10,48,.92),rgba(40,16,86,.88));overflow-y:auto}
+.cs-wrap{position:relative;min-height:100%;display:grid;grid-template-columns:minmax(0,1fr) minmax(320px,380px);grid-template-rows:auto auto auto minmax(min-content,1fr);gap:10px 12px;padding:10px clamp(10px,2vw,22px) calc(10px + env(safe-area-inset-bottom,0px));background:linear-gradient(180deg,rgba(18,10,48,.92),rgba(40,16,86,.88))}
 .cs-wrap>*{flex-shrink:0}
-.cs-bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.cs-bar{grid-column:1/-1;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 .cs-back{font-size:22px;padding:4px 18px;border-radius:0 0 18px 0;background:linear-gradient(90deg,#c26bff,#7b3fe0);border:0;color:#fff;clip-path:polygon(0 0,100% 0,82% 100%,0 100%);padding-right:30px}
 .cs-title{font-family:var(--disp);font-weight:400;font-size:clamp(20px,3vw,28px);margin:0;padding:4px 34px;background:linear-gradient(90deg,#ff3b3b,#c8102e);color:#fff;clip-path:polygon(6% 0,100% 0,94% 100%,0 100%);text-transform:uppercase;letter-spacing:.03em}
 .cs-rules-btn{margin-left:auto;display:flex;align-items:center;gap:10px;padding:6px 22px;background:#fff;color:#16102c;border:0;clip-path:polygon(5% 0,100% 0,95% 100%,0 100%);font:700 13px var(--ui)}
 .cs-rules-btn b{font-family:var(--disp);font-weight:400;font-size:18px}
 .cs-rules-btn:hover,.cs-rules-btn:focus-visible{background:#ffe9a8;outline:none}
 .cs-sub{flex-basis:100%;margin:0;color:var(--mute);font-size:13px}
-.cs-main{display:grid;grid-template-columns:minmax(0,1fr) minmax(250px,300px);gap:12px;min-height:0}
+.cs-main{display:contents}
+.cs-roster-wrap{grid-column:1;grid-row:2;min-width:0}
 .cs-pickfor{font:700 12px var(--ui);letter-spacing:.12em;text-transform:uppercase;color:var(--gold);margin:0 0 6px 2px}
 .cs-roster{grid-template-columns:repeat(auto-fill,minmax(104px,1fr));gap:6px}
 .cs-roster .tile{--t1:#2a1c66;--t2:#140c34;border-radius:2px;border:3px solid #0d0820;padding:0 0 4px;background:linear-gradient(160deg,var(--t1) 0%,var(--t2) 90%);overflow:hidden}
@@ -418,12 +419,12 @@ body{touch-action:manipulation}
 .cs-roster .tile.sel{border-color:var(--gold);box-shadow:0 0 0 3px var(--gold)}
 .cs-roster .tile-cv{height:clamp(70px,11vh,110px)}
 .cs-roster .tile-name{width:100%;padding-top:3px;background:rgba(0,0,0,.45);font-size:12px;text-transform:uppercase;letter-spacing:.02em}
-.cs-info{contain:size;height:100%;min-height:240px;overflow-y:auto;padding:12px}   /* as tall as the roster, scrolls inside */
+.cs-info{grid-column:2;grid-row:2/5;min-width:0;padding:16px}   /* use the space beside the roster, start button and player panels */
 .cs-info .sc-cv{width:84px;height:96px}
 .cs-info .sc-name{font-size:22px}
-.cs-go{display:flex;justify-content:center}
+.cs-go{grid-column:1;grid-row:3;display:flex;justify-content:center}
 .cs-start{width:min(720px,100%);font-size:26px;letter-spacing:.04em;text-transform:uppercase;background:linear-gradient(90deg,#ff3b3b,#ffb547 50%,#ff3b3b);box-shadow:0 5px 0 #7a1020;clip-path:polygon(3% 0,100% 0,97% 100%,0 100%)}
-.cs-slots{grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+.cs-slots{grid-column:1;grid-row:4;align-self:start;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
 .cs-slots .slot{position:relative;min-height:190px;border:0;border-radius:4px;padding:10px 12px;background:linear-gradient(135deg,color-mix(in srgb,var(--sc) 85%,#fff) 0%,var(--sc) 45%,color-mix(in srgb,var(--sc) 55%,#000) 100%);clip-path:polygon(0 0,100% 0,100% 88%,94% 100%,0 100%);color:#fff;overflow:hidden}
 .cs-slots .slot.empty{background:linear-gradient(135deg,#4a4470,#2c2752);opacity:1}
 .cs-slots .slot.editing{box-shadow:inset 0 0 0 4px #fff}
@@ -441,9 +442,11 @@ body{touch-action:manipulation}
 .cs-drawer{position:absolute;inset:0;z-index:20;display:flex;justify-content:flex-end;background:rgba(5,3,15,.55)}
 .cs-drawer[hidden]{display:none}
 .cs-drawer-in{width:min(520px,100%);height:100%;overflow-y:auto;border-radius:0;background:#1b1540}
+@media (min-width:901px) and (max-width:1440px){.cs-slots{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media (max-width:900px){
-  .cs-main{grid-template-columns:minmax(0,1fr)}
-  .cs-info{contain:none;height:auto;min-height:0}
+  .cs-wrap{display:flex;flex-direction:column}
+  .cs-main{display:grid;grid-template-columns:minmax(0,1fr);gap:12px}
+  .cs-roster-wrap,.cs-info{grid-column:auto;grid-row:auto}
   .cs-slots{grid-template-columns:repeat(2,minmax(0,1fr))}
 }
 @media (max-width:560px){
