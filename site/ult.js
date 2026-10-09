@@ -117,8 +117,11 @@ function orbHitCheck(f, g, bx, h, a, cm) {
   hitOrb(f, g, h.dmg * cm, f.face, -0.3);
 }
 
-/* Titan's playable ultimate uses the same rules on the browser and Worker. */
+/* Titan's playable ultimate (Jungle Juggernaut) uses the same rules on the browser and Worker.
+   Z plays the opening scene, then Titan rolls. The roll ends by itself: the moment it hits a rival
+   (who gets launched), at the edge of the platform it's rolling on, or when time runs out. */
 const AVALANCHE_FRAMES = 240, AVALANCHE_START = 18;
+const AVALANCHE_HIT = { dmg: 12, b: 10, g: 1.0, angle: 40 };
 function avalancheRadius(f) { return Math.max(f.W * 0.58, f.H * 0.38); }
 function avalancheInterrupted(f, g) { return g.over || f.dead > 0 || f.out || f.hitstun > 0 || f.frozen > 0 || f.zap > 0 || f.shieldBreak > 0; }
 function startAvalanche(f, g) {
@@ -127,7 +130,19 @@ function startAvalanche(f, g) {
   f.vx *= 0.35; f.vy = Math.min(f.vy, 0); f.hitlag = 0;
   f.avalanche = { left: AVALANCHE_FRAMES, age: 0, captured: null, spin: 0, bumped: new Map() };
   f.armor = true;
-  emit(g, 'ult', f.x, f.y - f.H / 2, 0, f.slot);
+  emit(g, 'roll', f.x, f.y, 0, f.slot);
+}
+/* the boulder slams into a rival: the roll stops right there and they get launched */
+function avalancheImpact(f, o, g) {
+  const h = Object.assign({}, AVALANCHE_HIT, (f.c.ultimate && f.c.ultimate.hit) || {});
+  o.lastHit = f.slot; o.lastHitT = 360;
+  finishAvalanche(f, g, false);
+  f.vx = -f.face * 3; f.vy = Math.min(f.vy, -4);
+  o.hitlag = 0; o.frozen = 0; o.inv = 0;
+  applyHit(f, o, h, f.face, g, true);
+  emit(g, 'ultfinal', o.x, o.y - o.H / 2, 0, f.slot);
+  emit(g, 'rollhit', o.x, o.y - o.H / 2, f.face, f.slot);
+  g.shake = Math.max(g.shake, 18);
 }
 function pinAvalancheTarget(f, o) {
   const r = avalancheRadius(f);
@@ -180,10 +195,16 @@ function stepAvalanche(f, inp, g) {
   if (f.ground?.dx || f.ground?.dy) { f.x += f.ground.dx || 0; f.y += f.ground.dy || 0; }
   f.vy = Math.min(f.ph.maxFall, f.vy + f.ph.grav * (g.gravMul || 1));
   moveCollide(f, g);
-  if (f.ground && !wasGround) { f.jumps = f.ph.jumps - 1; emit(g, 'land', f.x, f.y, 1); }
+  if (f.ground && !wasGround) { f.jumps = f.ph.jumps - 1; emit(g, 'land', f.x, f.y, 1); if (a.age > 4) g.shake = Math.max(g.shake, 6); }
   a.spin += f.vx / r;
   const B = g.stage.blast;
   if (f.x < B.l || f.x > B.r || f.y < B.t || f.y > B.b) { koF(f, g); return; }
+  // never roll off the edge: stop at the end of whatever platform Titan is rolling on
+  const gr = f.ground;
+  if (gr && gr.w && a.age >= AVALANCHE_START && ((f.vx > 0 && f.x + f.vx > gr.x + gr.w - r * 0.6) || (f.vx < 0 && f.x + f.vx < gr.x + r * 0.6))) {
+    f.x = clamp(f.x, gr.x + r * 0.6, gr.x + gr.w - r * 0.6); f.vx = 0;
+    finishAvalanche(f, g, false); return;
+  }
   if (a.age < AVALANCHE_START) return;
   if (f.ground && a.age % 5 === 0) emit(g, 'land', f.x - f.face * r, f.y, 0);
   if (a.captured != null) {
@@ -205,25 +226,21 @@ function stepAvalanche(f, inp, g) {
       }
       continue;
     }
-    a.captured = o.slot; o.carriedBy = f.slot;
-    endAct(o); o.shielding = false; o.flyT = 0; o.roll = 0; o.airDodge = 0; o.land = 0; o.ledge = null; o.frozen = 0; o.zap = 0;
-    o.lastHit = f.slot; o.lastHitT = 360;
-    pinAvalancheTarget(f, o); emit(g, 'hit', o.x, o.y - o.H / 2, 4, f.slot);
-    break;
+    avalancheImpact(f, o, g);
+    return;
   }
 }
 function aiAvalanche(f, g) {
-  const a = f.avalanche, target = nearestEnemy(f, g), m = f.ground || g.stage.solids[0];
-  const nearEdge = f.x < m.x + 90 || f.x > m.x + m.w - 90;
-  const x = nearEdge || a.captured != null ? m.x + m.w / 2 : (target ? target.x : g.stage.cx);
-  return { b: f.x < x ? BR : BL, pr: a.captured != null && (a.age > 65 || nearEdge) ? BZ : 0 };
+  const target = nearestEnemy(f, g);
+  return { b: target && target.x < f.x ? BL : BR, pr: 0 };   // the roll stops by itself on a hit or at the edge
 }
 function tryUlt(f, g) {
-  if (f.avalanche) { finishAvalanche(f, g, !avalancheInterrupted(f, g)); return; }
+  if (f.avalanche) return;   // the roll ends by itself now
   if (!f.ult || g.ult || g.over || f.carriedBy != null || f.dead > 0 || f.out || f.halo > 0 || f.hitstun > 0 || f.frozen > 0 || f.ledge || f.shieldBreak > 0) return;
-  if (f.c.id === 'titan' && f.c.ultimate?.kind === 'avalanche') { if (f.zap > 0) return; startAvalanche(f, g); return; }
+  const roll = f.c.id === 'titan' && f.c.ultimate?.kind === 'avalanche';
+  if (roll && f.zap > 0) return;
   f.ult = false; endAct(f); f.vx = 0; f.vy = 0;
-  g.ult = { slot: f.slot, t: 0, targets: [], ph: 'cut', ax: f.x, ay: f.y - f.H / 2, aim: ULT_AIM, lock: 0 };
+  g.ult = { slot: f.slot, t: 0, targets: [], ph: 'cut', ax: f.x, ay: f.y - f.H / 2, aim: ULT_AIM, lock: 0, roll };
   f.vanish = true; f.inv = Math.max(f.inv, 4);
   emit(g, 'ult', f.x, f.y - f.H / 2, 0, f.slot);
 }
@@ -247,6 +264,7 @@ function stepUlt(g, inputs) {
   if (!f) { g.ult = null; return false; }
   if (u.ph === 'cut') {
     u.t++; f.vanish = true;
+    if (u.t >= ULT_CUT && u.roll) { g.ult = null; f.vanish = false; startAvalanche(f, g); return false; }   // Titan: the opening scene, then he rolls
     if (u.t >= ULT_CUT) {
       const kind = ultKind(ultDef(f.c));
       if (kind === 'aim') { u.ph = 'aim'; emit(g, 'ultaim', u.ax, u.ay, 0, f.slot); return true; }

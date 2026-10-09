@@ -36,6 +36,20 @@ function uiCrack(g, x, y, r, seed, a) {
   g.restore();
 }
 
+/* Titan's boulder (same look as the rolling ultimate), centred at x,y */
+function uiBoulder(g, f, x, y, r, spin) {
+  const L = f.c.look;
+  g.save(); g.translate(x, y); g.rotate(spin);
+  g.strokeStyle = '#120d24'; g.lineWidth = Math.max(2, r * 0.05);
+  g.fillStyle = L.body; g.beginPath(); g.arc(0, 0, r, 0, Math.PI * 2); g.fill(); g.stroke();
+  g.fillStyle = L.skin; g.beginPath(); g.ellipse(0, r * 0.06, r * 0.63, r * 0.68, 0, 0, Math.PI * 2); g.fill(); g.stroke();
+  g.fillStyle = L.body; for (const sd of [-1, 1]) { g.beginPath(); g.arc(sd * r * 0.67, r * 0.3, r * 0.29, 0, Math.PI * 2); g.fill(); g.stroke(); }
+  g.fillStyle = L.accent; g.fillRect(-r * 0.75, r * 0.12, r * 1.5, r * 0.18);
+  g.fillStyle = L.skin; g.beginPath(); g.ellipse(r * 0.1, -r * 0.45, r * 0.41, r * 0.3, 0, 0, Math.PI * 2); g.fill(); g.stroke();
+  g.fillStyle = '#120d24'; g.beginPath(); g.arc(-r * 0.03, -r * 0.5, r * 0.05, 0, Math.PI * 2); g.arc(r * 0.23, -r * 0.5, r * 0.05, 0, Math.PI * 2); g.fill();
+  g.restore();
+}
+
 /* one function per ultimate style. o = { g, f, def, col, k, vw, vh, cx, cy, S, low, t } */
 const UI_SCENES = {
   slash(o) {   // Zephyr: the ninja zips around the screen, each dash leaves a cut, then the cuts flash
@@ -53,6 +67,42 @@ const UI_SCENES = {
       g.strokeStyle = 'rgba(52,209,191,.8)'; g.lineWidth = 3 * S; g.beginPath(); g.moveTo(ax * vw, ay * vh); g.lineTo((ax + (bx - ax) * p) * vw, (ay + (by - ay) * p) * vh); g.stroke();
     } else uiFig(g, f, vw * 0.5, vh * 0.5 + 70 * S, 150 * S, 'power', 1);
     if (k > 50 && k < 56) { g.fillStyle = 'rgba(255,255,255,.5)'; g.fillRect(0, 0, vw, vh); }
+  },
+  boulder(o) {   // Titan (Jungle Juggernaut): beats his chest, curls into a boulder, rolls across the jungle and crashes into the screen
+    const { g, f, k, vw, vh, S, low } = o, gy = vh * 0.78, curl = 24, roll0 = 30, crash = 62;
+    // jungle: vines hanging from the top and leaves drifting down
+    g.strokeStyle = 'rgba(70,140,60,.55)'; g.lineWidth = 6 * S;
+    for (let i = 0; i < 7; i++) { const x = (i + 0.5) * vw / 7, len = vh * (0.18 + uiSeed(i) * 0.22); g.beginPath(); g.moveTo(x, -10); g.quadraticCurveTo(x + Math.sin(k * 0.05 + i) * 20 * S, len * 0.6, x + 10 * S, len); g.stroke(); }
+    for (let i = 0; i < (low ? 10 : 22); i++) { const x = (uiSeed(i + 40) * vw + k * (1.5 + uiSeed(i) * 2) * S) % vw, y = ((uiSeed(i + 9) * vh) + k * 3 * S) % vh; g.save(); g.translate(x, y); g.rotate(k * 0.1 + i); g.fillStyle = i % 3 ? 'rgba(111,211,90,.8)' : 'rgba(63,166,74,.8)'; g.beginPath(); g.ellipse(0, 0, 10 * S, 4 * S, 0, 0, Math.PI * 2); g.fill(); g.restore(); }
+    // ground
+    g.fillStyle = 'rgba(60,40,25,.85)'; g.fillRect(0, gy, vw, vh - gy);
+    g.fillStyle = 'rgba(109,187,74,.9)'; g.fillRect(0, gy - 6 * S, vw, 8 * S);
+    if (k < curl) {   // chest beat
+      const beat = Math.sin(k * 0.9) > 0;
+      uiFig(g, f, vw * 0.5, gy, 220 * S, beat ? 'power' : 'cast2', 1);
+      if (beat) { g.strokeStyle = 'rgba(255,240,200,.6)'; g.lineWidth = 3 * S; for (let i = 0; i < 3; i++) { g.beginPath(); g.arc(vw * 0.5, gy - 140 * S, (40 + i * 22 + (k % 6) * 4) * S, -0.8, 0.8); g.stroke(); } }
+      return;
+    }
+    const r0 = 70 * S;
+    if (k < roll0) {   // curling up: the ape shrinks into the boulder
+      const p = uiSeg(k, curl, roll0);
+      uiFig(g, f, vw * 0.5, gy, 220 * S * (1 - p * 0.6), 'roll', 1, 1 - p);
+      uiBoulder(g, f, vw * 0.5, gy - r0, r0 * (0.4 + p * 0.6), p * 3);
+      g.strokeStyle = `rgba(109,187,74,${1 - p})`; g.lineWidth = 6 * S; g.beginPath(); g.arc(vw * 0.5, gy - r0, r0 * (2.2 - p * 1.2), 0, Math.PI * 2); g.stroke();
+      return;
+    }
+    if (k < crash) {   // rolling: off to the left, then barrels across the whole screen
+      const p = uiSeg(k, roll0, crash), x = -r0 * 2 + (vw + r0 * 4) * uiIn(p), y = gy - r0 - Math.abs(Math.sin(p * 9)) * 26 * S;
+      g.strokeStyle = 'rgba(255,255,255,.35)'; g.lineWidth = 3 * S;   // speed lines
+      for (let i = 0; i < (low ? 6 : 12); i++) { const ly = gy - r0 * 2 + uiSeed(i + 20) * r0 * 2, lx = x - r0 - 40 * S - uiSeed(i) * 260 * S; g.beginPath(); g.moveTo(lx, ly); g.lineTo(lx - 120 * S, ly); g.stroke(); }
+      for (let i = 0; i < (low ? 6 : 14); i++) { const d = i * 26 * S, a = 1 - i / 14; g.fillStyle = `rgba(200,180,140,${0.55 * a})`; g.beginPath(); g.arc(x - r0 - d, gy - 10 * S - Math.sin(i + k) * 6 * S, (18 - i) * S, 0, Math.PI * 2); g.fill(); }   // dust trail
+      uiBoulder(g, f, x, y, r0, k * 0.45);
+      return;
+    }
+    // crash: the boulder flies at the camera, the screen cracks
+    const p = uiSeg(k, crash, crash + 14), rr = r0 * (1 + uiIn(p) * 6);
+    uiBoulder(g, f, vw * 0.5, gy - r0 - p * (gy - vh * 0.5 - r0), rr, k * 0.45);
+    if (p >= 1) { uiCrack(g, vw * 0.5, vh * 0.5, Math.max(vw, vh) * 0.6, 11, 1 - uiSeg(k, crash + 14, 90) * 0.4); uiBurst(g, vw * 0.5, vh * 0.5, 260 * S, 18, 'rgba(255,240,200,.8)', 5 * S); }
   },
   stomp(o) {   // Titan: a giant shadow, then the foot slams down and the screen shakes and cracks
     const { g, f, k, vw, vh, S, cx } = o, hit = 30, gy = vh * 0.82;
@@ -386,7 +436,7 @@ function drawUltIntro(g, view, c, vw, vh, t) {
   bg.addColorStop(0, shade(col[0], 0.18)); bg.addColorStop(1, col[0]);
   g.fillStyle = bg; g.fillRect(0, 0, vw, vh);
   // a little shake right when things hit
-  const sh = (def.style === 'stomp' && k >= 30 && k < 42) || (def.style === 'hammer' && k >= 34 && k < 46) ? 10 * S : 0;
+  const sh = (def.style === 'stomp' && k >= 30 && k < 42) || (def.style === 'boulder' && k >= 76 && k < 88) || (def.style === 'hammer' && k >= 34 && k < 46) ? 10 * S : 0;
   if (sh) g.translate((Math.random() - 0.5) * sh, (Math.random() - 0.5) * sh);
   g.save();
   scene({ g, f, def, col, k, vw, vh, cx: vw / 2, cy: vh * 0.46, S, low: UI_LOW(), t });

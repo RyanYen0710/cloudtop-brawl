@@ -290,16 +290,10 @@ function draw() {
   if (G.cutHide !== cut) { G.cutHide = cut; document.getElementById('hints').style.visibility = cut ? 'hidden' : ''; document.querySelector('.fight-top').style.visibility = cut ? 'hidden' : ''; }
   if (hud) {
     const ls = localSlotNow(), lf = ls != null && view.fighters.find(x => x.slot === ls);
-    setUltReady(!!(lf && (lf.ult || lf.avalanche) && !lf.out && lf.carriedBy == null));
-    const b = document.getElementById('ult-btn');
-    if (b) {
-      const carrying = lf?.avalanche?.captured != null;
-      b.textContent = lf?.avalanche ? (carrying ? 'THROW' : 'END ROLL') : 'ULT';
-      b.setAttribute('aria-label', lf?.avalanche ? (carrying ? 'Throw captured rival' : 'End Jungle Avalanche') : 'Ultimate');
-    }
+    setUltReady(!!(lf && lf.ult && !lf.out && lf.carriedBy == null));
     if (lf?.c.id === 'titan') {
       const hint = document.querySelector('#hints-r [data-h="ult"] .h-name');
-      if (hint) hint.textContent = lf.avalanche ? `${lf.avalanche.captured != null ? 'Throw' : 'End roll'} · ${bindLabel('left')}/${bindLabel('right')} steer` : lf.c.ultimate.name;
+      if (hint) hint.textContent = lf.avalanche ? `Rolling · ${bindLabel('left')}/${bindLabel('right')} steer` : lf.c.ultimate.name;
     }
   } else setUltReady(false);
   if (typeof tickLegend === 'function') tickLegend(view, hud);
