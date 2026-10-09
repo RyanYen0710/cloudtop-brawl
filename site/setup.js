@@ -33,7 +33,8 @@ function isHostish() { return G.mode === 'solo' || G.mode === 'host'; }
 function buildRoster() {
   const box = document.getElementById('roster');
   box.innerHTML = '';
-  [...ROSTER.filter(c => !c.locked || MY_UNLOCKED.indexOf(c.id) >= 0), { id: 'random', name: 'Random' }].forEach(c => {
+  const picks = G.mode === 'solo' && typeof myPicks === 'function' ? myPicks() : MY_UNLOCKED;   // Tester mode opens every fighter
+  [...ROSTER.filter(c => !c.locked || picks.indexOf(c.id) >= 0), { id: 'random', name: 'Random' }].forEach(c => {
     const b = document.createElement('button');
     b.className = 'tile'; b.type = 'button'; b.dataset.id = c.id;
     if (c.ultimate && c.ultimate.colors) { b.style.setProperty('--t1', c.ultimate.colors[1]); b.style.setProperty('--t2', c.ultimate.colors[0]); }   // each fighter's own colors

@@ -78,6 +78,7 @@ async function acctChanged() {
   renderAcctPane();
   if (G.screen === 'login' && ACCT.autoGo && acctSignedIn()) { ACCT.autoGo = false; loginDone(); }
   else if (G.screen === 'login') renderLogin();
+  if (typeof testerUpdate === 'function') testerUpdate();
   if (G.screen === 'boss' && typeof renderBoss === 'function') renderBoss();
 }
 function setUnlocked(list) {

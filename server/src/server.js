@@ -96,6 +96,13 @@ function isOwner(u, env) {
   const list = String(env.OWNER_EMAILS || '').toLowerCase().split(',').map(s => s.trim()).filter(Boolean);
   return !!(u && u.verified && u.email && list.indexOf(u.email) >= 0);
 }
+/* testers (the hidden TESTER_EMAILS secret, comma separated) can use Tester mode: every fighter and every
+   Boss Fight level, but nothing they do there is saved to their account. The owner is always a tester. */
+function isTester(u, env) {
+  if (isOwner(u, env)) return true;
+  const list = String(env.TESTER_EMAILS || '').toLowerCase().split(/[,;\s]+/).filter(Boolean);
+  return !!(u && u.verified && u.email && list.indexOf(String(u.email).toLowerCase()) >= 0);
+}
 /* gift fighters: the hidden GIFT_FIGHTERS secret lists "email=fighterId" pairs (comma separated).
    A signed-in, verified email on that list gets only its own fighter, straight away (never Legend Yen). */
 function giftsFor(u, env) {
@@ -243,11 +250,11 @@ export class Room {
     if (!(await hit(this.env, 'ip:' + c.ip, 'auth'))) { this.send(c, { acct: null, err: 'slow-down' }); return; }
     try {
       const u = await verifyIdToken(token, this.env);
-      c.owner = isOwner(u, this.env);
+      c.owner = isOwner(u, this.env); c.tester = isTester(u, this.env);
       const p = await acct(this.env, u.uid, 'get', { name: toUsername(u.name), owner: c.owner, gift: giftsFor(u, this.env) });
       c.uid = u.uid; c.unlocked = Array.isArray(p.unlocked) ? p.unlocked : []; c.pname = p.name || '';
-      this.send(c, { acct: { name: p.name, beaten: p.beaten, unlocked: c.unlocked } });
-    } catch (e) { c.uid = null; c.owner = false; c.unlocked = []; this.send(c, { acct: null, err: String(e.message || 'auth') }); }
+      this.send(c, { acct: { name: p.name, beaten: p.beaten, unlocked: c.unlocked, tester: c.tester || undefined } });
+    } catch (e) { c.uid = null; c.owner = false; c.tester = false; c.unlocked = []; this.send(c, { acct: null, err: String(e.message || 'auth') }); }
   }
 
   /* a fighter is only allowed if it isn't locked, or this player has unlocked it */
@@ -263,10 +270,13 @@ export class Room {
     if (!(await hit(this.env, 'uid:' + c.uid, 'boss')) || !(await hit(this.env, 'ip:' + c.ip, 'bossIp'))) { this.send(c, { err: 'slow-down' }); return; }
     const p = await acct(this.env, c.uid, 'get', { owner: !!c.owner });
     const level = m.level | 0;
-    if (level < 1 || level > BOSS_LEVELS.length || level > (p.beaten | 0) + 1) { this.send(c, { err: 'locked' }); return; }
+    // a test run (testers only): any level, any fighter, and the result is never saved
+    if (m.test && !c.tester) { this.send(c, { err: 'not-tester' }); return; }
+    const test = !!m.test;
+    if (level < 1 || level > BOSS_LEVELS.length || (!test && level > (p.beaten | 0) + 1)) { this.send(c, { err: 'locked' }); return; }
     c.unlocked = p.unlocked || [];
     let ch = String(m.char || 'random');
-    ch = ch === 'random' ? resolvePick('random') : this.allowedChar(ch, c);
+    ch = ch === 'random' ? resolvePick('random') : test ? (CHAR[ch] && !CHAR[ch].hidden ? ch : resolvePick('random')) : this.allowedChar(ch, c);
     const cfg = bossConfig(level, ch, {});
     const slots = cfg.slots.map((s, i) => {
       if (s.type === 'you') return { type: 'peer', char: ch, lvl: 5, team: 0, ctrl: { type: 'remote', peer: c.id }, name: clip(p.name || 'Player'), tag: clip(p.name || 'YOU') };
@@ -279,7 +289,7 @@ export class Room {
     this.g.orbNext = 2400;
     this.ended = false; this.lastSent = -9; this.last = Date.now();
     this.bossPaused = false;
-    this.bossRun = { uid: c.uid, peer: c.id, level, gid: this.gid };
+    this.bossRun = { uid: c.uid, peer: c.id, level, gid: this.gid, test };
     const fm = this.g.fighters.map(f => [f.slot, f.c.id, f.tid, f.name.slice(0, 16), f.color, f.tag.slice(0, 16), f.team, f.boss ? 1 : 0]);
     this.srv = { boss: { gid: this.gid, lvl: level, st: cfg.stage, sk: cfg.stocks, fm } };
     this.broadcast({ from: 'srv', d: { boss: this.srv.boss } });
@@ -370,6 +380,13 @@ export class Room {
       clearInterval(this.timer); this.timer = null;
       const run = this.bossRun, win = g.winTid === 0;
       this.bossRun = null;
+      if (run.test) {   // Tester mode: tell the player who won, but don't touch their account
+        const bossRes = { gid: run.gid, win, level: run.level, test: 1 };
+        this.srv.bossRes = bossRes;
+        this.broadcast({ from: 'srv', d: { bossRes } });
+        this.g = null;
+        return;
+      }
       (win ? acct(this.env, run.uid, 'beat', { level: run.level }) : acct(this.env, run.uid, 'get', {}))
         .then(p => {
           const bossRes = { gid: run.gid, win, level: run.level, beaten: p.beaten | 0, unlocked: p.unlocked || [] };
@@ -411,7 +428,7 @@ export default {
       if (url.pathname === '/api/me' && req.method === 'GET') {
         const p = await acct(env, u.uid, 'get', { name: toUsername(u.name), owner: isOwner(u, env), gift: giftsFor(u, env) });
         if (p && p.name) await acct(env, NAMES, 'claim', { name: p.name, uid: u.uid });   // reserve the name this player already uses
-        return json(p, 200, cors);
+        return json(isTester(u, env) ? Object.assign({}, p, { tester: true }) : p, 200, cors);
       }
       if (url.pathname === '/api/name' && req.method === 'POST') {
         let d = {}; try { d = await req.json(); } catch (e) { }

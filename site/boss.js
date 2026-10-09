@@ -6,6 +6,31 @@
 
 const BOSS = { pending: null, busy: false, result: null, pick: 'random', sel: 1, gid: 0 };
 
+/* ---------- Tester mode ----------
+   Only for accounts the server says are testers (a hidden list on the server, never in this code).
+   Every fighter and every Boss Fight level is open, and nothing is saved to the account:
+   the server refuses test runs from anyone else and never records their results. */
+const TESTER = { on: false };
+function isTesterAcct() { return !!(acctSignedIn() && ACCT.profile && ACCT.profile.tester); }
+function myPicks() { return TESTER.on ? ROSTER.map(c => c.id) : MY_UNLOCKED; }
+function setTester(on) {
+  on = !!(on && isTesterAcct());
+  if (TESTER.on === on) return;
+  TESTER.on = on;
+  const r = document.getElementById('roster'); if (r) r.innerHTML = '';   // rebuild the fighter grid
+}
+function testerUpdate() {
+  const b = document.getElementById('go-tester'); if (b) b.hidden = !isTesterAcct();
+  if (!isTesterAcct()) setTester(false);
+}
+function showTester() { setTester(true); BOSS.result = null; bossScreen(); show('boss'); renderBoss(); }
+function testerSolo() {
+  setTester(true);
+  G.mode = 'solo'; G.training = false; SETUP.slots = defaultSlots('solo');
+  const c = loadLocal('cb.char'); if (isPickable(c, myPicks())) SETUP.slots[0].char = c;
+  SETUP.edit = 0; SETUP.teams = false; showSetup();
+}
+
 function bossScreen() {
   let s = document.getElementById('scr-boss');
   if (s) return s;
@@ -18,8 +43,10 @@ function showBoss() { bossScreen(); show('boss'); renderBoss(); }
 function renderBoss() {
   const s = document.getElementById('scr-boss'); if (!s || G.screen !== 'boss') return;
   s.textContent = '';
-  const back = el('button', { type: 'button', class: 'back', text: '← Back', on: { click: () => { SFX.play('ui'); BOSS.result = null; show('main'); } } });
-  const outer = el('div', { class: 'wrap' }, [el('header', { class: 'bar' }, [back, el('h2', { text: 'Boss Fight' }), el('p', { class: 'sub', text: 'Three chapters, ten levels each. Beat a chapter to unlock its boss.' })])]);
+  if (TESTER.on && !isTesterAcct()) setTester(false);
+  const T = TESTER.on;
+  const back = el('button', { type: 'button', class: 'back', text: '← Back', on: { click: () => { SFX.play('ui'); BOSS.result = null; setTester(false); show('main'); } } });
+  const outer = el('div', { class: 'wrap' }, [el('header', { class: 'bar' }, [back, el('h2', { text: T ? 'Tester mode' : 'Boss Fight' }), el('p', { class: 'sub', text: T ? 'Every fighter and every level. Nothing here is saved to your account.' : 'Three chapters, ten levels each. Beat a chapter to unlock its boss.' })])]);
   s.appendChild(outer);
   const wrap = el('div', { class: 'bs-wrap' });
   outer.appendChild(wrap);
@@ -32,16 +59,23 @@ function renderBoss() {
   if (!acctSignedIn()) { note('Sign in to fight the boss and save your progress on any device.', 'Sign in', () => showLogin()); return; }
   if (!ACCT.profile) { note('Couldn’t load your progress. Check your connection.', 'Try again', () => acctChanged()); return; }
 
-  const beaten = ACCT.profile.beaten | 0, total = BOSS_LEVELS.length;
-  if (BOSS.sel > Math.min(total, beaten + 1)) BOSS.sel = Math.min(total, beaten + 1);
+  const beaten = ACCT.profile.beaten | 0, total = BOSS_LEVELS.length, reach = T ? total : beaten + 1;
+  if (BOSS.sel > Math.min(total, reach)) BOSS.sel = Math.min(total, reach);
   if (BOSS.sel < 1) BOSS.sel = 1;
   const ch = bossChapter(BOSS.sel), bossName = CHAR[ch.boss].name;
   const has = id => MY_UNLOCKED.indexOf(id) >= 0;
 
+  // Tester mode: a clear banner and the Vs CPU shortcut with every fighter
+  if (T) wrap.appendChild(panel([
+    el('div', { class: 'bs-banner test', role: 'note', text: 'TESTER MODE · Results here are not saved to your account' }),
+    el('button', { type: 'button', class: 'btn', text: 'Vs CPU with every fighter', on: { click: () => { SFX.play('ui'); testerSolo(); } } })
+  ], 'bs-top'));
+
   // result banner from the last fight
   if (BOSS.result) {
     const r = BOSS.result, rc = bossChapter(r.level);
-    const txt = r.error ? 'The fight ended, but your result couldn’t be saved. Try again.'
+    const txt = r.test ? (r.win ? `Test run: you beat level ${r.level}. (Not saved.)` : `Test run: defeated on level ${r.level}. (Not saved.)`)
+      : r.error ? 'The fight ended, but your result couldn’t be saved. Try again.'
       : r.win ? (r.level === rc.to && has(rc.boss) ? `${CHAR[rc.boss].name.toUpperCase()} UNLOCKED! He’s now in your fighter list.` : `LEVEL ${r.level} CLEARED!`)
       : `Defeated on level ${r.level}. Try again!`;
     wrap.appendChild(el('div', { class: 'bs-banner ' + (r.win ? 'win' : 'lose'), role: 'status', text: txt }));
@@ -50,10 +84,10 @@ function renderBoss() {
   // chapter tabs: one card per boss
   const chaps = el('div', { class: 'bs-chaps', role: 'tablist', 'aria-label': 'Chapters' });
   BOSS_CHAPTERS.forEach(c => {
-    const open = beaten + 1 >= c.from, done = Math.max(0, Math.min(10, beaten - c.from + 1)), on = c === ch;
+    const open = reach >= c.from, done = Math.max(0, Math.min(10, beaten - c.from + 1)), on = c === ch;
     const cv = el('canvas', { class: 'bs-chcv', 'aria-hidden': 'true' });
     const b = el('button', { type: 'button', role: 'tab', 'aria-selected': String(on), class: 'bs-chap' + (on ? ' sel' : '') + (open ? '' : ' locked'), 'data-id': c.boss,
-      on: { click: () => { if (!open) { toast(`Beat level ${c.from - 1} to open ${c.title}.`); return; } SFX.play('ui'); BOSS.sel = Math.min(c.to, Math.max(c.from, beaten + 1)); renderBoss(); } } }, [
+      on: { click: () => { if (!open) { toast(`Beat level ${c.from - 1} to open ${c.title}.`); return; } SFX.play('ui'); BOSS.sel = T ? c.from : Math.min(c.to, Math.max(c.from, beaten + 1)); renderBoss(); } } }, [
       cv,
       el('span', { class: 'bs-chtx' }, [
         el('small', { text: c.title + ' · Levels ' + c.from + '–' + c.to }),
@@ -83,7 +117,7 @@ function renderBoss() {
   // level ladder for this chapter
   const grid = el('div', { class: 'bs-grid', role: 'list' });
   for (let n = ch.from; n <= ch.to; n++) {
-    const L = BOSS_LEVELS[n - 1], done = n <= beaten, open = n <= beaten + 1;
+    const L = BOSS_LEVELS[n - 1], done = n <= beaten, open = n <= reach;
     const card = el('button', { type: 'button', role: 'listitem', class: 'bs-lv' + (done ? ' done' : '') + (open ? '' : ' locked') + (BOSS.sel === n ? ' sel' : ''), 'aria-pressed': String(BOSS.sel === n), on: { click: () => { if (!open) { toast(`Beat level ${n - 1} first.`); return; } SFX.play('ui'); BOSS.sel = n; renderBoss(); } } }, [
       el('span', { class: 'bs-n', text: open ? String(n) : '🔒' }),
       el('b', { text: L.name }),
@@ -97,7 +131,7 @@ function renderBoss() {
   // fighter pick + start
   const L = BOSS_LEVELS[BOSS.sel - 1];
   // fighter picker in the game's own style: portrait tiles, like the main fighter select
-  const opts = [...ROSTER.filter(c => isPickable(c.id, MY_UNLOCKED)), { id: 'random', name: 'Random' }];
+  const opts = [...ROSTER.filter(c => isPickable(c.id, myPicks())), { id: 'random', name: 'Random' }];
   if (!opts.some(c => c.id === BOSS.pick)) BOSS.pick = 'random';
   const picker = el('div', { class: 'bs-chars', role: 'radiogroup', 'aria-label': 'Your fighter' });
   opts.forEach(c => {
@@ -113,7 +147,7 @@ function renderBoss() {
   });
   requestAnimationFrame(() => picker.querySelectorAll('.bs-ch').forEach(b => drawPortrait(b.querySelector('canvas'), b.dataset.id)));
   const pickName = (opts.find(c => c.id === BOSS.pick) || { name: 'Random' }).name;
-  const go = el('button', { type: 'button', class: 'btn start', text: BOSS.busy ? 'Connecting…' : `Fight level ${BOSS.sel}` });
+  const go = el('button', { type: 'button', class: 'btn start', text: BOSS.busy ? 'Connecting…' : `${T ? 'Test' : 'Fight'} level ${BOSS.sel}` });
   if (BOSS.busy) go.disabled = true;
   go.addEventListener('click', () => { SFX.play('ui'); bossStart(BOSS.sel, BOSS.pick); });
   wrap.appendChild(panel([
@@ -136,7 +170,7 @@ async function bossStart(level, char) {
     RELAY.code = roomId;
     RELAY.mine = { nick: (ACCT.profile && ACCT.profile.name) || 'Player', ib: 0, ic: IN.counters.slice() };
     NET.room = relayRoom; NET.me = RELAY.id;
-    BOSS.pending = { level, char: isPickable(char, MY_UNLOCKED) ? char : 'random', at: Date.now() };
+    BOSS.pending = { level, char: isPickable(char, myPicks()) ? char : 'random', test: TESTER.on, at: Date.now() };
     await connectServer(roomId, 'boss');
     setTimeout(() => { if (BOSS.pending && BOSS.busy) { bossCleanup(); toast('The game server didn’t answer. Try again.'); } }, 12000);
   } catch (e) {
@@ -148,13 +182,13 @@ function onAcctMsg(m) {
   if (m.acct && ACCT.profile) { ACCT.profile.beaten = m.acct.beaten; setUnlocked(m.acct.unlocked); }
   if (!BOSS.pending) return;
   if (m.err) {
-    const why = { signin: 'Please sign in again.', locked: 'That level is still locked.', 'slow-down': 'Too many fights in a row. Wait a minute.', expired: 'Your sign-in expired. Please try again.', 'verify-email': 'Verify your email first.', 'accounts-off': 'Accounts aren’t switched on on the server yet.' }[m.err] || 'The server couldn’t start the fight.';
+    const why = { signin: 'Please sign in again.', locked: 'That level is still locked.', 'slow-down': 'Too many fights in a row. Wait a minute.', expired: 'Your sign-in expired. Please try again.', 'verify-email': 'Verify your email first.', 'accounts-off': 'Accounts aren’t switched on on the server yet.', 'not-tester': 'This account isn’t a tester.' }[m.err] || 'The server couldn’t start the fight.';
     bossCleanup(); toast(why);
     if (m.err === 'expired') acctToken(true);
     return;
   }
   if (m.acct && SRV.ws && SRV.ws.readyState === 1) {
-    try { SRV.ws.send(JSON.stringify({ cmd: 'boss', level: BOSS.pending.level, char: BOSS.pending.char })); } catch (e) { }
+    try { SRV.ws.send(JSON.stringify({ cmd: 'boss', level: BOSS.pending.level, char: BOSS.pending.char, test: BOSS.pending.test ? 1 : undefined })); } catch (e) { }
   }
 }
 function onBossSrv(d) {
@@ -175,8 +209,8 @@ function onBossSrv(d) {
   }
   if (d.bossRes && d.bossRes.gid === BOSS.gid && G.mode === 'boss') {
     const r = d.bossRes;
-    if (ACCT.profile && !r.error) { ACCT.profile.beaten = r.beaten; setUnlocked(r.unlocked); }
-    if (r.win && r.level < BOSS_LEVELS.length) BOSS.sel = r.level + 1;
+    if (ACCT.profile && !r.error && !r.test) { ACCT.profile.beaten = r.beaten; setUnlocked(r.unlocked); }
+    if (r.win && r.level < BOSS_LEVELS.length && !r.test) BOSS.sel = r.level + 1;
     BOSS.result = r;
     setTimeout(() => { bossCleanup(); showBoss(); if (r.win) SFX.play('orbget'); }, 600);
   }
@@ -204,4 +238,6 @@ function bossCleanup() {
   if (G.screen === 'boss') renderBoss();
 }
 
-document.getElementById('go-boss') && document.getElementById('go-boss').addEventListener('click', () => { SFX.play('ui'); BOSS.result = null; showBoss(); });
+document.getElementById('go-boss') && document.getElementById('go-boss').addEventListener('click', () => { SFX.play('ui'); BOSS.result = null; setTester(false); showBoss(); });
+document.getElementById('go-tester') && document.getElementById('go-tester').addEventListener('click', () => { SFX.play('ui'); if (isTesterAcct()) showTester(); });
+testerUpdate();
