@@ -379,10 +379,10 @@ function drawHUD(g, view, vw, vh, hudH, t, atTop) {
     g.lineWidth = 5; g.strokeStyle = '#120d24';
     const txt = f.out ? 'OUT' : d + '%';
     const by = y + h - (tiny ? 5 : 10); g.strokeText(txt, tx, by); g.fillStyle = f.out ? '#6f6899' : dmgColor(d); g.fillText(txt, tx, by);
-    if (f.ult && !f.out) {
+    if ((f.ult || f.avalanche) && !f.out) {
       g.save(); g.font = '700 10px "Chakra Petch", system-ui, sans-serif'; const bw = 34;
       g.fillStyle = `hsl(${(t * 4) % 360},90%,60%)`; rrect(g, x + cw - bw - 6, y + h - 20, bw, 15, 4); g.fill();
-      g.fillStyle = '#120d24'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('ULT', x + cw - bw / 2 - 6, y + h - 12); g.restore();
+      g.fillStyle = '#120d24'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(f.avalanche ? (f.avalanche.left / 60).toFixed(1) + 's' : 'ULT', x + cw - bw / 2 - 6, y + h - 12); g.restore();
     }
     if (!view.endless) {
       const sp = small ? 8 : 10;

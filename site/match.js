@@ -292,6 +292,7 @@ function stepGame(g, inputs) {
     if (inp.zp && typeof tryUlt === 'function') tryUlt(f, g);
     stepFighter(f, inp, g);
   });
+  if (typeof syncAvalancheCaptives === 'function') syncAvalancheCaptives(g);
   stepProjs(g);
   if (typeof stepOrb === 'function') stepOrb(g);
   if (g.shake > 0) g.shake = g.shake * 0.86 < 0.3 ? 0 : g.shake * 0.86;
@@ -338,6 +339,8 @@ function computeResults(g) {
 /* ---------- CPU brain ---------- */
 /* a CPU Legend Yen switches style every few seconds */
 function aiThink(f, g) {
+  if (f.carriedBy != null) return { b: 0, pr: 0 };
+  if (f.avalanche && typeof aiAvalanche === 'function') return aiAvalanche(f, g);
   if (g.ult && g.ult.slot === f.slot && g.ult.ph === 'aim' && typeof aiUltAim === 'function') return aiUltAim(f, g);
   const r = aiThinkCore(f, g);
   if (f.c.freezeRay && f.ai && !f.out && f.dead <= 0) {

@@ -77,7 +77,29 @@ function limb(g, x, y, a1, a2, l1, l2, w, col, endR, endCol) {
 
 function fillStroke(g, col, lw) { g.fillStyle = col; g.fill(); g.lineWidth = lw || 3; g.strokeStyle = OUTLINE; g.stroke(); }
 
+function drawAvalancheFighter(g, f) {
+  const a = f.avalanche, r = avalancheRadius(f), L = f.c.look;
+  g.save(); g.translate(f.x, f.y - r);
+  g.strokeStyle = '#6dbb4a'; g.lineWidth = 3;
+  for (let i = 0; i < 3; i++) {
+    const y = (i - 1) * r * 0.46;
+    g.beginPath(); g.moveTo(-f.face * (r + 8), y); g.lineTo(-f.face * (r + 25 + i * 9), y); g.stroke();
+  }
+  g.strokeStyle = 'rgba(255,255,255,.25)'; g.lineWidth = 5; circle(g, 0, 0, r + 8); g.stroke();
+  g.strokeStyle = a.left < 60 ? '#ffd35c' : '#6dbb4a';
+  g.beginPath(); g.arc(0, 0, r + 8, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * a.left / AVALANCHE_FRAMES); g.stroke();
+  g.save(); g.rotate(a.spin);
+  g.strokeStyle = OUTLINE; g.lineWidth = 3.5; g.fillStyle = L.body; circle(g, 0, 0, r); g.fill(); g.stroke();
+  g.fillStyle = L.skin; g.beginPath(); g.ellipse(0, 4, r * 0.63, r * 0.68, 0, 0, Math.PI * 2); g.fill(); g.stroke();
+  g.fillStyle = L.body;
+  for (const s of [-1, 1]) { circle(g, s * r * 0.67, r * 0.3, r * 0.29); g.fill(); g.stroke(); }
+  g.fillStyle = L.accent; rrect(g, -r * 0.75, r * 0.12, r * 1.5, r * 0.18, 4); g.fill();
+  g.fillStyle = L.skin; g.beginPath(); g.ellipse(r * 0.1, -r * 0.45, r * 0.41, r * 0.3, 0, 0, Math.PI * 2); g.fill(); g.stroke();
+  g.fillStyle = OUTLINE; circle(g, -r * 0.03, -r * 0.5, 2.3); g.fill(); circle(g, r * 0.23, -r * 0.5, 2.3); g.fill();
+  g.restore(); g.restore();
+}
 function drawFighter(g, f, t, portrait) {
+  if (!portrait && f.avalanche) { drawAvalancheFighter(g, f); return; }
   const c = f.c, L = c.look, W = f.W, H = f.H, ex = L.extra || [];
   const has = k => ex.indexOf(k) >= 0;
   let A = f._A || poseAngles(f, t);

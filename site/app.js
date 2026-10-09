@@ -288,7 +288,20 @@ function draw() {
   }
   const cut = !!(hud && view.ult && view.ult.t <= ULT_CUT && (!view.ult.ph || view.ult.ph === 'cut'));
   if (G.cutHide !== cut) { G.cutHide = cut; document.getElementById('hints').style.visibility = cut ? 'hidden' : ''; document.querySelector('.fight-top').style.visibility = cut ? 'hidden' : ''; }
-  if (hud) { const ls = localSlotNow(); const lf = ls != null && view.fighters.find(x => x.slot === ls); setUltReady(!!(lf && lf.ult && !lf.out)); } else setUltReady(false);
+  if (hud) {
+    const ls = localSlotNow(), lf = ls != null && view.fighters.find(x => x.slot === ls);
+    setUltReady(!!(lf && (lf.ult || lf.avalanche) && !lf.out && lf.carriedBy == null));
+    const b = document.getElementById('ult-btn');
+    if (b) {
+      const carrying = lf?.avalanche?.captured != null;
+      b.textContent = lf?.avalanche ? (carrying ? 'THROW' : 'END ROLL') : 'ULT';
+      b.setAttribute('aria-label', lf?.avalanche ? (carrying ? 'Throw captured rival' : 'End Jungle Avalanche') : 'Ultimate');
+    }
+    if (lf?.c.id === 'titan') {
+      const hint = document.querySelector('#hints-r [data-h="ult"] .h-name');
+      if (hint) hint.textContent = lf.avalanche ? `${lf.avalanche.captured != null ? 'Throw' : 'End roll'} · ${bindLabel('left')}/${bindLabel('right')} steer` : lf.c.ultimate.name;
+    }
+  } else setUltReady(false);
   if (typeof tickLegend === 'function') tickLegend(view, hud);
   if (typeof tickFreezeRay === 'function') tickFreezeRay(view, hud);
   if (typeof tickTrainingHud === 'function') tickTrainingHud();

@@ -48,7 +48,7 @@ const ROSTER = [
     look: { build: 'bulky', body: '#3d312e', skin: '#b58d69', accent: '#d9483b', extra: ['ape'] },
     passive: 'Super armor while winding up punches and rushes, so small hits can’t stop him.',
     strongVs: ['zephyr', 'nova'], weakVs: ['tseng', 'mira'],
-    ultimate: { style: 'stomp', kind: 'close', name: 'Kaiju Rampage', desc: 'Grows into a giant and stomps the ground, bouncing the target up, then slams them away.', theme: 'jungle', colors: ['#0f2a17', '#6dbb4a', '#d9483b'], hits: 3, dmg: 6, final: { dmg: 22, b: 13, g: 1.4, angle: 75 } },
+    ultimate: { kind: 'avalanche', name: 'Jungle Avalanche', desc: 'Roll for 4 seconds. Steer left/right and scoop up one rival; press Ultimate again to throw them. Auto-throws on expiry. Only 5 base damage, but a powerful launch. Jump or shield to avoid the scoop.', theme: 'jungle', colors: ['#0f2a17', '#6dbb4a', '#d9483b'] },
     specials: {
       neutral: { name: 'Mega Punch', desc: 'Hold to charge a ground-shaking punch. Super armor while winding up.', kind: 'melee',
         dmg: 15, b: 8.5, g: 1.3, angle: 32, startup: 13, active: 6, end: 19, hx: 1.25, hy: 0.6, hw: 1.5, hh: 0.45, charge: 70, armor: true, lunge: 3 },

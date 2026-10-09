@@ -28,6 +28,7 @@ class Fighter {
     this.dropT = 0; this.ff = false; this.armor = false; this.charge = 0;
     this.ledge = null; this.ledgeCD = 0; this.ledgeGrabs = 0; this.burn = 0;
     this.zap = 0; this.slow = 0; this.hist = [];
+    this.avalanche = null; this.carriedBy = null;
   }
 }
 
@@ -37,7 +38,10 @@ function hbox(f, h) {
   const w = (h.hw || 1) * W, hh = (h.hh || 0.5) * H;
   return { x: cx - w / 2, y: cy - hh / 2, w, h: hh };
 }
-function hurtbox(o) { return { x: o.x - o.W * 0.42, y: o.y - o.H, w: o.W * 0.84, h: o.H }; }
+function hurtbox(o) {
+  if (o.avalanche) { const r = avalancheRadius(o); return { x: o.x - r, y: o.y - r * 2, w: r * 2, h: r * 2 }; }
+  return { x: o.x - o.W * 0.42, y: o.y - o.H, w: o.W * 0.84, h: o.H };
+}
 function overlap(a, b) { return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y; }
 function circRect(cx, cy, r, b) {
   const nx = clamp(cx, b.x, b.x + b.w), ny = clamp(cy, b.y, b.y + b.h);
@@ -47,6 +51,12 @@ function circRect(cx, cy, r, b) {
 function stepFighter(f, inp, g) {
   f.anim++;
   f.hot = false;
+  if (f.avalanche && avalancheInterrupted(f, g)) finishAvalanche(f, g, false);
+  if (f.carriedBy != null) {
+    const carrier = g.fighters.find(o => o.slot === f.carriedBy && o.avalanche?.captured === f.slot && !o.out && o.dead <= 0);
+    if (carrier && !f.out && f.dead <= 0) { pinAvalancheTarget(carrier, f); return; }
+    f.carriedBy = null; f.inv = Math.max(f.inv, 24); f.hitlag = 0; f.hitstun = 0;
+  }
   if (f.out) return;
   if (f.dead > 0) {
     if (--f.dead === 0) {
@@ -78,6 +88,7 @@ function stepFighter(f, inp, g) {
   if (f.ledgeCD > 0) f.ledgeCD--;
   if (f.ledge) { stepLedge(f, inp, g); return; }
   if (f.ground && f.ground.off) f.ground = null;
+  if (f.avalanche) { stepAvalanche(f, inp, g); return; }
   if (f.ground && (f.ground.dx || f.ground.dy)) { f.x += f.ground.dx; f.y += f.ground.dy; }
   const wasGround = !!f.ground;
   let grav = ph.grav * (g.gravMul || 1), fallCap = ph.maxFall * (g.gravMul < 1 ? 0.75 : 1), controlled = true;
@@ -122,12 +133,13 @@ function moveCollide(f, g) {
   f.x += f.vx; f.y += f.vy;
   f.ground = null;
   const fw = f.W * 0.3;
+  const fh = f.avalanche ? avalancheRadius(f) * 2 : f.H;
   for (const m of st.solids) {
     if (!(f.x + fw > m.x && f.x - fw < m.x + m.w)) continue;
     const tol = 0.01 + Math.max(0, -(m.dy || 0)) + 1;
     if (py <= m.y + tol && f.y >= m.y && f.vy >= (m.dy || 0) - 0.5) { f.y = m.y; f.vy = 0; f.ground = m; break; }
-    if (f.y > m.y && f.y - f.H < m.y + m.h) {
-      if (py - f.H >= m.y + m.h - 1 && f.vy < 0) { f.y = m.y + m.h + f.H; f.vy = 0; }
+    if (f.y > m.y && f.y - fh < m.y + m.h) {
+      if (py - fh >= m.y + m.h - 1 && f.vy < 0) { f.y = m.y + m.h + fh; f.vy = 0; }
       else if (py > m.y + tol) {
         if (px < m.x + m.w / 2) f.x = m.x - fw; else f.x = m.x + m.w + fw;
         f.vx = 0;
@@ -497,7 +509,7 @@ function pullEnemies(f, g, x, y, radius, strength) {
 }
 
 function applyHit(att, tgt, h, dir, g, proj) {
-  if (tgt.inv > 0 || tgt.dead > 0 || tgt.out || tgt.vanish) return 'miss';
+  if (tgt.inv > 0 || tgt.dead > 0 || tgt.out || tgt.vanish || tgt.carriedBy != null) return 'miss';
   const ta = tgt.act;
   if (ta && ta.m.kind === 'counter' && !ta.countered && ta.t >= ta.m.startup && ta.t < ta.m.startup + ta.m.window) {
     const m = ta.m;
@@ -587,6 +599,7 @@ function respawnF(f, g) {
 }
 
 function koF(f, g) {
+  if (f.avalanche) finishAvalanche(f, g, false);
   const B = g.stage.blast, st = g.stage;
   const x = clamp(f.x, B.l + 10, B.r - 10), y = clamp(f.y - f.H / 2, B.t + 10, B.b - 10);
   const ang = Math.atan2(st.spawnY + 100 - y, st.cx - x);
