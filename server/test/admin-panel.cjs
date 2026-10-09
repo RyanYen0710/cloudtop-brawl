@@ -37,9 +37,9 @@ function setup() {
   const source = readFileSync(join(__dirname, '../src/worker.js'), 'utf8')
     .replace(/^export class /gm, 'class ').replace(/^export default /gm, 'const worker = ');
   vm.runInContext(source, context);
-  const { worker, Accounts, isAdmin } = vm.runInContext('({ worker, Accounts, isAdmin })', context);
+  const { worker, Accounts, isTester } = vm.runInContext('({ worker, Accounts, isTester })', context);
   const env = { FIREBASE_PROJECT_ID: 'test-project', ALLOWED_ORIGINS: 'https://game.example.invalid',
-    ADMIN_EMAILS: email('admin1'), OWNER_EMAILS: email('owner1'), TESTER_EMAILS: email('oldtester'),
+    TESTER_EMAILS: email('admin1'), OWNER_EMAILS: email('owner1'),
     ACCOUNTS: { idFromName: name => name, get: name => {
       if (!objects.has(name)) { const storage = new Storage(); objects.set(name, { storage, instance: new Accounts({ storage }) }); }
       return { fetch: (url, opts) => objects.get(name).instance.fetch(new Request(url, opts)) };
@@ -52,27 +52,27 @@ function setup() {
     }), env);
     return { status: r.status, data: await r.json() };
   };
-  return { env, objects, call, isAdmin, worker };
+  return { env, objects, call, isTester, worker };
 }
 const edit = p => ({ uid: 'player1', revision: p.revision || 0, beaten: 10, wins: 7, unlocked: ['hsi'], reason: 'Restore lost progress' });
 const report = () => ({ title: 'Boss jump gets stuck', details: 'The fighter stops moving after jumping near the ledge.',
   steps: 'Choose a fighter, jump into the ledge.', category: 'gameplay', severity: 'medium', context: { screen: 'boss', mode: 'solo', level: 10, browser: 'test browser' } });
 
-test('only explicitly allowlisted verified accounts are admins; legacy tester and owner lists grant no admin role', async () => {
+test('admin tools reuse the verified tester allowlist and existing owner permission', async () => {
   const f = setup();
-  for (const id of ['player1', 'oldtester', 'owner1']) {
-    assert.equal((await f.call(id, '/api/me')).data.admin, false);
+  for (const id of ['player1', 'oldtester']) {
+    assert.equal((await f.call(id, '/api/me')).data.tester, false);
     assert.equal((await f.call(id, '/api/admin/reports')).status, 403);
-    assert.equal((await f.call(id, '/api/admin/account', { admin: true, uid: id })).status, 403);
+    assert.equal((await f.call(id, '/api/admin/account', { tester: true, admin: true, uid: id })).status, 403);
   }
-  assert.equal((await f.call('admin1', '/api/me')).data.admin, true);
+  for (const id of ['admin1', 'owner1']) {
+    assert.equal((await f.call(id, '/api/me')).data.tester, true);
+    assert.equal((await f.call(id, '/api/admin/reports')).status, 200);
+  }
   assert.equal((await f.call('admin1', '/api/admin/reports', undefined, { email_verified: false })).status, 403);
-  f.env.ADMIN_EMAILS += ',' + email('admin2');
-  assert.equal((await f.call('admin2', '/api/me')).data.admin, true);
-  f.env.ADMIN_EMAILS += ',' + email('admin3');
+  f.env.TESTER_EMAILS = '';
   assert.equal((await f.call('admin1', '/api/admin/reports')).status, 403);
-  f.env.ADMIN_EMAILS = '';
-  assert.equal((await f.call('admin1', '/api/admin/reports')).status, 403);
+  assert.equal((await f.call('owner1', '/api/admin/reports')).status, 200);
 });
 
 test('unsigned, expired, wrong-project tokens and disallowed origins cannot use admin routes', async () => {
@@ -99,7 +99,7 @@ test('account lookup and grants save only approved fields, earned bosses, and a 
   assert.ok(changed.data.profile.unlocked.includes('hsi'));
   assert.ok(changed.data.profile.unlocked.includes('yen'));
   const current = (await f.call('player1', '/api/me')).data;
-  assert.equal(current.name, 'player1'); assert.equal(current.owner, false); assert.equal(current.admin, false);
+  assert.equal(current.name, 'player1'); assert.equal(current.owner, false); assert.equal(current.tester, false);
   const detail = (await f.call('admin1', '/api/admin/account?uid=player1')).data;
   assert.equal(detail.history.length, 1); assert.equal(detail.history[0].actor.uid, 'admin1');
   assert.equal(detail.history[0].before.beaten, 0); assert.equal(detail.history[0].after.beaten, 10);

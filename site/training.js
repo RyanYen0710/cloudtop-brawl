@@ -10,7 +10,7 @@ function startTrainingSetup() {
   G.mode = 'solo'; G.training = true;
   const c = loadLocal('cb.char');
   SETUP.slots = [
-    { type: 'you', char: isPickable(c, MY_UNLOCKED) ? c : 'titan', lvl: 5, team: 0, nick: '' },
+    { type: 'you', char: isPickable(c, typeof myPicks === 'function' ? myPicks() : MY_UNLOCKED) ? c : 'titan', lvl: 5, team: 0, nick: '' },
     { type: 'cpu', char: 'titan', lvl: 5, team: 1, nick: '', dummy: 'stand' },
     { type: 'off', char: 'random', lvl: 5, team: 1, nick: '' },
     { type: 'off', char: 'random', lvl: 5, team: 1, nick: '' }

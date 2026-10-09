@@ -246,7 +246,7 @@ input,select{-webkit-user-select:text;user-select:text}
 .set-sep{font-weight:700;text-transform:uppercase;letter-spacing:.14em;font-size:12px;color:var(--gold);margin-top:4px}
 .set-row select{font:inherit;font-size:13px;color:var(--ink);background:#15122f;border:1px solid var(--line2);border-radius:6px;padding:5px 6px;grid-column:span 2}
 .set-card{max-height:calc(100% - 16px);overflow-y:auto}
-body{touch-action:manipulation}
+html,body,body *{touch-action:manipulation}   /* no double-tap zoom anywhere (the fight area and touch pads keep touch-action:none below) */
 .touch-on #scr-fight{padding-top:calc(78px + env(safe-area-inset-top,0px))}
 @media (max-height:420px){.touch-on #scr-fight{padding-top:66px}}
 @media (max-height:500px){.fight-top button{padding:4px 10px;font-size:12px}}
@@ -388,6 +388,12 @@ body{touch-action:manipulation}
 .ht-train{background:linear-gradient(135deg,#3fd47a,#14934a 70%)}
 .ht-boss{background:linear-gradient(135deg,#c26bff,#6a1fc8 70%)}
 .admin-btn{background:#ffd35c;color:#1a1238;font-weight:800}
+.tt-tag{display:none;width:max-content;margin:6px auto 0;padding:3px 12px;border-radius:999px;background:#ffd35c;color:#1a1238;font:800 13px/1.2 var(--ui);font-style:normal;letter-spacing:.08em;text-transform:uppercase;text-shadow:none;-webkit-text-stroke:0;box-shadow:0 2px 0 rgba(0,0,0,.35)}
+.tt-off{display:none}
+body.tester-on .tt-tag{display:block}
+body.tester-on #go-online{filter:saturate(.45)}
+body.tester-on #go-online .tt-off{display:block;font-weight:800;color:#ffd35c}
+.tester-bar{margin:0 18px 8px;padding:8px 14px;border-radius:10px;background:linear-gradient(90deg,#ffd35c,#ff8a4c);color:#1a1238;font:800 14px var(--ui);text-align:center;letter-spacing:.03em}
 .bs-banner.test{background:linear-gradient(90deg,#ffd35c,#ff8a4c);color:#1a1238;margin-bottom:10px}
 .hub-orb{position:absolute;left:53.5%;top:50%;width:clamp(120px,30vh,250px);aspect-ratio:1;transform:translate(-50%,-50%);border-radius:50%;overflow:hidden;border:8px solid #120d24;box-shadow:0 0 0 4px #ffb547,0 12px 40px rgba(0,0,0,.55);z-index:3;pointer-events:none}
 .hub-orb canvas{width:100%;height:100%;display:block}
@@ -480,15 +486,16 @@ body{touch-action:manipulation}
     <div class="hub">
       <div class="hub-top">
         <div class="logo hub-logo"><span class="l1">CLOUDTOP</span><span class="l2">BRAWL</span></div>
+        <div class="tester-bar" id="tester-bar" role="status" hidden>ADMIN TEST · nothing is saved · open Admin panel to return</div>
         <button type="button" class="hub-back" id="hub-back" hidden>← Back</button>
       </div>
       <nav class="hub-grid" id="hub-home" aria-label="Main menu">
         <button type="button" class="hub-tile ht-solo" id="go-single" data-tip="Fight CPUs, practice in the Training Lab, or take on the bosses.">
           <svg class="ht-ico" viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="16" r="9"/><path d="M18 58l4-22-8-6 6-6 12 6 12-6 6 6-8 6 4 22h-8l-6-16-6 16z"/></svg>
-          <b>Single Player</b><span>Vs CPU · Training Lab · Boss Fight</span></button>
+          <b>Single Player<em class="tt-tag">Tester</em></b><span>Vs CPU · Training Lab · Boss Fight</span></button>
         <button type="button" class="hub-tile ht-online" id="go-online" data-tip="Host a lobby, send friends a 4-letter code, add CPUs.">
           <svg class="ht-ico" viewBox="0 0 64 64" aria-hidden="true"><path d="M32 6a26 26 0 1 0 0 52 26 26 0 0 0 0-52zm0 6c3 3 6 9 7 17H25c1-8 4-14 7-17zm-8 3c-2 4-4 9-4 14h-8a20 20 0 0 1 12-14zm16 0a20 20 0 0 1 12 14h-8c0-5-2-10-4-14zM12 35h8c0 5 2 10 4 14a20 20 0 0 1-12-14zm13 0h14c-1 8-4 14-7 17-3-3-6-9-7-17zm19 0h8a20 20 0 0 1-12 14c2-4 4-9 4-14z"/></svg>
-          <b>Online</b><span>Play with friends</span></button>
+          <b>Online</b><span>Play with friends</span><span class="tt-off">Not in tester mode</span></button>
         <button type="button" class="hub-tile ht-help" id="go-controls" data-tip="Keyboard, touch and gamepad controls.">
           <svg class="ht-ico" viewBox="0 0 64 64" aria-hidden="true"><path d="M18 18h28c8 0 14 8 14 20 0 8-3 12-7 12-5 0-7-8-12-8H23c-5 0-7 8-12 8-4 0-7-4-7-12 0-12 6-20 14-20zm-2 9v5h-5v4h5v5h4v-5h5v-4h-5v-5zm28 1a3 3 0 1 0 0 6 3 3 0 0 0 0-6zm6 6a3 3 0 1 0 0 6 3 3 0 0 0 0-6z"/></svg>
           <b>How to Play</b><span>Controls</span></button>
@@ -497,13 +504,13 @@ body{touch-action:manipulation}
       <nav class="hub-grid hub-sub" id="hub-single" aria-label="Single player" hidden>
         <button type="button" class="hub-tile ht-cpu" id="go-solo" data-tip="You against 1 to 3 computer fighters. Pick their level from 1 to 10.">
           <svg class="ht-ico" viewBox="0 0 64 64" aria-hidden="true"><path d="M10 8l20 20-4 4L6 12V8zm44 0h4v4L38 32l-4-4zM24 34l6 6-10 10 4 4-4 4-12-12 4-4 4 4zm16 0l10 10 4-4 4 4-12 12-4-4 4-4-10-10z"/></svg>
-          <b>Vs CPU</b><span>1 to 3 computer fighters</span></button>
+          <b>Vs CPU<em class="tt-tag">Tester</em></b><span>1 to 3 computer fighters</span></button>
         <button type="button" class="hub-tile ht-train" id="go-training" data-tip="Practice any fighter on a dummy that never runs out of lives.">
           <svg class="ht-ico" viewBox="0 0 64 64" aria-hidden="true"><path d="M32 4a28 28 0 1 0 0 56 28 28 0 0 0 0-56zm0 8a20 20 0 1 1 0 40 20 20 0 0 1 0-40zm0 8a12 12 0 1 0 0 24 12 12 0 0 0 0-24zm0 7a5 5 0 1 1 0 10 5 5 0 0 1 0-10z"/></svg>
-          <b>Training Lab</b><span>Practice moves</span></button>
+          <b>Training Lab<em class="tt-tag">Tester</em></b><span>Practice moves</span></button>
         <button type="button" class="hub-tile ht-boss" id="go-boss" data-tip="30 levels and 3 bosses to unlock. Needs a signed-in account.">
           <svg class="ht-ico" viewBox="0 0 64 64" aria-hidden="true"><path d="M6 20l12 10 14-20 14 20 12-10-6 30H12zm6 34h40v6H12z"/></svg>
-          <b>Boss Fight</b><span>30 levels · 3 bosses</span></button>
+          <b>Boss Fight<em class="tt-tag">Tester</em></b><span>30 levels · 3 bosses</span></button>
       </nav>
       <div class="hub-foot">
         <span class="hub-tip" id="hub-tip"></span>
@@ -717,15 +724,15 @@ body{touch-action:manipulation}
 <script src="ult-fx.js?v=20261008b"></script>
 <script src="ult-intro.js?v=20261008-titan2"></script>
 <script src="input.js?v=20261008g"></script>
-<script src="setup.js?v=20261009-tester"></script>
+<script src="setup.js?v=20261009-tester2"></script>
 <script src="music.js?v=20261008b"></script>
-<script src="touch.js?v=20261008b"></script>
+<script src="touch.js?v=20261009-zoom"></script>
 <script src="hints.js?v=20261008f"></script>
 <script src="freeze.js?v=20261008b"></script>
-<script src="training.js?v=20261008-titan1"></script>
+<script src="training.js?v=20261009-tester2"></script>
 <script src="net.js?v=20261008-titan1"></script>
 <script src="firebase-config.js?v=20261008b"></script>
-<script src="app.js?v=20261009-tester"></script>
+<script src="app.js?v=20261009-tester2"></script>
 <script src="account.js?v=20261009-tester"></script>
 <script src="settings-ui.js?v=20261008g"></script>
 <script src="boss.js?v=20261009-admin1"></script>

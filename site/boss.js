@@ -7,16 +7,19 @@
 const BOSS = { pending: null, busy: false, result: null, pick: 'random', sel: 1, gid: 0 };
 
 /* ---------- Admin test mode ----------
-   Only for accounts the server says are admins (a hidden list on the server, never in this code).
+   Uses the existing server tester permission, including the owner.
    Every fighter and every Boss Fight level is open, and nothing is saved to the account:
    the server refuses test runs from anyone else and never records their results. */
 const TESTER = { on: false };
-function isTesterAcct() { return !!(acctSignedIn() && ACCT.profile && ACCT.profile.admin); }
+function isTesterAcct() { return !!(acctSignedIn() && ACCT.profile && ACCT.profile.tester); }
 function myPicks() { return TESTER.on ? ROSTER.map(c => c.id) : MY_UNLOCKED; }
 function setTester(on) {
   on = !!(on && isTesterAcct());
   if (TESTER.on === on) return;
   TESTER.on = on;
+  document.body.classList.toggle('tester-on', on);
+  const bar = document.getElementById('tester-bar'); if (bar) bar.hidden = !on;
+  BOSS.result = null;
   const r = document.getElementById('roster'); if (r) r.textContent = '';   // rebuild the fighter grid
 }
 function testerUpdate() {
@@ -24,6 +27,7 @@ function testerUpdate() {
   if (!isTesterAcct()) setTester(false);
   if (typeof adminUpdate === 'function') adminUpdate();
 }
+
 function showTester() { setTester(true); BOSS.result = null; bossScreen(); show('boss'); renderBoss(); }
 function testerSolo() {
   setTester(true);
@@ -185,7 +189,7 @@ async function bossStart(level, char) {
 }
 /* the server checked our sign-in: ask it to start the level */
 function onAcctMsg(m) {
-  if (m.acct && ACCT.profile) { ACCT.profile.beaten = m.acct.beaten; ACCT.profile.admin = !!m.acct.admin; setUnlocked(m.acct.unlocked); testerUpdate(); }
+  if (m.acct && ACCT.profile) { ACCT.profile.beaten = m.acct.beaten; ACCT.profile.tester = !!m.acct.tester; setUnlocked(m.acct.unlocked); testerUpdate(); }
   if (!BOSS.pending) return;
   if (m.err) {
     const why = { signin: 'Please sign in again.', locked: 'That level is still locked.', 'slow-down': 'Too many fights in a row. Wait a minute.', expired: 'Your sign-in expired. Please try again.', 'verify-email': 'Verify your email first.', 'accounts-off': 'Accounts aren’t switched on on the server yet.', 'not-admin': 'This account does not have admin access.' }[m.err] || 'The server couldn’t start the fight.';

@@ -1,43 +1,35 @@
 # Admin panel setup
 
-The main menu's **Admin panel** replaces **Tester**. Access is checked by the
-game server against a private `ADMIN_EMAILS` secret, using the verified email in
-a signed Firebase ID token. Start with the one requested admin account. Add the
-second account only when its identity has been confirmed.
+The main menu's **Admin panel** replaces **Tester**. Every privileged route
+uses the existing server `isTester` permission and the browser's `isTesterAcct()`
+check. The hidden `TESTER_EMAILS` setting grants tester access; the existing
+owner always has access. No new role or email list is introduced.
 
 ## Before merging
 
-An authorized Cloudflare maintainer must set `ADMIN_EMAILS` on the existing
-`cloudtop-brawl-server` Worker. Use **Secret**, not a public variable, and enter
-only the requested verified account address. Do not paste real addresses into
-this document, the pull request, `wrangler.toml`, or any tracked file.
-
-From an authenticated maintainer terminal, the equivalent interactive command is:
+An authorized Cloudflare maintainer must configure the existing `TESTER_EMAILS`
+secret on `cloudtop-brawl-server` to contain only the requested verified account.
+Ryan keeps his existing owner access through `OWNER_EMAILS`; no new Ryan identity
+is configured. Remove any other tester entries if access must be limited to
+these two people. Do not paste real addresses into tracked files or the PR.
 
 ```sh
 cd server
-npx --yes wrangler@4 secret put ADMIN_EMAILS
+npx --yes wrangler@4 secret put TESTER_EMAILS
 ```
 
-The local `server/.dev.vars` file is Git-ignored and can hold the same setting
-for local development. Local settings do not configure the live Worker.
-No Durable Object migration or extra storage binding is required.
-
-After Ryan approves and merges the pull request, the existing workflows deploy
-the site and server. Sign out and back in on the real site, using the configured
-account, and check that **Admin panel** appears. Verify a normal player's menu
-hides the panel and their direct requests to `/api/admin/*` return 403.
-
-The list accepts one or two distinct addresses, separated by commas. An empty
-list, or a list containing more than two addresses, disables admin access.
-The old `TESTER_EMAILS` list and `OWNER_EMAILS` do not grant admin access.
-`OWNER_EMAILS` still preserves the creator's automatic fighters and boss levels.
-Changing an admin's email removes access until the private setting is updated.
+The requested account is configured locally in the Git-ignored `server/.dev.vars`.
+This does not configure the live Worker. No Durable Object migration or extra
+storage binding is required. After Ryan approves and merges, the existing
+workflows deploy the site and server. Sign out and back in on the real site
+and check that **Admin panel** appears. A normal player's menu hides the panel
+and direct requests to `/api/admin/*` return 403. Admin access requires a verified
+email in a signed Firebase token; client-supplied roles cannot grant access.
 
 ## Tools
 
 - **Boss testing:** jump to any level, select any visible fighter, move to the
-  previous/next level, and practice against CPUs. Test results never save to
+  previous/next level, and practice against CPUs or in Training Lab. Test results never save to
   account progress. Normal Boss Fight still requires sequential progression.
 - **Player accounts:** find an exact username or Firebase UID; grant locked
   fighters; change levels cleared and boss wins; or stage a progress reset.

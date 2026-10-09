@@ -13,7 +13,7 @@
      unlocked fighters are stored in the Accounts storage, which only this server can change.
    - Requests are rate-limited per player and per IP address (per minute and per day),
      with the counters kept in server-only storage.
-   - Admin powers require a verified email in the private ADMIN_EMAILS server setting.
+   - Admin powers require a verified email in the existing private TESTER_EMAILS server setting (owner included).
      Client-supplied roles never grant access. All account changes are audited server-side. */
 
 const TICK = 1000 / 60;
@@ -99,11 +99,11 @@ function isOwner(u, env) {
   const list = String(env.OWNER_EMAILS || '').toLowerCase().split(',').map(s => s.trim()).filter(Boolean);
   return !!(u && u.verified && u.email && list.indexOf(u.email) >= 0);
 }
-/* One admin initially, at most two. No owner/tester fallback or browser-supplied roles.
-   Keep real addresses in a Cloudflare secret, never in source control. */
-function isAdmin(u, env) {
-  const list = [...new Set(String(env.ADMIN_EMAILS || '').toLowerCase().split(/[,;\s]+/).filter(Boolean))];
-  return list.length >= 1 && list.length <= 2 && !!(u && u.verified && u.email && list.includes(u.email));
+/* Existing tester permissions protect admin tools too. The owner is always a tester. */
+function isTester(u, env) {
+  if (isOwner(u, env)) return true;
+  const list = String(env.TESTER_EMAILS || '').toLowerCase().split(/[,;\s]+/).filter(Boolean);
+  return !!(u && u.verified && u.email && list.indexOf(String(u.email).toLowerCase()) >= 0);
 }
 const ADMIN_STORE = '__admin';
 const REPORT_STATUSES = ['open', 'investigating', 'resolved', 'closed'];
@@ -313,11 +313,11 @@ export class Room {
     if (!(await hit(this.env, 'ip:' + c.ip, 'auth'))) { this.send(c, { acct: null, err: 'slow-down' }); return; }
     try {
       const u = await verifyIdToken(token, this.env);
-      c.owner = isOwner(u, this.env); c.admin = isAdmin(u, this.env); c.authUntil = u.expires;
+      c.owner = isOwner(u, this.env); c.tester = isTester(u, this.env); c.authUntil = u.expires;
       const p = await acct(this.env, u.uid, 'get', { name: toUsername(u.name), owner: c.owner, gift: giftsFor(u, this.env) });
       c.uid = u.uid; c.unlocked = Array.isArray(p.unlocked) ? p.unlocked : []; c.pname = p.name || '';
-      this.send(c, { acct: { name: p.name, beaten: p.beaten, unlocked: c.unlocked, admin: c.admin } });
-    } catch (e) { c.uid = null; c.owner = false; c.admin = false; c.authUntil = 0; c.unlocked = []; this.send(c, { acct: null, err: String(e.message || 'auth') }); }
+      this.send(c, { acct: { name: p.name, beaten: p.beaten, unlocked: c.unlocked, tester: c.tester } });
+    } catch (e) { c.uid = null; c.owner = false; c.tester = false; c.authUntil = 0; c.unlocked = []; this.send(c, { acct: null, err: String(e.message || 'auth') }); }
   }
 
   /* a fighter is only allowed if it isn't locked, or this player has unlocked it */
@@ -334,7 +334,7 @@ export class Room {
     const p = await acct(this.env, c.uid, 'get', { owner: !!c.owner });
     const level = m.level | 0;
     // Admin test runs allow any level/fighter and never save a result.
-    if (m.test && (!c.admin || !(c.authUntil > Date.now()))) { this.send(c, { err: 'not-admin' }); return; }
+    if (m.test && (!c.tester || !(c.authUntil > Date.now()))) { this.send(c, { err: 'not-admin' }); return; }
     const test = !!m.test;
     if (level < 1 || level > BOSS_LEVELS.length || (!test && level > (p.beaten | 0) + 1)) { this.send(c, { err: 'locked' }); return; }
     c.unlocked = p.unlocked || [];
@@ -491,7 +491,7 @@ export default {
       if (url.pathname === '/api/me' && req.method === 'GET') {
         const p = await acct(env, u.uid, 'get', { name: toUsername(u.name), owner: isOwner(u, env), gift: giftsFor(u, env) });
         if (p && p.name) await acct(env, NAMES, 'claim', { name: p.name, uid: u.uid });   // reserve the name this player already uses
-        return json(Object.assign({}, p, { owner: isOwner(u, env), admin: isAdmin(u, env) }), 200, cors);
+        return json(Object.assign({}, p, { owner: isOwner(u, env), tester: isTester(u, env) }), 200, cors);
       }
       if (url.pathname === '/api/reports' && req.method === 'POST') {
         if (!u.verified) return json({ error: 'verify-email' }, 403, cors);
@@ -511,7 +511,7 @@ export default {
         return json(result, 201, cors);
       }
       if (url.pathname.startsWith('/api/admin/')) {
-        if (!isAdmin(u, env)) return json({ error: 'not-admin' }, 403, cors);
+        if (!isTester(u, env)) return json({ error: 'not-admin' }, 403, cors);
         const respond = r => json(r, r.error ? ({ 'not-found': 404, conflict: 409, 'owner-protected': 409 }[r.error] || 400) : 200, cors);
         if (url.pathname === '/api/admin/account' && req.method === 'GET') {
           const uid = await adminTarget(env, { uid: url.searchParams.get('uid'), username: url.searchParams.get('username') });

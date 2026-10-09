@@ -27,7 +27,7 @@ function setup(admin) {
   vm.runInContext(worker, context);
   const { Room, BOSS_LEVELS } = vm.runInContext('({ Room, BOSS_LEVELS })', context);
   const room = new Room({}, context.env);
-  const player = { id: 'player', uid: 'player-uid', admin, authUntil: now + 3600000, pres: { ib: 0, ic: Array(10).fill(0) },
+  const player = { id: 'player', uid: 'player-uid', tester: admin, authUntil: now + 3600000, pres: { ib: 0, ic: Array(10).fill(0) },
     ws: { send: raw => messages.push(JSON.parse(raw)) }, win: now, n: 0, ip: 'test' };
   room.clients.set(player.id, player); room.boss = true;
   return { room, player, messages, accountWrites, BOSS_LEVELS, later: ms => { now += ms; } };

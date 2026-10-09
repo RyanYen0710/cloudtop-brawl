@@ -28,7 +28,7 @@ function adminSection(id) {
   return screen;
 }
 function adminUpdate() {
-  const uid = acctSignedIn() && ACCT.profile && ACCT.profile.admin ? ACCT.user.uid : null;
+  const uid = acctSignedIn() && ACCT.profile && ACCT.profile.tester ? ACCT.user.uid : null;
   const button = document.getElementById('go-admin'); if (button) button.hidden = !uid;
   if (uid !== ADMIN.uid) {
     ADMIN.uid = uid; ADMIN.target = null; ADMIN.reports = []; ADMIN.cursor = null; ADMIN.loaded = false;
@@ -89,7 +89,8 @@ function renderAdminTesting(pane) {
     el('div', { class: 'ad-actions' }, [adminButton('Fight level ' + ADMIN.level, () => {
       BOSS.sel = ADMIN.level; BOSS.pick = ADMIN.fighter; showTester(); bossStart(ADMIN.level, ADMIN.fighter);
     }, 'btn start'), adminButton('Browse all boss levels', () => { BOSS.sel = ADMIN.level; showTester(); }, 'btn'),
-    adminButton('Vs CPU · all fighters', testerSolo, 'btn')]));
+    adminButton('Vs CPU · all fighters', testerSolo, 'btn'),
+    adminButton('Training · all fighters', () => { setTester(true); startTrainingSetup(); }, 'btn')]));
 }
 function renderAdminAccount(pane) {
   const card = el('div', { class: 'card ad-card' }); pane.appendChild(card);
