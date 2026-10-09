@@ -16,9 +16,14 @@ Every change goes through a pull request that Ryan approves. Read this whole fil
 6. **Don't break the owner unlock.** The server gives the owner account every locked fighter and every Boss Fight
    level (see `isOwner` and the `d.owner` block in `server/src/server.js`). Future boss/unreleased fighters must
    be `locked: true` so the owner gets them automatically and everyone else has to earn them.
-7. **Legend Yen stays the strongest fighter.** Boss fighters (Master Chuang, Mythic Hsi) are stronger than the
+7. **Tester / admin-only features use the existing tester check.** For anything only testers or the owner
+   should see or use (panels, buttons, test modes), use the server's tester check: `isTester` in
+   `server/src/server.js` (the hidden `TESTER_EMAILS` Cloudflare secret; the owner always counts as a tester).
+   In the browser, check `isTesterAcct()` / `ACCT.profile.tester` (see `site/boss.js`), and have the server
+   check it again for anything that changes data. Never put emails in the code and never make a new email list.
+8. **Legend Yen stays the strongest fighter.** Boss fighters (Master Chuang, Mythic Hsi) are stronger than the
    normal roster but below Legend Yen.
-8. If something is unclear or risky (deleting features, changing accounts, changing how online play works),
+9. If something is unclear or risky (deleting features, changing accounts, changing how online play works),
    stop and ask in the pull request instead of guessing.
 
 ## Project layout
