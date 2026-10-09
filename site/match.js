@@ -253,7 +253,8 @@ function makeGame(cfg) {
       color: cfg.teams ? TEAM_COLORS[s.team] : SLOT_COLORS[s.slot], tag: s.tag || ('P' + (s.slot + 1))
     });
     f.face = f.x < st.cx ? 1 : -1;
-    if (f.c.modes) f.yenMode = f.c.modes.length - 1;   // Legend Yen starts in his own Legend style
+    // Legend Yen starts in his own Legend style; as a Boss Fight boss he only uses it on the chapter's final level
+    if (f.c.modes) { f.noLegend = !!(f.boss && cfg.boss && cfg.boss !== 10); f.yenMode = f.noLegend ? 0 : f.c.modes.length - 1; }
     g.fighters.push(f);
   });
   return g;
@@ -354,7 +355,8 @@ function aiThink(f, g) {
     if (f.ai.modeT == null) f.ai.modeT = 120 + Math.floor(Math.random() * 240);
     if (--f.ai.modeT <= 0) {
       f.ai.modeT = 240 + Math.floor(Math.random() * 420);
-      const m = Math.random() < 0.35 ? f.c.modes.length - 1 : Math.floor(Math.random() * f.c.modes.length);   // likes his own style most
+      const n = f.c.modes.length - (f.noLegend ? 1 : 0);
+      const m = !f.noLegend && Math.random() < 0.35 ? n - 1 : Math.floor(Math.random() * n);   // likes his own style most (when allowed)
       r.b |= (m + 1) << 10;
     }
   }
