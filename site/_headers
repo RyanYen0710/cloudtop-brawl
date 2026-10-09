@@ -8,3 +8,9 @@
   Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=()
   Cross-Origin-Opener-Policy: same-origin-allow-popups
   Cache-Control: public, max-age=0, must-revalidate
+
+# Preview links (pull request copies on pages.dev) stay out of Google; only cloudtop-brawl.com is listed
+https://:project.pages.dev/*
+  X-Robots-Tag: noindex
+https://:version.:project.pages.dev/*
+  X-Robots-Tag: noindex
