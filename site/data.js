@@ -529,9 +529,9 @@ const BOSS_LEVELS = [
   { name: 'Iron Will',    stage: 4, cpu: 11, stocks: 3, pow: 1.30, kb: 0.80, dmgIn: 0.85, minions: [] },
   { name: 'No Mercy',     stage: 6, cpu: 11, stocks: 3, pow: 1.35, kb: 0.76, dmgIn: 0.82, minions: [] },
   { name: 'Legion',       stage: 5, cpu: 11, stocks: 3, pow: 1.40, kb: 0.72, dmgIn: 0.80, minions: [6] },
-  { name: 'Overdrive',    stage: 7, cpu: 11, stocks: 3, pow: 1.50, kb: 0.68, dmgIn: 0.78, minions: [8] },
-  { name: 'The Gauntlet', stage: 5, cpu: 11, stocks: 4, pow: 1.55, kb: 0.62, dmgIn: 0.74, minions: [8] },
-  { name: 'Ultra Max',    stage: 2, cpu: 11, stocks: 5, pow: 1.65, kb: 0.56, dmgIn: 0.68, minions: [9, 9] },
+  { name: 'Overdrive',    stage: 7, cpu: 11, stocks: 3, pow: 1.40, kb: 0.72, dmgIn: 0.80, minions: [] },
+  { name: 'The Gauntlet', stage: 5, cpu: 11, stocks: 3, pow: 1.45, kb: 0.70, dmgIn: 0.80, minions: [5] },
+  { name: 'Ultra Max',    stage: 2, cpu: 11, stocks: 3, pow: 1.50, kb: 0.66, dmgIn: 0.76, minions: [6] },
   // chapter 2 — Master Chuang
   { name: 'Say Cheese',     stage: 3, cpu: 10, stocks: 1, pow: 1.10, kb: 0.95, dmgIn: 0.95, minions: [] },
   { name: 'Overexposed',    stage: 0, cpu: 10, stocks: 2, pow: 1.05, kb: 0.95, dmgIn: 0.95, minions: [] },
@@ -541,8 +541,8 @@ const BOSS_LEVELS = [
   { name: 'Long Exposure',  stage: 4, cpu: 11, stocks: 3, pow: 1.25, kb: 0.84, dmgIn: 0.86, minions: [] },
   { name: 'Burst Mode',     stage: 2, cpu: 11, stocks: 3, pow: 1.30, kb: 0.80, dmgIn: 0.84, minions: [4] },
   { name: 'Golden Hour',    stage: 5, cpu: 11, stocks: 3, pow: 1.35, kb: 0.76, dmgIn: 0.82, minions: [] },
-  { name: 'Flash Flood',    stage: 3, cpu: 11, stocks: 3, pow: 1.40, kb: 0.72, dmgIn: 0.80, minions: [6] },
-  { name: 'Final Exposure', stage: 0, cpu: 11, stocks: 4, pow: 1.50, kb: 0.66, dmgIn: 0.76, minions: [6] },
+  { name: 'Flash Flood',    stage: 3, cpu: 11, stocks: 3, pow: 1.35, kb: 0.76, dmgIn: 0.82, minions: [4] },
+  { name: 'Final Exposure', stage: 0, cpu: 11, stocks: 3, pow: 1.45, kb: 0.70, dmgIn: 0.78, minions: [5] },
   // chapter 3 — Mythic Hsi
   { name: 'Tip-Off',          stage: 1, cpu: 10, stocks: 2, pow: 1.15, kb: 0.92, dmgIn: 0.92, minions: [] },
   { name: 'Fast Break',       stage: 2, cpu: 10, stocks: 2, pow: 1.20, kb: 0.90, dmgIn: 0.90, minions: [] },
@@ -551,9 +551,9 @@ const BOSS_LEVELS = [
   { name: 'Triple Double',    stage: 0, cpu: 11, stocks: 3, pow: 1.30, kb: 0.80, dmgIn: 0.84, minions: [] },
   { name: 'Shot Clock',       stage: 3, cpu: 11, stocks: 3, pow: 1.35, kb: 0.76, dmgIn: 0.82, minions: [4] },
   { name: 'Half-Court Heave', stage: 6, cpu: 11, stocks: 3, pow: 1.40, kb: 0.72, dmgIn: 0.80, minions: [5] },
-  { name: 'Overtime',         stage: 5, cpu: 11, stocks: 3, pow: 1.45, kb: 0.68, dmgIn: 0.78, minions: [6] },
-  { name: 'Playoffs',         stage: 2, cpu: 11, stocks: 4, pow: 1.50, kb: 0.64, dmgIn: 0.76, minions: [7] },
-  { name: 'Hall of Fame',     stage: 1, cpu: 11, stocks: 4, pow: 1.60, kb: 0.60, dmgIn: 0.72, minions: [7, 7] }
+  { name: 'Overtime',         stage: 5, cpu: 11, stocks: 3, pow: 1.40, kb: 0.72, dmgIn: 0.80, minions: [4] },
+  { name: 'Playoffs',         stage: 2, cpu: 11, stocks: 3, pow: 1.45, kb: 0.70, dmgIn: 0.78, minions: [5] },
+  { name: 'Hall of Fame',     stage: 1, cpu: 11, stocks: 3, pow: 1.50, kb: 0.66, dmgIn: 0.76, minions: [6] }
 ];
 function bossChapter(level) { return BOSS_CHAPTERS.find(c => level >= c.from && level <= c.to) || BOSS_CHAPTERS[0]; }
 BOSS_LEVELS.forEach((L, i) => { L.boss = bossChapter(i + 1).boss; });
