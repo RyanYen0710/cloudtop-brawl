@@ -169,6 +169,7 @@ function srvEncodeState(g, gid) {
     gid, t: g.frame, o: g.over ? 1 : 0, ot: g.overT, sh: r(g.shake), tl: g.timeLeft, tu: g.timeUp ? 1 : 0,
     ob: g.orb ? [r(g.orb.x), r(g.orb.y), Math.max(0, Math.ceil(g.orb.hp)), g.orb.max, g.orb.flash] : null,
     u: g.ult ? [g.ult.slot, g.ult.t, g.ult.targets, Math.max(0, ULT_PH.indexOf(g.ult.ph)), Math.round(g.ult.ax || 0), Math.round(g.ult.ay || 0), g.ult.aim | 0, g.ult.lock | 0] : null,
+    av: g.fighters.filter(f => f.avalanche).map(f => [f.slot, f.avalanche.left, f.avalanche.age, f.avalanche.captured, Math.round(f.avalanche.spin * 100) / 100]),
     f: g.fighters.map(f => [r(f.x), r(f.y), f.face, POSES.indexOf(f.pose), r((f.pt || 0) * 20), r(f.dmg * 10), f.stocks,
       (f.inv > 0 ? 1 : 0) | (f.shielding ? 2 : 0) | (f.flyT > 0 ? 4 : 0) | (f.frozen > 0 ? 8 : 0) | (f.helpless ? 16 : 0) | (f.dead > 0 ? 32 : 0) | (f.out ? 64 : 0) | (f.halo > 0 ? 128 : 0) | (f.armor ? 256 : 0) | (f.buffT > 0 ? 512 : 0) | (f.hot ? 1024 : 0) | (f.ult ? 2048 : 0) | (f.burn > 0 ? 4096 : 0) | (f.zap > 0 ? 8192 : 0) | (f.slow > 0 ? 16384 : 0) | (f.vanish ? 32768 : 0) | (f.zap > 0 && f.dazzle ? 65536 : 0),
       MOVEKEYS.indexOf(f.mv), r(f.shieldHP), f.kos, f.falls, r((f.charge || 0) * 10), f.ctrl && f.ctrl.type === 'cpu' && f.tag === 'CPU' ? 1 : 0, f.yenMode | 0, (f.frzOn ? 1 : 0) | (Math.ceil((f.frzCD || 0) / 60) << 1)]),

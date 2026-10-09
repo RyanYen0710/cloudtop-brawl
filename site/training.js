@@ -33,7 +33,7 @@ function trainingTick(g, inputs) {
   g.fighters.forEach((f, i) => {
     if (f.ctrl.type === 'dummy') inputs[i] = dummyInput(f, g);
     if (f.ctrl.type === 'local') {
-      if (!f.ult && !g.ult && f.dead <= 0 && !f.vanish) { f.ult = true; f.ultT = 1e9; f.trainUlt = true; }
+      if (!f.ult && !f.avalanche && f.carriedBy == null && !g.ult && f.dead <= 0 && !f.vanish) { f.ult = true; f.ultT = 1e9; f.trainUlt = true; }
       if (f.frzCD > 0) f.frzCD = 0;
     }
   });

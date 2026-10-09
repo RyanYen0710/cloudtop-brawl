@@ -50,7 +50,7 @@ const ULT_PH = ['cut', 'aim', 'lock', 'fx'];
 const ULT_KIND_MUL = { aim: 1, all: 0.85, close: 1.05 };
 const ULT_CLOSE_W = 230, ULT_CLOSE_BACK = 30, ULT_CLOSE_UP = 90;
 const ultKind = def => (def && ULT_KIND_MUL[def.kind] ? def.kind : 'aim');
-const ultEnemies = (f, g) => g.fighters.filter(o => o !== f && !o.out && o.dead <= 0 && !o.vanish && o.tid !== f.tid);
+const ultEnemies = (f, g) => g.fighters.filter(o => o !== f && !o.out && o.dead <= 0 && !o.vanish && o.carriedBy == null && o.tid !== f.tid);
 /* is o inside f's close-range ultimate box (in front of f)? */
 function ultInClose(f, o) {
   const rel = (o.x - f.x) * (f.face || 1);
@@ -78,7 +78,7 @@ function stepOrb(g) {
   }
   const o = g.orb;
   if (!o) {
-    if (g.frame >= g.orbNext && !g.cfg.endless && !g.ult && !g.fighters.some(f => f.ult) && !g.over) spawnOrb(g);
+    if (g.frame >= g.orbNext && !g.cfg.endless && !g.ult && !g.fighters.some(f => f.ult || f.avalanche) && !g.over) spawnOrb(g);
     return;
   }
   const st = g.stage, B = st.bounds;
@@ -98,7 +98,7 @@ function stepOrb(g) {
 }
 
 function hitOrb(f, g, dmg, dirx, diry) {
-  const o = g.orb; if (!o || !f || f.out) return;
+  const o = g.orb; if (!o || !f || f.out || f.avalanche || f.carriedBy != null) return;
   o.hp -= 1 + Math.floor(dmg / 6);
   o.vx += dirx * 2.5; o.vy += diry * 2 - 0.5; o.flash = 6;
   emit(g, 'orbhit', o.x, o.y, Math.max(0, o.hp), f.slot);
@@ -117,8 +117,111 @@ function orbHitCheck(f, g, bx, h, a, cm) {
   hitOrb(f, g, h.dmg * cm, f.face, -0.3);
 }
 
+/* Titan's playable ultimate uses the same rules on the browser and Worker. */
+const AVALANCHE_FRAMES = 240, AVALANCHE_START = 18;
+function avalancheRadius(f) { return Math.max(f.W * 0.58, f.H * 0.38); }
+function avalancheInterrupted(f, g) { return g.over || f.dead > 0 || f.out || f.hitstun > 0 || f.frozen > 0 || f.zap > 0 || f.shieldBreak > 0; }
+function startAvalanche(f, g) {
+  f.ult = false; f.ultT = 0; endAct(f);
+  f.shielding = false; f.flyT = 0; f.helpless = false; f.roll = 0; f.airDodge = 0; f.land = 0; f.ff = false;
+  f.vx *= 0.35; f.vy = Math.min(f.vy, 0); f.hitlag = 0;
+  f.avalanche = { left: AVALANCHE_FRAMES, age: 0, captured: null, spin: 0, bumped: new Map() };
+  f.armor = true;
+  emit(g, 'ult', f.x, f.y - f.H / 2, 0, f.slot);
+}
+function pinAvalancheTarget(f, o) {
+  const r = avalancheRadius(f);
+  o.x = f.x - f.face * r * 0.3; o.y = f.y - r * 1.45;
+  o.vx = 0; o.vy = 0; o.ground = null; o.pose = 'hurt';
+  o.hitlag = 0; o.hitstun = 0; o.inv = 2; o.armor = false;
+}
+function syncAvalancheCaptives(g) {
+  for (const o of g.fighters) {
+    if (o.carriedBy == null) continue;
+    const f = g.fighters.find(f => f.slot === o.carriedBy);
+    if (f?.avalanche?.captured === o.slot && !f.out && f.dead <= 0 && !o.out && o.dead <= 0) pinAvalancheTarget(f, o);
+    else { o.carriedBy = null; o.inv = Math.max(o.inv, 24); o.hitlag = 0; o.hitstun = 0; }
+  }
+}
+function finishAvalanche(f, g, throwTarget) {
+  const a = f.avalanche; if (!a) return;
+  const o = g.fighters.find(o => o.slot === a.captured && o.carriedBy === f.slot);
+  f.avalanche = null; f.armor = false; f.hot = false; f.hitlag = 0; f.vx *= 0.25; f.land = Math.max(f.land, 28); f.pose = 'land';
+  if (o) {
+    o.carriedBy = null; o.inv = 0; o.hitlag = 0; o.hitstun = 0; o.frozen = 0; o.zap = 0;
+    o.ground = null; o.ledge = null; o.ledgeCD = 20; o.shielding = false; o.armor = false;
+    o.jumps = o.ph.jumps - 1; o.upUsed = false; o.sideUsed = false; o.airDodged = false; o.helpless = false; o.canFly = true;
+    const B = g.stage.blast;
+    o.x = clamp(f.x + f.face * (avalancheRadius(f) + o.W * 0.6 + 4), B.l + o.W, B.r - o.W);
+    o.y = clamp(f.y - avalancheRadius(f) * 0.6, B.t + o.H + 4, B.b - o.H);
+    if (throwTarget && !o.out && o.dead <= 0) {
+      applyHit(f, o, { dmg: 5, b: 11, g: 0.8, angle: 38 }, f.face, g, true);
+      o.inv = 18;
+      emit(g, 'ultfinal', o.x, o.y - o.H / 2, 0, f.slot);
+      g.shake = Math.max(g.shake, 12);
+    } else {
+      // A carrier falling through the blast zone cannot take a helpless captive with him.
+      if (f.x < B.l || f.x > B.r || f.y < B.t || f.y > B.b) {
+        const m = g.stage.solids[0]; o.x = clamp(f.x, m.x + o.W, m.x + m.w - o.W); o.y = m.y - 10;
+      }
+      o.vx = f.face * 4; o.vy = -10; o.hitstun = 0; o.inv = 30;
+    }
+  }
+  emit(g, 'land', f.x, f.y, 2, f.slot);
+  g.orbNext = g.frame + 2400 + Math.floor(Math.random() * 1800);
+}
+function stepAvalanche(f, inp, g) {
+  const a = f.avalanche, r = avalancheRadius(f), dir = (inp.r ? 1 : 0) - (inp.l ? 1 : 0);
+  f.pose = 'roll'; f.pt = a.age / AVALANCHE_FRAMES; f.armor = true; f.hot = a.age >= AVALANCHE_START;
+  if (dir) f.face = dir;
+  if (a.age < AVALANCHE_START) f.vx *= 0.75;
+  else f.vx += clamp((dir || f.face) * 11.5 - f.vx, -0.75, 0.75);
+  const wasGround = !!f.ground;
+  if (f.ground?.dx || f.ground?.dy) { f.x += f.ground.dx || 0; f.y += f.ground.dy || 0; }
+  f.vy = Math.min(f.ph.maxFall, f.vy + f.ph.grav * (g.gravMul || 1));
+  moveCollide(f, g);
+  if (f.ground && !wasGround) { f.jumps = f.ph.jumps - 1; emit(g, 'land', f.x, f.y, 1); }
+  a.spin += f.vx / r;
+  const B = g.stage.blast;
+  if (f.x < B.l || f.x > B.r || f.y < B.t || f.y > B.b) { koF(f, g); return; }
+  if (a.age < AVALANCHE_START) return;
+  if (f.ground && a.age % 5 === 0) emit(g, 'land', f.x - f.face * r, f.y, 0);
+  if (a.captured != null) {
+    const o = g.fighters.find(o => o.slot === a.captured);
+    if (!o || o.out || o.dead > 0 || o.carriedBy !== f.slot) finishAvalanche(f, g, false);
+    else pinAvalancheTarget(f, o);
+    return;
+  }
+  for (const o of g.fighters) {
+    if (o === f || o.tid === f.tid || o.out || o.dead > 0 || o.halo > 0 || o.inv > 0 || o.vanish || o.carriedBy != null || o.avalanche) continue;
+    if (!circRect(f.x, f.y - r, r, hurtbox(o))) continue;
+    const counter = o.act?.m.kind === 'counter' && !o.act.countered && o.act.t >= o.act.m.startup && o.act.t < o.act.m.startup + o.act.m.window;
+    if ((o.shielding && o.ground) || counter) {
+      if (g.frame - (a.bumped.get(o.slot) ?? -100) >= 30) {
+        a.bumped.set(o.slot, g.frame);
+        applyHit(f, o, { dmg: 2, b: 3, g: 0.2, angle: 35 }, f.face, g, false);
+        f.vx *= 0.35;
+        if (avalancheInterrupted(f, g)) { finishAvalanche(f, g, false); return; }
+      }
+      continue;
+    }
+    a.captured = o.slot; o.carriedBy = f.slot;
+    endAct(o); o.shielding = false; o.flyT = 0; o.roll = 0; o.airDodge = 0; o.land = 0; o.ledge = null; o.frozen = 0; o.zap = 0;
+    o.lastHit = f.slot; o.lastHitT = 360;
+    pinAvalancheTarget(f, o); emit(g, 'hit', o.x, o.y - o.H / 2, 4, f.slot);
+    break;
+  }
+}
+function aiAvalanche(f, g) {
+  const a = f.avalanche, target = nearestEnemy(f, g), m = f.ground || g.stage.solids[0];
+  const nearEdge = f.x < m.x + 90 || f.x > m.x + m.w - 90;
+  const x = nearEdge || a.captured != null ? m.x + m.w / 2 : (target ? target.x : g.stage.cx);
+  return { b: f.x < x ? BR : BL, pr: a.captured != null && (a.age > 65 || nearEdge) ? BZ : 0 };
+}
 function tryUlt(f, g) {
-  if (!f.ult || g.ult || g.over || f.dead > 0 || f.out || f.halo > 0 || f.hitstun > 0 || f.frozen > 0 || f.ledge || f.shieldBreak > 0) return;
+  if (f.avalanche) { finishAvalanche(f, g, !avalancheInterrupted(f, g)); return; }
+  if (!f.ult || g.ult || g.over || f.carriedBy != null || f.dead > 0 || f.out || f.halo > 0 || f.hitstun > 0 || f.frozen > 0 || f.ledge || f.shieldBreak > 0) return;
+  if (f.c.id === 'titan' && f.c.ultimate?.kind === 'avalanche') { if (f.zap > 0) return; startAvalanche(f, g); return; }
   f.ult = false; endAct(f); f.vx = 0; f.vy = 0;
   g.ult = { slot: f.slot, t: 0, targets: [], ph: 'cut', ax: f.x, ay: f.y - f.H / 2, aim: ULT_AIM, lock: 0 };
   f.vanish = true; f.inv = Math.max(f.inv, 4);
@@ -132,6 +235,13 @@ function endUlt(g, f) {
 
 /* returns true while the cutscene freezes the match */
 function stepUlt(g, inputs) {
+  // The opening cutscene pauses simulation, just like every other match timer.
+  if (!g.ult || g.ult.ph !== 'cut') for (const f of g.fighters) {
+    if (!f.avalanche) continue;
+    f.avalanche.age++; f.avalanche.left--;
+    if (avalancheInterrupted(f, g)) finishAvalanche(f, g, false);
+    else if (f.avalanche.left <= 0) finishAvalanche(f, g, true);
+  }
   const u = g.ult; if (!u) return false;
   const f = g.fighters.find(x => x.slot === u.slot);
   if (!f) { g.ult = null; return false; }
@@ -160,7 +270,7 @@ function stepUlt(g, inputs) {
       u.aim--;
       if (inp.spp || inp.ap || inp.smp || inp.zp || u.aim <= 0) { u.ph = 'lock'; u.lock = ULT_LOCK; emit(g, 'ultlock', u.ax, u.ay, 0, f.slot); }
     } else if (--u.lock <= 0) {
-      u.targets = g.fighters.filter(o => o !== f && !o.out && o.dead <= 0 && !o.vanish && o.tid !== f.tid &&
+      u.targets = g.fighters.filter(o => o !== f && !o.out && o.dead <= 0 && !o.vanish && o.carriedBy == null && o.tid !== f.tid &&
         Math.hypot(o.x - u.ax, (o.y - o.H / 2) - u.ay) < ULT_R + o.W * 0.35).map(o => o.slot);
       if (!u.targets.length) { emit(g, 'ultmiss', u.ax, u.ay, 0, f.slot); endUlt(g, f); return false; }
       u.ph = 'fx'; u.t = ULT_CUT; emit(g, 'ulthitok', u.ax, u.ay, u.targets.length, f.slot);
@@ -170,7 +280,7 @@ function stepUlt(g, inputs) {
   // 'fx': the themed finisher plays on whoever got caught (the rest of the match keeps going)
   u.t++;
   const def = ultDef(f.c), st = ULT_STYLES[def.style] || ULT_STYLES.basic, k = u.t - ULT_CUT;
-  const tg = u.targets.map(s => g.fighters.find(x => x.slot === s)).filter(o => o && !o.out && o.dead <= 0);
+  const tg = u.targets.map(s => g.fighters.find(x => x.slot === s)).filter(o => o && !o.out && o.dead <= 0 && o.carriedBy == null);
   // free styles: the target can keep moving; hits only land while they're still inside the (slightly bigger) circle
   const inside = o => !st.free || Math.hypot(o.x - u.ax, (o.y - o.H / 2) - u.ay) < ULT_R * (st.reach || 1.2) + o.W * 0.35;
   f.vanish = true; f.inv = Math.max(f.inv, 4);
