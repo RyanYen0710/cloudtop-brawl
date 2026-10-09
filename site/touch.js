@@ -109,3 +109,24 @@ function setupTouch() {
     } catch (e) { toast('Full screen isn’t available here. Turn your phone sideways for a bigger view.'); }
   });
 }
+
+/* ---------- no zooming on tablets and phones ----------
+   iPad/iPhone Safari ignores "user-scalable=no", so fast taps or a pinch could zoom the whole game in.
+   This stops double-tap zoom and pinch zoom everywhere. Text boxes still work normally,
+   and the fight area and touch controls already handle their own touches. */
+(function () {
+  const typing = t => t && t.closest && t.closest('input, textarea, select, [contenteditable="true"]');
+  const ownTouch = t => t && t.closest && t.closest('#touch, #cv');
+  // pinch zoom (Safari's own gesture events)
+  ['gesturestart', 'gesturechange', 'gestureend'].forEach(n => document.addEventListener(n, e => e.preventDefault(), { passive: false }));
+  // two fingers moving = pinch: block it outside the game's own touch areas
+  document.addEventListener('touchmove', e => { if (e.touches.length > 1 && !ownTouch(e.target)) e.preventDefault(); }, { passive: false });
+  // a second tap right after the first = double-tap zoom: block it
+  let lastEnd = 0;
+  document.addEventListener('touchend', e => {
+    const now = Date.now();
+    if (now - lastEnd < 320 && e.touches.length === 0 && !typing(e.target) && !ownTouch(e.target)) e.preventDefault();
+    lastEnd = now;
+  }, { passive: false });
+  document.addEventListener('dblclick', e => { if (!typing(e.target)) e.preventDefault(); });
+})();
