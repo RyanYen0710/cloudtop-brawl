@@ -388,6 +388,42 @@ html,body,body *{touch-action:manipulation}   /* no double-tap zoom anywhere (th
 .ht-train{background:linear-gradient(135deg,#3fd47a,#14934a 70%)}
 .ht-boss{background:linear-gradient(135deg,#c26bff,#6a1fc8 70%)}
 .admin-btn{background:#ffd35c;color:#1a1238;font-weight:800}
+.tester-btn{background:#ffd35c;color:#1a1238;font-weight:800}
+.tester-btn[aria-pressed="true"]{background:#ff8a4c;box-shadow:0 0 0 3px #ffd35c}
+/* ----- game-style controls (instead of the computer's own dropdowns, switches and sliders; see gameui.js) ----- */
+.gs-native{position:absolute!important;width:1px!important;height:1px!important;padding:0!important;border:0!important;opacity:0!important;pointer-events:none!important;overflow:hidden}
+.gs-btn{display:inline-flex;align-items:center;justify-content:space-between;gap:10px;min-width:150px;padding:9px 12px;font:700 14px var(--ui);color:var(--ink);background:linear-gradient(180deg,#2a2260,#1b1540);border:2px solid var(--line2);border-radius:10px;text-align:left}
+.gs-btn:hover,.gs-btn:focus-visible,.gs-btn[aria-expanded="true"]{border-color:var(--gold);outline:none;box-shadow:0 0 0 3px rgba(255,181,71,.25)}
+.gs-btn:disabled{opacity:.5}
+.gs-txt{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.gs-chev{color:var(--gold);font-size:12px}
+.ad-field .gs-btn{width:100%;padding:12px}
+.set-row .gs-btn{grid-column:span 2}
+.gs-list{position:fixed;z-index:10000;max-height:300px;overflow-y:auto;padding:6px;display:flex;flex-direction:column;gap:3px;background:#1b1540;border:2px solid var(--gold);border-radius:12px;box-shadow:0 14px 34px rgba(0,0,0,.6)}
+.gs-opt{padding:9px 12px;text-align:left;white-space:nowrap;background:transparent;border:0;border-radius:8px;color:var(--ink);font:600 14px var(--ui)}
+.gs-opt:hover,.gs-opt:focus-visible{background:#2c2560;outline:none}
+.gs-opt.sel{background:var(--gold);color:#1a1238}
+input[type=checkbox]{-webkit-appearance:none;appearance:none;flex:none;position:relative;margin:0;width:42px!important;height:24px!important;border-radius:999px;background:#2c2560;border:2px solid var(--line2);cursor:pointer;transition:background .15s,border-color .15s}
+input[type=checkbox]::after{content:'';position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:50%;background:#a39cc9;transition:transform .15s,background .15s}
+input[type=checkbox]:checked{background:var(--gold);border-color:var(--gold)}
+input[type=checkbox]:checked::after{transform:translateX(18px);background:#1a1238}
+input[type=checkbox]:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
+input[type=range]{-webkit-appearance:none;appearance:none;height:24px;background:transparent;cursor:pointer}
+input[type=range]::-webkit-slider-runnable-track{height:8px;border-radius:999px;background:#2c2560;border:2px solid var(--line2)}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:20px;height:20px;margin-top:-8px;border-radius:50%;background:var(--gold);border:3px solid #1a1238;box-shadow:0 0 0 2px var(--gold)}
+input[type=range]::-moz-range-track{height:6px;border-radius:999px;background:#2c2560;border:2px solid var(--line2)}
+input[type=range]::-moz-range-thumb{width:16px;height:16px;border-radius:50%;background:var(--gold);border:3px solid #1a1238}
+input[type=range]:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
+input[type=number]{-moz-appearance:textfield;appearance:textfield;text-align:center}
+input[type=number]::-webkit-inner-spin-button,input[type=number]::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
+.gn-wrap{display:flex;align-items:stretch;gap:6px;width:100%}
+.gn-wrap input{flex:1;min-width:0}
+.gn-btn{min-width:44px;border:0;border-radius:9px;background:var(--gold);color:#1a1238;font:800 20px var(--ui)}
+.gn-btn:hover,.gn-btn:focus-visible{filter:brightness(1.12);outline:none}
+.gc-back{position:fixed;inset:0;z-index:10001;display:grid;place-items:center;padding:16px;background:rgba(5,3,15,.7)}
+.gc-box{width:min(460px,100%);padding:22px;border:2px solid var(--gold)}
+.gc-msg{margin:0 0 18px;white-space:pre-wrap;line-height:1.6}
+.gc-row{display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap}
 .tt-tag{display:none;width:max-content;margin:6px auto 0;padding:3px 12px;border-radius:999px;background:#ffd35c;color:#1a1238;font:800 13px/1.2 var(--ui);font-style:normal;letter-spacing:.08em;text-transform:uppercase;text-shadow:none;-webkit-text-stroke:0;box-shadow:0 2px 0 rgba(0,0,0,.35)}
 .tt-off{display:none}
 body.tester-on .tt-tag{display:block}
@@ -486,7 +522,7 @@ body.tester-on #go-online .tt-off{display:block;font-weight:800;color:#ffd35c}
     <div class="hub">
       <div class="hub-top">
         <div class="logo hub-logo"><span class="l1">CLOUDTOP</span><span class="l2">BRAWL</span></div>
-        <div class="tester-bar" id="tester-bar" role="status" hidden>TESTER MODE · nothing is saved <button type="button" class="mini" id="exit-testing">Exit testing</button></div>
+        <div class="tester-bar" id="tester-bar" role="status" hidden>TESTER MODE · nothing is saved · press Tester to go back</div>
         <button type="button" class="hub-back" id="hub-back" hidden>← Back</button>
       </div>
       <nav class="hub-grid" id="hub-home" aria-label="Main menu">
@@ -514,7 +550,7 @@ body.tester-on #go-online .tt-off{display:block;font-weight:800;color:#ffd35c}
       </nav>
       <div class="hub-foot">
         <span class="hub-tip" id="hub-tip"></span>
-        <span class="hub-side"><span id="main-count">17 fighters · 8 stages · CPU levels 1–10</span><button type="button" class="mini acct-btn" id="acct-btn" hidden>Sign in</button><button type="button" class="mini" id="go-tester" title="Test boss levels and fighters without saving progress" hidden>Testing</button><button type="button" class="mini admin-btn" id="go-admin" title="Private admin tools" hidden>Admin panel</button><button type="button" class="mini" id="go-bug-report">Report a bug</button><button type="button" class="mini" data-open-settings>Settings</button></span>
+        <span class="hub-side"><span id="main-count">17 fighters · 8 stages · CPU levels 1–10</span><button type="button" class="mini acct-btn" id="acct-btn" hidden>Sign in</button><button type="button" class="mini tester-btn" id="go-tester" title="Tester mode: every fighter and level, nothing saved. Press again to go back." aria-pressed="false" hidden>Tester</button><button type="button" class="mini admin-btn" id="go-admin" title="Private admin tools" hidden>Admin panel</button><button type="button" class="mini" id="go-bug-report">Report a bug</button><button type="button" class="mini" data-open-settings>Settings</button></span>
       </div>
     </div>
   </section>
@@ -613,6 +649,13 @@ body.tester-on #go-online .tt-off{display:block;font-weight:800;color:#ffd35c}
           <tr><td>Close-range ultimates</td><td>The enemy has to be right in front of you, or it misses</td></tr>
         </tbody></table></div>
         <div class="card"><div class="card-h">Fighter keys (your keys)</div><table class="keys"><tbody id="howto-fighters"></tbody></table></div>
+        <div class="card"><div class="card-h">Modes</div><table class="keys"><tbody>
+          <tr><td>Vs CPU</td><td>You against 1 to 3 computer fighters. Pick their level from 1 to 10.</td></tr>
+          <tr><td>Training Lab</td><td>Practice on a dummy that never runs out of lives. Your ultimate is always ready. Press <kbd>R</kbd> to reset the dummy.</td></tr>
+          <tr><td>Online</td><td>Host a lobby and send friends the 4-letter code, or join theirs. You can add CPUs too.</td></tr>
+          <tr><td>Boss Fight</td><td>30 levels in 3 chapters. Beat a whole chapter to unlock its boss as a fighter. Needs a signed-in account so your progress is saved.</td></tr>
+          <tr><td>Found a bug?</td><td>Press <b>Report a bug</b> at the bottom of the main menu. It goes straight to the game admins.</td></tr>
+        </tbody></table></div>
         <div class="card"><div class="card-h">Touch &amp; gamepad</div><table class="keys"><tbody>
           <tr><td>Touch</td><td>Stick on the left, buttons on the right</td></tr>
           <tr><td>Gamepad jump</td><td>A / Cross</td></tr>
@@ -735,8 +778,9 @@ body.tester-on #go-online .tt-off{display:block;font-weight:800;color:#ffd35c}
 <script src="app.js?v=20261009-tester2"></script>
 <script src="account.js?v=20261009-tester"></script>
 <script src="settings-ui.js?v=20261008g"></script>
-<script src="boss.js?v=20261009-admin2"></script>
-<script src="admin.js?v=20261009-admin2"></script>
+<script src="boss.js?v=20261009-tester3"></script>
+<script src="admin.js?v=20261009-tester3"></script>
+<script src="gameui.js?v=20261009-gui1"></script>
 <script src="intro.js?v=20261008b"></script>
 <script src="menu.js?v=20261008b"></script>
 
