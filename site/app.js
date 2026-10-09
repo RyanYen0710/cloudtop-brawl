@@ -25,7 +25,7 @@ function toast(msg) {
 
 function showSetup() {
   show('setup');
-  if (!document.querySelector('#roster .tile')) buildRoster();
+  if (!document.querySelector('#roster .tile') || document.getElementById('roster').dataset.key !== rosterKey()) buildRoster();
   document.getElementById('statcard').dataset.id = '';
   renderSetup();
 }
@@ -145,9 +145,9 @@ function showResults(rows, canAct) {
 
 /* ---------- buttons ---------- */
 function on(id, fn) { document.getElementById(id).addEventListener('click', e => { SFX.play('ui'); fn(e); }); }
-on('go-training', () => { if (typeof setTester === 'function') setTester(false); startTrainingSetup(); });
-on('go-solo', () => { if (typeof setTester === 'function') setTester(false); G.mode = 'solo'; G.training = false; SETUP.slots = defaultSlots('solo'); const c = loadLocal('cb.char'); if (isPickable(c, MY_UNLOCKED)) SETUP.slots[0].char = c; SETUP.edit = 0; SETUP.teams = false; showSetup(); });
-on('go-online', () => { if (typeof setTester === 'function') setTester(false); showOnline(); });
+on('go-training', () => { startTrainingSetup(); });
+on('go-solo', () => { G.mode = 'solo'; G.training = false; SETUP.slots = defaultSlots('solo'); const c = loadLocal('cb.char'); if (isPickable(c, myPicks())) SETUP.slots[0].char = c; SETUP.edit = 0; SETUP.teams = false; showSetup(); });
+on('go-online', () => showOnline());
 on('go-controls', () => show('controls'));
 document.querySelectorAll('.back-main').forEach(b => b.addEventListener('click', () => { SFX.play('ui'); if (G.mode !== 'solo' && NET.role) leaveOnline(); show('main'); }));
 on('setup-back', () => { if (G.mode === 'solo') show('main'); else leaveOnline(); });
