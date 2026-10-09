@@ -42,8 +42,9 @@
     const on = ms > 120;
     g.fillStyle = on ? '#ff3b4a' : '#4a1f26'; circle(g, sx + 10, sy + sh / 2, 5); g.fill();
     if (on) { g.fillStyle = 'rgba(255,60,80,.3)'; circle(g, sx + 10, sy + sh / 2, 10); g.fill(); }
-    g.font = '700 10px "Chakra Petch", system-ui, sans-serif'; g.fillStyle = '#9ea2b8'; g.textAlign = 'left'; g.textBaseline = 'middle';
-    g.fillText('POWER', sx - 6, sy + sh / 2 + 18);
+    g.font = '700 8px "Chakra Petch", system-ui, sans-serif'; g.fillStyle = '#9ea2b8'; g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.fillText('POWER', sx + 10, sy + sh / 2 + 18);   // centred under the light, so the screen never covers it
+    g.textAlign = 'left';
     // LCD
     const ix = sx + 30, iy = sy + 6, iw = sw - 40, ih = sh - 12;
     rrect(g, ix, iy, iw, ih, 6); g.fillStyle = on ? LCD : '#6d7558'; g.fill();
@@ -90,7 +91,7 @@
     // brand line on the bezel
     g.font = '700 12px "Chakra Petch", system-ui, sans-serif'; g.fillStyle = '#c9cbe0'; g.textAlign = 'left';
     g.fillText('CLOUDTOP', sx + 6, sy + sh + bezel + 2);
-    g.fillStyle = '#ff4fd8'; g.fillText('POCKET', sx + 72, sy + sh + bezel + 2);
+    g.fillStyle = '#ff4fd8'; g.fillText('POCKET', sx + 6 + g.measureText('CLOUDTOP ').width + 2, sy + sh + bezel + 2);   // placed after the real width, so they never overlap
   }
   requestAnimationFrame(frame);
 

@@ -20,7 +20,7 @@
 <meta name="twitter:title" content="Cloudtop Brawl – Free Browser Fighting Game">
 <meta name="twitter:description" content="Cloudtop Brawl is a free Smash-style fighting game you play right in your browser. Pick from 20 fighters, beat 30 Boss Fight levels, and battle friends online.">
 <link rel="icon" href="favicon.svg?v=1" type="image/svg+xml">
-<link rel="stylesheet" href="admin.css?v=20261009-admin1">
+<link rel="stylesheet" href="admin.css?v=20261009-text1">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;500;600;700&family=Dela+Gothic+One&display=swap" rel="stylesheet">
@@ -245,7 +245,7 @@ input,select{-webkit-user-select:text;user-select:text}
 .ping.good{color:#6fe39a}.ping.ok{color:#ffc93c}.ping.bad{color:#ff6b5b}
 .set-sep{font-weight:700;text-transform:uppercase;letter-spacing:.14em;font-size:12px;color:var(--gold);margin-top:4px}
 .set-row select{font:inherit;font-size:13px;color:var(--ink);background:#15122f;border:1px solid var(--line2);border-radius:6px;padding:5px 6px;grid-column:span 2}
-.set-card{max-height:calc(100% - 16px);overflow-y:auto}
+.set-card{max-height:calc(100dvh - 40px);max-height:calc(100vh - 40px);overflow-y:auto;overscroll-behavior:contain}
 html,body,body *{touch-action:manipulation}   /* no double-tap zoom anywhere (the fight area and touch pads keep touch-action:none below) */
 .touch-on #scr-fight{padding-top:calc(78px + env(safe-area-inset-top,0px))}
 @media (max-height:420px){.touch-on #scr-fight{padding-top:66px}}
@@ -425,7 +425,7 @@ input[type=number]::-webkit-inner-spin-button,input[type=number]::-webkit-outer-
 .gc-msg{margin:0 0 18px;white-space:pre-wrap;line-height:1.6}
 .gc-row{display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap}
 .tt-tag{display:none;width:max-content;margin:6px auto 0;padding:3px 12px;border-radius:999px;background:#ffd35c;color:#1a1238;font:800 13px/1.2 var(--ui);font-style:normal;letter-spacing:.08em;text-transform:uppercase;text-shadow:none;-webkit-text-stroke:0;box-shadow:0 2px 0 rgba(0,0,0,.35)}
-.tt-off{display:none}
+.tt-off,body:not(.tester-on) .hub-tile .tt-off{display:none}
 body.tester-on .tt-tag{display:block}
 body.tester-on #go-online{filter:saturate(.45)}
 body.tester-on #go-online .tt-off{display:block;font-weight:800;color:#ffd35c}
@@ -449,8 +449,11 @@ body.tester-on #go-online .tt-off{display:block;font-weight:800;color:#ffd35c}
   .hub-tile b{font-size:clamp(20px,6vw,30px)}
   .ht-solo b,.ht-cpu b{font-size:clamp(30px,9vw,44px)}
   .hub-tip{display:none}
+  .hub-side{display:grid;grid-template-columns:repeat(auto-fit,minmax(104px,1fr));gap:8px;width:100%}
+  .hub-side .mini{width:100%;padding:8px 6px}
+  #main-count{grid-column:1/-1;text-align:center}
 }
-@media (max-height:460px){.hub-top{display:none}.hub-tile span{display:none}}
+@media (max-height:460px){.hub-top{display:none}.hub-tile span{display:none}.hub{padding-top:40px}.credit{top:6px;padding:3px 10px;gap:6px}.credit span{font-size:9px}.credit b{font-size:13px}}
 @media (prefers-reduced-motion:reduce){.hub-tile{transition:none}}
 /* ----- character select (Smash-style): big roster on top, player panels along the bottom ----- */
 #scr-setup.cs{padding:0}
@@ -482,12 +485,12 @@ body.tester-on #go-online .tt-off{display:block;font-weight:800;color:#ffd35c}
 .cs-slots .slot.empty{background:linear-gradient(135deg,#4a4470,#2c2752);opacity:1}
 .cs-slots .slot.editing{box-shadow:inset 0 0 0 4px #fff}
 .cs-slots .slot-top{position:relative;z-index:2}
-.cs-slots .slot-p{font-size:28px;color:#fff;-webkit-text-stroke:5px rgba(0,0,0,.35);paint-order:stroke}
+.cs-slots .slot-p{font-size:28px;color:#fff;text-shadow:0 2px 0 rgba(0,0,0,.35),0 0 3px rgba(0,0,0,.45)}
 .cs-slots .slot-who{color:#fff;font-size:14px;text-shadow:0 1px 2px rgba(0,0,0,.5)}
 .cs-slots .slot-pick{position:relative;display:block;min-height:110px;background:transparent;border:0;padding:0;text-align:right}
 .cs-slots .slot-cv{position:absolute;left:-8px;bottom:-6px;width:58%;height:150px}
-.cs-slots .slot-char{position:relative;display:block;margin-left:44%;font-family:var(--disp);font-weight:400;font-size:clamp(18px,2.2vw,30px);line-height:1;text-transform:uppercase;-webkit-text-stroke:6px rgba(0,0,0,.4);paint-order:stroke;padding-top:18px}
-.cs-slots .slot-hint{position:relative;display:block;margin-left:44%;margin-top:6px;color:#fff;font-weight:700;font-size:12px;opacity:.9}
+.cs-slots .slot-char{position:relative;display:block;margin-left:44%;font-family:var(--disp);font-weight:400;font-size:clamp(18px,2.2vw,30px);line-height:1;text-transform:uppercase;text-shadow:0 2px 0 rgba(0,0,0,.4),0 0 4px rgba(0,0,0,.5);padding-top:18px;overflow-wrap:anywhere}
+.cs-slots .slot-hint{position:relative;display:block;margin-left:44%;margin-top:6px;color:#fff;font-weight:700;font-size:12px;opacity:.9;text-shadow:0 1px 2px rgba(0,0,0,.45);white-space:nowrap}
 .cs-slots .slot-empty{color:rgba(255,255,255,.75);min-height:110px;justify-content:center;text-align:center}
 .cs-slots .slot-actions{position:relative;z-index:2;justify-content:flex-end}
 .cs-slots .slot-actions .mini{background:rgba(0,0,0,.4);border-color:rgba(255,255,255,.4);color:#fff}
@@ -506,9 +509,12 @@ body.tester-on #go-online .tt-off{display:block;font-weight:800;color:#ffd35c}
   .cs-roster{grid-template-columns:repeat(auto-fill,minmax(70px,1fr));gap:4px}
   .cs-roster .tile-cv{height:56px}
   .cs-roster .tile-name{font-size:10px}
-  .cs-slots .slot{min-height:150px}
-  .cs-slots .slot-cv{height:110px}
-  .cs-slots .slot-char{font-size:18px}
+  .cs-slots .slot{min-height:150px;padding:8px 10px}
+  .cs-slots .slot-p{font-size:22px}
+  .cs-slots .slot-cv{width:40%;height:84px;left:-4px;bottom:0}
+  .cs-slots .slot-char{margin-left:42%;font-size:15px;padding-top:12px}
+  .cs-slots .slot-hint{margin-left:42%;font-size:11px;white-space:normal}
+  .cs-slots .slot-pick{min-height:96px}
   .cs-title{padding:4px 20px}
   .cs-start{font-size:20px}
 }
@@ -779,9 +785,9 @@ body.tester-on #go-online .tt-off{display:block;font-weight:800;color:#ffd35c}
 <script src="account.js?v=20261009-tester"></script>
 <script src="settings-ui.js?v=20261008g"></script>
 <script src="boss.js?v=20261009-tester3"></script>
-<script src="admin.js?v=20261009-tester3"></script>
+<script src="admin.js?v=20261009-text1"></script>
 <script src="gameui.js?v=20261009-gui1"></script>
-<script src="intro.js?v=20261008b"></script>
+<script src="intro.js?v=20261009-text1"></script>
 <script src="menu.js?v=20261008b"></script>
 
 </html>

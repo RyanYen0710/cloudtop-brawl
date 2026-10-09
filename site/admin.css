@@ -22,3 +22,21 @@
 .ad-uid{font-family:monospace;font-size:12px;color:#bfb5da;user-select:all}
 .ad-wrap button:focus-visible,.ad-wrap input:focus-visible,.ad-wrap select:focus-visible,.ad-wrap textarea:focus-visible{outline:3px solid #ffd35c;outline-offset:3px}
 @media(max-width:600px){.ad-card{padding:16px}.ad-levels{grid-template-columns:repeat(5,minmax(0,1fr))}.ad-tabs button{flex:1;font-size:12px;padding:10px}.ad-row>*{flex-basis:100%}.ad-wrap .bar{flex-wrap:wrap}.ad-actions .btn{width:100%}}
+/* tidy layout: search card, player card with its own header, clear sections, buttons lined up */
+.ad-message:empty{min-height:0;margin:0}
+.ad-tabs{margin:14px 0 6px}
+.ad-search{align-items:flex-end}
+.ad-search .ad-field{margin-bottom:0}
+.ad-search-btns{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.ad-search-btns .btn,.ad-actions .btn{min-height:46px;padding:10px 18px}
+.ad-ghost{background:transparent;border:2px solid var(--line2,#4a4185)}
+.ad-ghost:hover:not(:disabled),.ad-ghost:focus-visible{border-color:#ffd35c}
+.ad-player-head{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap;padding-bottom:16px;border-bottom:1px solid #3c3466}
+.ad-player-head h3{margin:0 0 6px}
+.ad-player-head .ad-uid{margin:0 0 6px}
+.ad-stats{margin:0;color:#ffd35c;font-weight:700}
+.ad-sec{margin:24px 0 4px;padding-top:4px;font-size:13px;letter-spacing:.12em;text-transform:uppercase;color:#ffd35c}
+.ad-save{margin:14px 0 0}
+.ad-card .ad-actions{margin:14px 0 0;align-items:center}
+@media(max-width:600px){.ad-search-btns{width:100%}.ad-search-btns .btn{flex:1}.ad-player-head>.btn{width:100%}}
+#ad-pane>.ad-card:first-child{margin-top:8px}
