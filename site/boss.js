@@ -6,22 +6,23 @@
 
 const BOSS = { pending: null, busy: false, result: null, pick: 'random', sel: 1, gid: 0 };
 
-/* ---------- Tester mode ----------
-   Only for accounts the server says are testers (a hidden list on the server, never in this code).
+/* ---------- Admin test mode ----------
+   Only for accounts the server says are admins (a hidden list on the server, never in this code).
    Every fighter and every Boss Fight level is open, and nothing is saved to the account:
    the server refuses test runs from anyone else and never records their results. */
 const TESTER = { on: false };
-function isTesterAcct() { return !!(acctSignedIn() && ACCT.profile && ACCT.profile.tester); }
+function isTesterAcct() { return !!(acctSignedIn() && ACCT.profile && ACCT.profile.admin); }
 function myPicks() { return TESTER.on ? ROSTER.map(c => c.id) : MY_UNLOCKED; }
 function setTester(on) {
   on = !!(on && isTesterAcct());
   if (TESTER.on === on) return;
   TESTER.on = on;
-  const r = document.getElementById('roster'); if (r) r.innerHTML = '';   // rebuild the fighter grid
+  const r = document.getElementById('roster'); if (r) r.textContent = '';   // rebuild the fighter grid
 }
 function testerUpdate() {
-  const b = document.getElementById('go-tester'); if (b) b.hidden = !isTesterAcct();
+  const b = document.getElementById('go-admin'); if (b) b.hidden = !isTesterAcct();
   if (!isTesterAcct()) setTester(false);
+  if (typeof adminUpdate === 'function') adminUpdate();
 }
 function showTester() { setTester(true); BOSS.result = null; bossScreen(); show('boss'); renderBoss(); }
 function testerSolo() {
@@ -45,8 +46,8 @@ function renderBoss() {
   s.textContent = '';
   if (TESTER.on && !isTesterAcct()) setTester(false);
   const T = TESTER.on;
-  const back = el('button', { type: 'button', class: 'back', text: '← Back', on: { click: () => { SFX.play('ui'); BOSS.result = null; setTester(false); show('main'); } } });
-  const outer = el('div', { class: 'wrap' }, [el('header', { class: 'bar' }, [back, el('h2', { text: T ? 'Tester mode' : 'Boss Fight' }), el('p', { class: 'sub', text: T ? 'Every fighter and every level. Nothing here is saved to your account.' : 'Three chapters, ten levels each. Beat a chapter to unlock its boss.' })])]);
+  const back = el('button', { type: 'button', class: 'back', text: T ? '← Admin panel' : '← Back', on: { click: () => { SFX.play('ui'); BOSS.result = null; setTester(false); if (T) showAdmin(); else show('main'); } } });
+  const outer = el('div', { class: 'wrap' }, [el('header', { class: 'bar' }, [back, el('h2', { text: T ? 'Boss testing' : 'Boss Fight' }), el('p', { class: 'sub', text: T ? 'Every fighter and every level. Nothing here is saved to your account.' : 'Three chapters, ten levels each. Beat a chapter to unlock its boss.' })])]);
   s.appendChild(outer);
   const wrap = el('div', { class: 'bs-wrap' });
   outer.appendChild(wrap);
@@ -65,10 +66,15 @@ function renderBoss() {
   const ch = bossChapter(BOSS.sel), bossName = CHAR[ch.boss].name;
   const has = id => MY_UNLOCKED.indexOf(id) >= 0;
 
-  // Tester mode: a clear banner and the Vs CPU shortcut with every fighter
+  // Admin tests: a clear banner, level navigation and all-fighter CPU practice.
   if (T) wrap.appendChild(panel([
-    el('div', { class: 'bs-banner test', role: 'note', text: 'TESTER MODE · Results here are not saved to your account' }),
-    el('button', { type: 'button', class: 'btn', text: 'Vs CPU with every fighter', on: { click: () => { SFX.play('ui'); testerSolo(); } } })
+    el('div', { class: 'bs-banner test', role: 'note', text: 'ADMIN TEST · Results here are not saved to your account' }),
+    el('div', { class: 'ad-actions' }, [
+      el('button', { type: 'button', class: 'mini', text: '← Previous level', ...(BOSS.sel === 1 ? { disabled: '' } : {}), on: { click: () => { BOSS.sel = Math.max(1, BOSS.sel - 1); renderBoss(); } } }),
+      el('button', { type: 'button', class: 'mini', text: 'Next level →', ...(BOSS.sel === total ? { disabled: '' } : {}), on: { click: () => { BOSS.sel = Math.min(total, BOSS.sel + 1); renderBoss(); } } }),
+      el('button', { type: 'button', class: 'btn', text: 'Vs CPU with every fighter', on: { click: () => { SFX.play('ui'); testerSolo(); } } }),
+      el('button', { type: 'button', class: 'mini', text: 'Report a bug', on: { click: showBugReport } })
+    ])
   ], 'bs-top'));
 
   // result banner from the last fight
@@ -179,10 +185,10 @@ async function bossStart(level, char) {
 }
 /* the server checked our sign-in: ask it to start the level */
 function onAcctMsg(m) {
-  if (m.acct && ACCT.profile) { ACCT.profile.beaten = m.acct.beaten; setUnlocked(m.acct.unlocked); }
+  if (m.acct && ACCT.profile) { ACCT.profile.beaten = m.acct.beaten; ACCT.profile.admin = !!m.acct.admin; setUnlocked(m.acct.unlocked); testerUpdate(); }
   if (!BOSS.pending) return;
   if (m.err) {
-    const why = { signin: 'Please sign in again.', locked: 'That level is still locked.', 'slow-down': 'Too many fights in a row. Wait a minute.', expired: 'Your sign-in expired. Please try again.', 'verify-email': 'Verify your email first.', 'accounts-off': 'Accounts aren’t switched on on the server yet.', 'not-tester': 'This account isn’t a tester.' }[m.err] || 'The server couldn’t start the fight.';
+    const why = { signin: 'Please sign in again.', locked: 'That level is still locked.', 'slow-down': 'Too many fights in a row. Wait a minute.', expired: 'Your sign-in expired. Please try again.', 'verify-email': 'Verify your email first.', 'accounts-off': 'Accounts aren’t switched on on the server yet.', 'not-admin': 'This account does not have admin access.' }[m.err] || 'The server couldn’t start the fight.';
     bossCleanup(); toast(why);
     if (m.err === 'expired') acctToken(true);
     return;
@@ -239,5 +245,4 @@ function bossCleanup() {
 }
 
 document.getElementById('go-boss') && document.getElementById('go-boss').addEventListener('click', () => { SFX.play('ui'); BOSS.result = null; setTester(false); showBoss(); });
-document.getElementById('go-tester') && document.getElementById('go-tester').addEventListener('click', () => { SFX.play('ui'); if (isTesterAcct()) showTester(); });
 testerUpdate();

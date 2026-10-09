@@ -20,6 +20,7 @@
 <meta name="twitter:title" content="Cloudtop Brawl – Free Browser Fighting Game">
 <meta name="twitter:description" content="Cloudtop Brawl is a free Smash-style fighting game you play right in your browser. Pick from 20 fighters, beat 30 Boss Fight levels, and battle friends online.">
 <link rel="icon" href="favicon.svg?v=1" type="image/svg+xml">
+<link rel="stylesheet" href="admin.css?v=20261009-admin1">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;500;600;700&family=Dela+Gothic+One&display=swap" rel="stylesheet">
@@ -386,7 +387,7 @@ body{touch-action:manipulation}
 .ht-help{background:linear-gradient(135deg,#2fa8ff,#1b5fd8 70%)}
 .ht-train{background:linear-gradient(135deg,#3fd47a,#14934a 70%)}
 .ht-boss{background:linear-gradient(135deg,#c26bff,#6a1fc8 70%)}
-.tester-btn{background:#ffd35c;color:#1a1238;font-weight:800}
+.admin-btn{background:#ffd35c;color:#1a1238;font-weight:800}
 .bs-banner.test{background:linear-gradient(90deg,#ffd35c,#ff8a4c);color:#1a1238;margin-bottom:10px}
 .hub-orb{position:absolute;left:53.5%;top:50%;width:clamp(120px,30vh,250px);aspect-ratio:1;transform:translate(-50%,-50%);border-radius:50%;overflow:hidden;border:8px solid #120d24;box-shadow:0 0 0 4px #ffb547,0 12px 40px rgba(0,0,0,.55);z-index:3;pointer-events:none}
 .hub-orb canvas{width:100%;height:100%;display:block}
@@ -506,7 +507,7 @@ body{touch-action:manipulation}
       </nav>
       <div class="hub-foot">
         <span class="hub-tip" id="hub-tip"></span>
-        <span class="hub-side"><span id="main-count">17 fighters · 8 stages · CPU levels 1–10</span><button type="button" class="mini acct-btn" id="acct-btn" hidden>Sign in</button><button type="button" class="mini tester-btn" id="go-tester" title="Tester mode: every fighter and level, nothing saved" hidden>Tester</button><button type="button" class="mini" data-open-settings>Settings</button></span>
+        <span class="hub-side"><span id="main-count">17 fighters · 8 stages · CPU levels 1–10</span><button type="button" class="mini acct-btn" id="acct-btn" hidden>Sign in</button><button type="button" class="mini admin-btn" id="go-admin" title="Private admin tools" hidden>Admin panel</button><button type="button" class="mini" id="go-bug-report">Report a bug</button><button type="button" class="mini" data-open-settings>Settings</button></span>
       </div>
     </div>
   </section>
@@ -727,7 +728,8 @@ body{touch-action:manipulation}
 <script src="app.js?v=20261009-tester"></script>
 <script src="account.js?v=20261009-tester"></script>
 <script src="settings-ui.js?v=20261008g"></script>
-<script src="boss.js?v=20261009-tester"></script>
+<script src="boss.js?v=20261009-admin1"></script>
+<script src="admin.js?v=20261009-admin1"></script>
 <script src="intro.js?v=20261008b"></script>
 <script src="menu.js?v=20261008b"></script>
 

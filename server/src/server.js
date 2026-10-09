@@ -13,7 +13,8 @@
      unlocked fighters are stored in the Accounts storage, which only this server can change.
    - Requests are rate-limited per player and per IP address (per minute and per day),
      with the counters kept in server-only storage.
-   - There are no admin powers in the game. Nothing the browser says can grant unlocks. */
+   - Admin powers require a verified email in the private ADMIN_EMAILS server setting.
+     Client-supplied roles never grant access. All account changes are audited server-side. */
 
 const TICK = 1000 / 60;
 const clip = (s, n) => String(s == null ? '' : s).replace(/[^\p{L}\p{N} _.\-]/gu, '').slice(0, n || 16);
@@ -62,7 +63,7 @@ async function verifyIdToken(token, env) {
   const provider = body.firebase && body.firebase.sign_in_provider;
   if (provider === 'password' && body.email_verified !== true) throw new Error('verify-email');
   if (provider === 'anonymous') throw new Error('bad-token');
-  return { uid: body.sub, email: String(body.email || '').toLowerCase(), verified: body.email_verified === true, name: String(body.name || '').slice(0, 64), provider };
+  return { uid: body.sub, email: String(body.email || '').toLowerCase(), verified: body.email_verified === true, name: String(body.name || '').slice(0, 64), provider, expires: body.exp * 1000 };
 }
 
 /* ---------- rate limits + accounts (server-only storage) ---------- */
@@ -73,7 +74,9 @@ const LIMITS = {
   ws: [[60000, 120], [86400000, 6000]],
   boss: [[60000, 6], [86400000, 300]],
   bossIp: [[60000, 20], [86400000, 1200]],
-  auth: [[60000, 60], [86400000, 3000]]
+  auth: [[60000, 60], [86400000, 3000]],
+  reports: [[60000, 2], [86400000, 10]],
+  reportsIp: [[60000, 10], [86400000, 100]]
 };
 async function hit(env, key, kind) {
   if (!env.ACCOUNTS) return true;
@@ -82,7 +85,7 @@ async function hit(env, key, kind) {
     const r = await stub.fetch('https://acct/hit', { method: 'POST', body: JSON.stringify({ kind, limits: LIMITS[kind] }) });
     const j = await r.json();
     return !!j.ok;
-  } catch (e) { return true; }
+  } catch (e) { return kind === 'reports' || kind === 'reportsIp' ? false : true; }
 }
 async function acct(env, uid, op, data) {
   const stub = env.ACCOUNTS.get(env.ACCOUNTS.idFromName('u:' + uid));
@@ -96,12 +99,30 @@ function isOwner(u, env) {
   const list = String(env.OWNER_EMAILS || '').toLowerCase().split(',').map(s => s.trim()).filter(Boolean);
   return !!(u && u.verified && u.email && list.indexOf(u.email) >= 0);
 }
-/* testers (the hidden TESTER_EMAILS secret, comma separated) can use Tester mode: every fighter and every
-   Boss Fight level, but nothing they do there is saved to their account. The owner is always a tester. */
-function isTester(u, env) {
-  if (isOwner(u, env)) return true;
-  const list = String(env.TESTER_EMAILS || '').toLowerCase().split(/[,;\s]+/).filter(Boolean);
-  return !!(u && u.verified && u.email && list.indexOf(String(u.email).toLowerCase()) >= 0);
+/* One admin initially, at most two. No owner/tester fallback or browser-supplied roles.
+   Keep real addresses in a Cloudflare secret, never in source control. */
+function isAdmin(u, env) {
+  const list = [...new Set(String(env.ADMIN_EMAILS || '').toLowerCase().split(/[,;\s]+/).filter(Boolean))];
+  return list.length >= 1 && list.length <= 2 && !!(u && u.verified && u.email && list.includes(u.email));
+}
+const ADMIN_STORE = '__admin';
+const REPORT_STATUSES = ['open', 'investigating', 'resolved', 'closed'];
+const newestKey = () => String(9999999999999 - Date.now()).padStart(13, '0') + '-' + crypto.randomUUID();
+const plain = (v, max) => typeof v === 'string' ? v.trim().slice(0, max) : '';
+async function apiBody(req) {
+  const text = await req.text();
+  if (text.length > 12000) throw new Error('too-large');
+  const d = JSON.parse(text);
+  if (!d || typeof d !== 'object' || Array.isArray(d)) throw new Error('invalid');
+  return d;
+}
+async function adminTarget(env, d) {
+  if (typeof d.uid === 'string' && /^[A-Za-z0-9_-]{1,128}$/.test(d.uid)) return d.uid;
+  if (typeof d.username === 'string' && NAME_RE.test(d.username)) {
+    const r = await acct(env, NAMES, 'lookup', { name: d.username });
+    return r.uid || null;
+  }
+  return null;
 }
 /* gift fighters: the hidden GIFT_FIGHTERS secret lists "email=fighterId" pairs (comma separated).
    A signed-in, verified email on that list gets only its own fighter, straight away (never Legend Yen). */
@@ -120,6 +141,26 @@ export class Accounts {
     const op = new URL(req.url).pathname.slice(1);
     let d = {}; try { d = await req.json(); } catch (e) { }
     const st = this.state.storage;
+    if (op === 'lookup') return json({ uid: (await st.get('n:' + String(d.name || '').toLowerCase())) || null });
+    if (op === 'report-create') {
+      const report = Object.assign({}, d.report, { id: newestKey(), status: 'open', created: Date.now(), updated: Date.now(), notes: '' });
+      await st.put('report:' + report.id, report);
+      return json({ id: report.id });
+    }
+    if (op === 'report-list') {
+      const items = await st.list({ prefix: 'report:', limit: 51, ...(d.cursor ? { startAfter: d.cursor } : {}) });
+      const rows = [...items.entries()];
+      return json({ reports: rows.slice(0, 50).map(([, v]) => v), cursor: rows.length > 50 ? rows[49][0] : null });
+    }
+    if (op === 'report-update') return st.transaction(async tx => {
+      const key = 'report:' + d.id, report = await tx.get(key);
+      if (!report) return json({ error: 'not-found' }, 404);
+      if (d.expectedUpdated !== report.updated) return json({ error: 'conflict' }, 409);
+      report.status = d.status; report.notes = d.notes; report.updated = Math.max(Date.now(), report.updated + 1);
+      report.updatedBy = d.actor;
+      await tx.put(key, report);
+      return json(report);
+    });
     /* the username registry (one shared instance) keeps every username unique */
     if (op === 'claim' || op === 'release') {
       const k = 'n:' + String(d.name || '').toLowerCase(), cur = await st.get(k);
@@ -139,7 +180,28 @@ export class Accounts {
       await st.put('rl:' + d.kind, rec);
       return json({ ok });
     }
-    const p = (await st.get('profile')) || { name: '', beaten: 0, unlocked: [], wins: 0, created: Date.now() };
+    return st.transaction(async tx => {
+    const stored = await tx.get('profile');
+    const p = stored || { name: '', beaten: 0, unlocked: [], wins: 0, created: Date.now() };
+    if (op === 'admin-get') {
+      if (!stored) return json({ error: 'not-found' }, 404);
+      const history = await tx.list({ prefix: 'audit:', limit: 20 });
+      return json({ profile: p, history: [...history.values()] });
+    }
+    if (op === 'admin-save') {
+      if (!stored) return json({ error: 'not-found' }, 404);
+      if (d.revision !== (p.revision || 0)) return json({ error: 'conflict' }, 409);
+      if (p.owner) return json({ error: 'owner-protected' }, 409);
+      const before = { beaten: p.beaten, wins: p.wins, unlocked: p.unlocked.slice() };
+      p.beaten = d.beaten; p.wins = d.wins;
+      p.unlocked = [...new Set(d.unlocked.concat(bossUnlocksFor(d.beaten)))];
+      p.revision = (p.revision || 0) + 1;
+      const entry = { at: Date.now(), actor: d.actor, reason: d.reason, before,
+        after: { beaten: p.beaten, wins: p.wins, unlocked: p.unlocked.slice() } };
+      await tx.put('audit:' + newestKey(), entry);
+      await tx.put('profile', p);
+      return json({ profile: p });
+    }
     if (op === 'get') {
       let dirty = false;
       if (!p.name && d.name && NAME_RE.test(d.name)) { p.name = d.name; dirty = true; }
@@ -149,12 +211,12 @@ export class Accounts {
         if (!p.owner) { p.owner = true; dirty = true; }
       }
       if (Array.isArray(d.gift)) d.gift.forEach(id => { if (id !== 'yen' && CHAR[id] && CHAR[id].locked && p.unlocked.indexOf(id) < 0) { p.unlocked.push(id); dirty = true; } });
-      if (dirty) await st.put('profile', p);
+      if (!stored || dirty) { p.revision = (p.revision || 0) + 1; await tx.put('profile', p); }
       return json(p);
     }
     if (op === 'name') {
       if (!NAME_RE.test(String(d.name || ''))) return json({ error: 'name' }, 400);
-      p.name = d.name; await st.put('profile', p); return json(p);
+      p.name = d.name; p.revision = (p.revision || 0) + 1; await tx.put('profile', p); return json(p);
     }
     if (op === 'beat') {
       const lv = d.level | 0;
@@ -162,11 +224,12 @@ export class Accounts {
         p.wins = (p.wins || 0) + 1;
         if (lv === p.beaten + 1) p.beaten = lv;
         bossUnlocksFor(p.beaten).forEach(id => { if (p.unlocked.indexOf(id) < 0) p.unlocked.push(id); });
-        await st.put('profile', p);
+        p.revision = (p.revision || 0) + 1; await tx.put('profile', p);
       }
       return json(p);
     }
     return json({ error: 'op' }, 404);
+    });
   }
 }
 
@@ -250,11 +313,11 @@ export class Room {
     if (!(await hit(this.env, 'ip:' + c.ip, 'auth'))) { this.send(c, { acct: null, err: 'slow-down' }); return; }
     try {
       const u = await verifyIdToken(token, this.env);
-      c.owner = isOwner(u, this.env); c.tester = isTester(u, this.env);
+      c.owner = isOwner(u, this.env); c.admin = isAdmin(u, this.env); c.authUntil = u.expires;
       const p = await acct(this.env, u.uid, 'get', { name: toUsername(u.name), owner: c.owner, gift: giftsFor(u, this.env) });
       c.uid = u.uid; c.unlocked = Array.isArray(p.unlocked) ? p.unlocked : []; c.pname = p.name || '';
-      this.send(c, { acct: { name: p.name, beaten: p.beaten, unlocked: c.unlocked, tester: c.tester || undefined } });
-    } catch (e) { c.uid = null; c.owner = false; c.tester = false; c.unlocked = []; this.send(c, { acct: null, err: String(e.message || 'auth') }); }
+      this.send(c, { acct: { name: p.name, beaten: p.beaten, unlocked: c.unlocked, admin: c.admin } });
+    } catch (e) { c.uid = null; c.owner = false; c.admin = false; c.authUntil = 0; c.unlocked = []; this.send(c, { acct: null, err: String(e.message || 'auth') }); }
   }
 
   /* a fighter is only allowed if it isn't locked, or this player has unlocked it */
@@ -270,8 +333,8 @@ export class Room {
     if (!(await hit(this.env, 'uid:' + c.uid, 'boss')) || !(await hit(this.env, 'ip:' + c.ip, 'bossIp'))) { this.send(c, { err: 'slow-down' }); return; }
     const p = await acct(this.env, c.uid, 'get', { owner: !!c.owner });
     const level = m.level | 0;
-    // a test run (testers only): any level, any fighter, and the result is never saved
-    if (m.test && !c.tester) { this.send(c, { err: 'not-tester' }); return; }
+    // Admin test runs allow any level/fighter and never save a result.
+    if (m.test && (!c.admin || !(c.authUntil > Date.now()))) { this.send(c, { err: 'not-admin' }); return; }
     const test = !!m.test;
     if (level < 1 || level > BOSS_LEVELS.length || (!test && level > (p.beaten | 0) + 1)) { this.send(c, { err: 'locked' }); return; }
     c.unlocked = p.unlocked || [];
@@ -428,7 +491,59 @@ export default {
       if (url.pathname === '/api/me' && req.method === 'GET') {
         const p = await acct(env, u.uid, 'get', { name: toUsername(u.name), owner: isOwner(u, env), gift: giftsFor(u, env) });
         if (p && p.name) await acct(env, NAMES, 'claim', { name: p.name, uid: u.uid });   // reserve the name this player already uses
-        return json(isTester(u, env) ? Object.assign({}, p, { tester: true }) : p, 200, cors);
+        return json(Object.assign({}, p, { owner: isOwner(u, env), admin: isAdmin(u, env) }), 200, cors);
+      }
+      if (url.pathname === '/api/reports' && req.method === 'POST') {
+        if (!u.verified) return json({ error: 'verify-email' }, 403, cors);
+        let d; try { d = await apiBody(req); } catch (e) { return json({ error: 'invalid-report' }, 400, cors); }
+        const title = plain(d.title, 100), details = plain(d.details, 3000), steps = plain(d.steps, 2000);
+        if (title.length < 5 || details.length < 10 || !['gameplay', 'account', 'connection', 'other'].includes(d.category) ||
+            !['low', 'medium', 'high'].includes(d.severity)) return json({ error: 'invalid-report' }, 400, cors);
+        if (!(await hit(env, 'uid:' + u.uid, 'reports')) || !(await hit(env, 'ip:' + ip, 'reportsIp')))
+          return json({ error: 'slow-down' }, 429, cors);
+        const p = await acct(env, u.uid, 'get', {});
+        const result = await acct(env, ADMIN_STORE, 'report-create', { report: {
+          uid: u.uid, username: p.name || '', title, details, steps, category: d.category, severity: d.severity,
+          context: { screen: clip(d.context && d.context.screen, 24), mode: clip(d.context && d.context.mode, 24),
+            level: Number.isInteger(d.context && d.context.level) ? Math.max(0, Math.min(BOSS_LEVELS.length, d.context.level)) : 0,
+            browser: plain(d.context && d.context.browser, 240) }
+        } });
+        return json(result, 201, cors);
+      }
+      if (url.pathname.startsWith('/api/admin/')) {
+        if (!isAdmin(u, env)) return json({ error: 'not-admin' }, 403, cors);
+        const respond = r => json(r, r.error ? ({ 'not-found': 404, conflict: 409, 'owner-protected': 409 }[r.error] || 400) : 200, cors);
+        if (url.pathname === '/api/admin/account' && req.method === 'GET') {
+          const uid = await adminTarget(env, { uid: url.searchParams.get('uid'), username: url.searchParams.get('username') });
+          if (!uid) return json({ error: 'not-found' }, 404, cors);
+          const r = await acct(env, uid, 'admin-get', {});
+          return respond(Object.assign({}, r, r.error ? {} : { uid }));
+        }
+        if (url.pathname === '/api/admin/account' && req.method === 'POST') {
+          let d; try { d = await apiBody(req); } catch (e) { return json({ error: 'invalid' }, 400, cors); }
+          const uid = await adminTarget(env, d), reason = plain(d.reason, 200);
+          if (!uid || !Number.isInteger(d.beaten) || d.beaten < 0 || d.beaten > BOSS_LEVELS.length ||
+              !Number.isInteger(d.wins) || d.wins < 0 || d.wins > 1000000 || !Number.isInteger(d.revision) || d.revision < 0 ||
+              !Array.isArray(d.unlocked) || d.unlocked.length > ROSTER.length ||
+              !d.unlocked.every(id => typeof id === 'string' && ROSTER.some(c => c.id === id && c.locked && !c.hidden)) || reason.length < 5)
+            return json({ error: 'invalid' }, 400, cors);
+          return respond(await acct(env, uid, 'admin-save', { beaten: d.beaten, wins: d.wins, unlocked: d.unlocked,
+            revision: d.revision, reason, actor: { uid: u.uid, name: toUsername(u.name) } }));
+        }
+        if (url.pathname === '/api/admin/reports' && req.method === 'GET') {
+          const cursor = url.searchParams.get('cursor') || '';
+          if (cursor && !/^report:\d{13}-[a-f0-9-]{36}$/.test(cursor)) return json({ error: 'invalid' }, 400, cors);
+          return respond(await acct(env, ADMIN_STORE, 'report-list', { cursor }));
+        }
+        if (url.pathname === '/api/admin/reports' && req.method === 'POST') {
+          let d; try { d = await apiBody(req); } catch (e) { return json({ error: 'invalid' }, 400, cors); }
+          if (typeof d.id !== 'string' || !/^\d{13}-[a-f0-9-]{36}$/.test(d.id) || !REPORT_STATUSES.includes(d.status) ||
+              !Number.isInteger(d.expectedUpdated) || typeof d.notes !== 'string' || d.notes.length > 1000)
+            return json({ error: 'invalid' }, 400, cors);
+          return respond(await acct(env, ADMIN_STORE, 'report-update', { id: d.id, status: d.status,
+            expectedUpdated: d.expectedUpdated, notes: d.notes.trim(), actor: { uid: u.uid, name: toUsername(u.name) } }));
+        }
+        return json({ error: 'not-found' }, 404, cors);
       }
       if (url.pathname === '/api/name' && req.method === 'POST') {
         let d = {}; try { d = await req.json(); } catch (e) { }

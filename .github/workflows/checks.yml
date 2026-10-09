@@ -21,8 +21,10 @@ jobs:
         run: node --test server/test/boss-pause.cjs
       - name: Titan Ape ultimate regression checks
         run: node --test server/test/titan-avalanche.cjs
-      - name: Tester mode checks (test runs never save to the account)
+      - name: Admin testing checks (test runs never save to the account)
         run: node --test server/test/tester-mode.cjs
+      - name: Admin authorization, account edits and bug report checks
+        run: node --test server/test/admin-panel.cjs
       - name: No private email or keys in the code
         run: |
           if grep -rIn --exclude-dir=.git -E "@gmail\.com|CLOUDFLARE_API_TOKEN *=|-----BEGIN" . | grep -v "secrets.CLOUDFLARE_API_TOKEN"; then echo "Found something private"; exit 1; fi

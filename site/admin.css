@@ -1,0 +1,24 @@
+.ad-wrap{max-width:1060px;padding-bottom:48px}
+.ad-badge{display:inline-block;padding:6px 10px;border:1px solid #ffd35c;border-radius:8px;color:#ffd35c;font-size:11px;font-weight:800;letter-spacing:.08em}
+.ad-tabs,.ad-actions{display:flex;gap:10px;flex-wrap:wrap;margin:18px 0}
+.ad-tabs .sel,.ad-levels .sel{background:#ffd35c;color:#1a1238;border-color:#ffd35c}
+.ad-card{padding:24px;margin:18px 0;overflow-wrap:anywhere}
+.ad-card h3{font-size:21px;margin:0 0 14px}
+.ad-card h4{margin:20px 0 10px}
+.ad-row{display:flex;align-items:end;gap:14px;flex-wrap:wrap}
+.ad-field{display:flex;flex:1;min-width:160px;flex-direction:column;gap:8px;margin:12px 0;font-size:13px;font-weight:700}
+.ad-field input,.ad-field select,.ad-field textarea{width:100%;box-sizing:border-box;padding:12px;border:1px solid #6b6090;border-radius:9px;background:#211b39;color:#fff;font:inherit}
+.ad-field textarea{resize:vertical;line-height:1.5}
+.ad-field select option{background:#211b39;color:#fff}
+.ad-message{color:#ffd35c;min-height:22px;margin:10px 0;line-height:1.5}
+.ad-levels{display:grid;grid-template-columns:repeat(10,minmax(0,1fr));gap:8px}
+.ad-levels button{min-height:42px;padding:5px}
+.ad-grants{display:flex;gap:12px;flex-wrap:wrap}
+.ad-grants label{display:flex;align-items:center;gap:9px;padding:12px;border:1px solid #6b6090;border-radius:9px}
+.ad-grants input{width:18px;height:18px;accent-color:#ffd35c}
+.ad-history{padding:14px 0;border-top:1px solid #6b6090;font-size:13px}
+.ad-history p{margin:8px 0;color:#bfb5da}
+.ad-text{white-space:pre-wrap;line-height:1.6}
+.ad-uid{font-family:monospace;font-size:12px;color:#bfb5da;user-select:all}
+.ad-wrap button:focus-visible,.ad-wrap input:focus-visible,.ad-wrap select:focus-visible,.ad-wrap textarea:focus-visible{outline:3px solid #ffd35c;outline-offset:3px}
+@media(max-width:600px){.ad-card{padding:16px}.ad-levels{grid-template-columns:repeat(5,minmax(0,1fr))}.ad-tabs button{flex:1;font-size:12px;padding:10px}.ad-row>*{flex-basis:100%}.ad-wrap .bar{flex-wrap:wrap}.ad-actions .btn{width:100%}}
