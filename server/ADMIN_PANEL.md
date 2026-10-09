@@ -1,6 +1,8 @@
 # Admin panel setup
 
-The main menu's **Admin panel** replaces **Tester**. Every privileged route
+The main menu has separate **Testing** and **Admin panel** buttons. Testing
+opens practice tools whose results never save; Admin panel opens real account
+unlocks, progress management, and the bug-report inbox. Every privileged route
 uses the existing server `isTester` permission and the browser's `isTesterAcct()`
 check. The hidden `TESTER_EMAILS` setting grants tester access; the existing
 owner always has access. No new role or email list is introduced.
@@ -23,23 +25,23 @@ Both confirmed accounts are configured locally in the Git-ignored `server/.dev.v
 This does not configure the live Worker. No Durable Object migration or extra
 storage binding is required. After Ryan approves and merges, the existing
 workflows deploy the site and server. Sign out and back in on the real site
-and check that **Admin panel** appears. A normal player's menu hides the panel
+and check that **Testing** and **Admin panel** appear. A normal player's menu hides the panel
 and direct requests to `/api/admin/*` return 403. Admin access requires a verified
 email in a signed Firebase token; client-supplied roles cannot grant access.
 
 ## Tools
 
-- **Boss testing:** jump to any level, select any visible fighter, move to the
+- **Testing section:** jump to any level, select any visible fighter, move to the
   previous/next level, and practice against CPUs or in Training Lab. Test results never save to
   account progress. Normal Boss Fight still requires sequential progression.
-- **Player accounts:** find an exact username or Firebase UID; grant locked
+- **Admin panel / Player accounts:** open your own account with **Manage my account**, or find an exact username or Firebase UID; grant locked
   fighters; change levels cleared and boss wins; or stage a progress reset.
   Each save requires confirmation and a reason. The server writes the account
   and its before/after activity record in one transaction. Stale edits return
   409 rather than overwriting newer boss progress or another admin's changes.
   Earned chapter fighters are kept according to the selected progress. Creator
   accounts cannot be reset or have their automatic unlocks removed.
-- **Bug reports:** verified players submit a title, description, optional
+- **Admin panel / Bug reports:** verified players submit a title, description, optional
   reproduction steps, category and impact. The server adds their authenticated
   identity and stores reports privately. Only admins can read the inbox, add
   investigation notes, or set open/investigating/resolved/closed status. The

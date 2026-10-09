@@ -6,7 +6,7 @@
 
 const BOSS = { pending: null, busy: false, result: null, pick: 'random', sel: 1, gid: 0 };
 
-/* ---------- Admin test mode ----------
+/* ---------- Tester mode ----------
    Uses the existing server tester permission, including the owner.
    Every fighter and every Boss Fight level is open, and nothing is saved to the account:
    the server refuses test runs from anyone else and never records their results. */
@@ -50,7 +50,7 @@ function renderBoss() {
   s.textContent = '';
   if (TESTER.on && !isTesterAcct()) setTester(false);
   const T = TESTER.on;
-  const back = el('button', { type: 'button', class: 'back', text: T ? '← Admin panel' : '← Back', on: { click: () => { SFX.play('ui'); BOSS.result = null; setTester(false); if (T) showAdmin(); else show('main'); } } });
+  const back = el('button', { type: 'button', class: 'back', text: T ? '← Testing' : '← Back', on: { click: () => { SFX.play('ui'); BOSS.result = null; setTester(false); if (T) showTesting(); else show('main'); } } });
   const outer = el('div', { class: 'wrap' }, [el('header', { class: 'bar' }, [back, el('h2', { text: T ? 'Boss testing' : 'Boss Fight' }), el('p', { class: 'sub', text: T ? 'Every fighter and every level. Nothing here is saved to your account.' : 'Three chapters, ten levels each. Beat a chapter to unlock its boss.' })])]);
   s.appendChild(outer);
   const wrap = el('div', { class: 'bs-wrap' });
@@ -70,9 +70,9 @@ function renderBoss() {
   const ch = bossChapter(BOSS.sel), bossName = CHAR[ch.boss].name;
   const has = id => MY_UNLOCKED.indexOf(id) >= 0;
 
-  // Admin tests: a clear banner, level navigation and all-fighter CPU practice.
+  // Test runs: a clear banner, level navigation and all-fighter CPU practice.
   if (T) wrap.appendChild(panel([
-    el('div', { class: 'bs-banner test', role: 'note', text: 'ADMIN TEST · Results here are not saved to your account' }),
+    el('div', { class: 'bs-banner test', role: 'note', text: 'TEST RUN · Results here are not saved to your account' }),
     el('div', { class: 'ad-actions' }, [
       el('button', { type: 'button', class: 'mini', text: '← Previous level', ...(BOSS.sel === 1 ? { disabled: '' } : {}), on: { click: () => { BOSS.sel = Math.max(1, BOSS.sel - 1); renderBoss(); } } }),
       el('button', { type: 'button', class: 'mini', text: 'Next level →', ...(BOSS.sel === total ? { disabled: '' } : {}), on: { click: () => { BOSS.sel = Math.min(total, BOSS.sel + 1); renderBoss(); } } }),
