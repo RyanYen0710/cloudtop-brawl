@@ -79,6 +79,22 @@ function fillStroke(g, col, lw) { g.fillStyle = col; g.fill(); g.lineWidth = lw 
 
 function drawAvalancheFighter(g, f) {
   const a = f.avalanche, r = avalancheRadius(f), L = f.c.look;
+  // rolling effects: dust and leaves kicked up behind, chips of ground, a green glow and motion ghosts
+  if (typeof spawnFx === 'function' && a.age >= AVALANCHE_START) {
+    const sp = Math.abs(f.vx || 0), back = -(Math.sign(f.vx) || f.face);
+    if (f.ground && sp > 2 && Math.random() < 0.85) spawnFx({ k: 'smoke', x: f.x + back * r * 0.8, y: f.y - 4, vx: back * (1 + Math.random() * 2), vy: -Math.random() * 1.6, life: 24, col: 'rgba(200,180,140,.7)', size: 8 + Math.random() * 6 });
+    if (Math.random() < 0.35) spawnFx({ k: 'leaf', x: f.x + (Math.random() - 0.5) * r, y: f.y - r * (0.5 + Math.random()), vx: back * (2 + Math.random() * 3), vy: -1 - Math.random() * 2, g: 0.12, life: 40, col: Math.random() < 0.5 ? '#6fd35a' : '#3fa64a', size: 6, rot: Math.random() * 6 });
+    if (f.ground && sp > 6 && Math.random() < 0.3) spawnFx({ k: 'spark', x: f.x + back * r * 0.5, y: f.y - 2, vx: back * (2 + Math.random() * 3), vy: -2 - Math.random() * 3, life: 18, col: '#8a6a4a', size: 3 });
+  }
+  g.save();
+  const glow = g.createRadialGradient(f.x, f.y - r, r * 0.6, f.x, f.y - r, r * 1.7);
+  glow.addColorStop(0, 'rgba(109,187,74,.35)'); glow.addColorStop(1, 'rgba(109,187,74,0)');
+  g.fillStyle = glow; circle(g, f.x, f.y - r, r * 1.7); g.fill();
+  for (let q = 3; q >= 1; q--) {   // motion ghosts
+    g.globalAlpha = 0.12 * (4 - q); g.fillStyle = L.body;
+    circle(g, f.x - (f.vx || 0) * q * 2.2, f.y - r - (f.vy || 0) * q, r); g.fill();
+  }
+  g.restore();
   g.save(); g.translate(f.x, f.y - r);
   g.strokeStyle = '#6dbb4a'; g.lineWidth = 3;
   for (let i = 0; i < 3; i++) {
