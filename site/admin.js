@@ -72,12 +72,12 @@ function renderAdmin() {
 function adminMessage(text) { ADMIN.message = text; const p = document.getElementById('ad-msg'); if (p) p.textContent = text; }
 function renderAdminAccount(pane) {
   const card = el('div', { class: 'card ad-card' }); pane.appendChild(card);
-  const form = el('form', { class: 'ad-row' });
+  const form = el('form', { class: 'ad-row ad-search' });
   const by = adminSelect([['username', 'Username'], ['uid', 'Firebase UID']], 'username');
   const query = el('input', { required: '', maxlength: '128', placeholder: 'Exact player username', autocomplete: 'off', spellcheck: 'false' });
   by.addEventListener('change', () => { query.placeholder = by.value === 'uid' ? 'Firebase account UID' : 'Exact player username'; });
   const find = el('button', { type: 'submit', class: 'btn', text: 'Find player' }); find.disabled = ADMIN.busy;
-  form.append(adminField('Find by', by), adminField('Player', query), find);
+  form.append(adminField('Find by', by), adminField('Player', query));
   form.addEventListener('submit', async e => {
     e.preventDefault(); if (ADMIN.busy) return;
     ADMIN.busy = true; find.disabled = true; adminMessage('Looking up player…');
@@ -87,30 +87,40 @@ function renderAdminAccount(pane) {
     } catch (err) { ADMIN.target = null; adminMessage(adminError(err)); }
     finally { ADMIN.busy = false; find.disabled = false; }
   });
-  const mine = adminButton('Manage my account', () => { by.value = 'uid'; query.value = ACCT.user.uid; form.requestSubmit(); }); mine.disabled = ADMIN.busy;
-  card.append(el('h3', { text: 'Manage a player account' }), el('p', { class: 'muted', text: 'Unlocks and progress are saved to the selected player’s real account.' }), mine, form);
+  const mine = adminButton('Manage my account', () => { by.value = 'uid'; query.value = ACCT.user.uid; form.requestSubmit(); }, 'btn ad-ghost'); mine.disabled = ADMIN.busy;
+  form.appendChild(el('div', { class: 'ad-search-btns' }, [find, mine]));
+  card.append(el('h3', { text: 'Find a player' }), el('p', { class: 'muted', text: 'Unlocks and progress are saved to the selected player’s real account.' }), form);
   const target = ADMIN.target; if (!target) return;
   const p = target.profile;
-  card.append(el('h3', { text: p.name || 'Player' }), el('p', { class: 'ad-uid', text: 'UID: ' + target.uid }),
-    el('p', { class: 'muted', text: 'Cleared ' + p.beaten + ' levels · ' + p.wins + ' boss wins' }));
-  if (p.owner) card.appendChild(el('p', { class: 'ad-message', text: 'Creator account: all fighters and levels are preserved. Progress editing is disabled.' }));
+  // the player you found gets its own card: name and stats on the left, Reload on the right
+  const reload = adminButton('↻ Reload player', async () => {
+    if (ADMIN.busy) return;
+    try { ADMIN.target = await adminApi('/api/admin/account?uid=' + encodeURIComponent(target.uid)); ADMIN.message = ''; renderAdmin(); }
+    catch (e) { adminMessage(adminError(e)); }
+  }, 'btn ad-ghost');
+  const pcard = el('div', { class: 'card ad-card' }); pane.appendChild(pcard);
+  pcard.appendChild(el('div', { class: 'ad-player-head' }, [
+    el('div', {}, [el('h3', { text: p.name || 'Player' }), el('p', { class: 'ad-uid', text: 'UID: ' + target.uid }),
+      el('p', { class: 'ad-stats', text: 'Cleared ' + p.beaten + ' levels · ' + p.wins + ' boss wins' })]),
+    reload]));
+  if (p.owner) pcard.appendChild(el('p', { class: 'ad-message', text: 'Creator account: all fighters and levels are preserved. Progress editing is disabled.' }));
   else {
     const edit = el('form');
     const beaten = el('input', { type: 'number', min: '0', max: String(BOSS_LEVELS.length), step: '1', required: '', value: p.beaten });
     const wins = el('input', { type: 'number', min: '0', max: '1000000', step: '1', required: '', value: p.wins || 0 });
     const reason = el('input', { required: '', minlength: '5', maxlength: '200', placeholder: 'Why are you changing this account?' });
-    edit.appendChild(el('div', { class: 'ad-row' }, [adminField('Levels cleared', beaten), adminField('Boss wins', wins)]));
+    edit.append(el('h4', { class: 'ad-sec', text: 'Progress' }), el('div', { class: 'ad-row' }, [adminField('Levels cleared', beaten), adminField('Boss wins', wins)]));
     const grants = el('div', { class: 'ad-grants' });
     ROSTER.filter(c => c.locked).forEach(c => {
       const check = el('input', { type: 'checkbox', value: c.id }); check.checked = p.unlocked.includes(c.id);
       grants.appendChild(el('label', {}, [check, el('span', { text: c.name })]));
     });
-    edit.append(el('h4', { text: 'Fighter grants' }), grants, el('p', { class: 'muted', text: 'Normal fighters are always available. Bosses earned by the selected progress stay unlocked.' }));
+    edit.append(el('h4', { class: 'ad-sec', text: 'Fighter grants' }), grants, el('p', { class: 'muted', text: 'Normal fighters are always available. Bosses earned by the selected progress stay unlocked.' }));
     const checks = value => grants.querySelectorAll('input').forEach(c => { c.checked = value; });
     edit.appendChild(el('div', { class: 'ad-actions' }, [adminButton('Grant every locked fighter', () => checks(true)),
       adminButton('Clear selected grants', () => checks(false)), adminButton('Stage progress reset', () => { beaten.value = '0'; wins.value = '0'; checks(false); })]));
-    const save = el('button', { type: 'submit', class: 'btn', text: 'Review and save changes' });
-    edit.append(adminField('Reason (saved in activity log)', reason), save);
+    const save = el('button', { type: 'submit', class: 'btn start', text: 'Review and save changes' });
+    edit.append(el('h4', { class: 'ad-sec', text: 'Save' }), adminField('Reason (saved in activity log)', reason), el('div', { class: 'ad-actions ad-save' }, [save]));
     edit.addEventListener('submit', async e => {
       e.preventDefault(); if (ADMIN.busy || ADMIN.target !== target) return;
       const unlocked = [...grants.querySelectorAll('input:checked')].map(c => c.value);
@@ -125,13 +135,8 @@ function renderAdminAccount(pane) {
       } catch (err) { adminMessage(adminError(err)); }
       finally { ADMIN.busy = false; save.disabled = false; }
     });
-    card.appendChild(edit);
+    pcard.appendChild(edit);
   }
-  card.appendChild(adminButton('Reload player', async () => {
-    if (ADMIN.busy) return;
-    try { ADMIN.target = await adminApi('/api/admin/account?uid=' + encodeURIComponent(target.uid)); ADMIN.message = ''; renderAdmin(); }
-    catch (e) { adminMessage(adminError(e)); }
-  }));
   const history = el('div', { class: 'card ad-card' }, [el('h3', { text: 'Account activity · last 20 changes' })]); pane.appendChild(history);
   if (!target.history.length) history.appendChild(el('p', { class: 'muted', text: 'No admin changes yet.' }));
   target.history.forEach(event => history.appendChild(el('article', { class: 'ad-history' }, [
@@ -177,11 +182,11 @@ function renderAdminReports(pane) {
       } catch (e) { adminMessage(adminError(e)); }
       finally { ADMIN.busy = false; save.disabled = false; }
     }, 'btn');
-    card.append(adminField('Status', status), adminField('Admin notes', notes), save,
+    card.append(adminField('Status', status), adminField('Admin notes', notes), el('div', { class: 'ad-actions' }, [save,
       adminButton('Open reporter account', async () => {
         try { ADMIN.target = await adminApi('/api/admin/account?uid=' + encodeURIComponent(report.uid)); ADMIN.tab = 'accounts'; ADMIN.message = ''; renderAdmin(); }
         catch (e) { adminMessage(adminError(e)); }
-      }));
+      }, 'btn ad-ghost')]));
     if (report.updatedBy) card.appendChild(el('p', { class: 'muted', text: 'Last updated by ' + (report.updatedBy.name || report.updatedBy.uid) + ' · ' + new Date(report.updated).toLocaleString() }));
   });
   if (ADMIN.cursor) { const more = adminButton('Load older reports', () => loadAdminReports(true), 'btn'); more.disabled = ADMIN.busy; pane.appendChild(more); }
