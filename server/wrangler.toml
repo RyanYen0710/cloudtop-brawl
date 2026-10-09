@@ -4,6 +4,8 @@ compatibility_date = "2025-09-01"
 account_id = "0f16b6fbadf973e8d7dc7cb27b468db2"
 
 # Public settings only. The owner email is a hidden Cloudflare secret (OWNER_EMAILS), never in this file.
+# Admin access reuses TESTER_EMAILS and existing owner permissions; keep membership private.
+# See ADMIN_PANEL.md before merging; never put real addresses in this file.
 [vars]
 FIREBASE_PROJECT_ID = "cloudtop-brawl"
 ALLOWED_ORIGINS = "https://cloudtop-brawl.com,https://www.cloudtop-brawl.com,https://cloudtop-brawl.pages.dev"
