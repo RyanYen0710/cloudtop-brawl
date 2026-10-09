@@ -30,10 +30,14 @@ function canEditSlot(i) {
 }
 function isHostish() { return G.mode === 'solo' || G.mode === 'host'; }
 
+/* which fighters you can pick here: Tester mode opens every fighter, but only offline (Vs CPU / Training Lab) */
+function rosterPicks() { return G.mode === 'solo' && typeof myPicks === 'function' ? myPicks() : MY_UNLOCKED; }
+function rosterKey() { return G.mode + '|' + rosterPicks().join(','); }
 function buildRoster() {
   const box = document.getElementById('roster');
   box.innerHTML = '';
-  const picks = G.mode === 'solo' && typeof myPicks === 'function' ? myPicks() : MY_UNLOCKED;   // Tester mode opens every fighter
+  box.dataset.key = rosterKey();
+  const picks = rosterPicks();
   [...ROSTER.filter(c => !c.locked || picks.indexOf(c.id) >= 0), { id: 'random', name: 'Random' }].forEach(c => {
     const b = document.createElement('button');
     b.className = 'tile'; b.type = 'button'; b.dataset.id = c.id;
