@@ -119,6 +119,11 @@ function finishMatch() {
     NET.res = rows.map(r => [r.slot, r.place, r.kos, r.falls, r.win ? 1 : 0]);
     pushLobby();
   }
+  // Vs CPU results are kept on this device only (shown in the Leaderboard's "Your stats")
+  if (G.mode === 'solo' && !G.training && !(typeof TESTER !== 'undefined' && TESTER.on) && typeof lbRecordCpu === 'function') {
+    const me = G.game.fighters.find(f => f.ctrl && f.ctrl.type === 'local');
+    lbRecordCpu(me && rows.find(r => r.slot === me.slot));
+  }
   showResults(rows, true);
 }
 

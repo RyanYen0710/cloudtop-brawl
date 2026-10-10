@@ -9,11 +9,12 @@
   const home = $('hub-home'), single = $('hub-single'), tip = $('hub-tip');
   if (!home || !single) return;
   const DEFAULT_TIP = 'Pick a mode to start brawling!';
+  const HOME_TIP = 'Fight CPUs, practice in the Training Lab, take on the bosses, or climb the Leaderboard.';
 
   function view(which) {
     home.hidden = which !== 'home'; single.hidden = which !== 'single'; $('hub-back').hidden = which === 'home';
     const first = (which === 'home' ? home : single).querySelector('.hub-tile');
-    setTip(first);
+    if (which === 'home' && tip) tip.textContent = HOME_TIP; else setTip(first);
   }
   function setTip(b) { if (tip) tip.textContent = (b && b.dataset.tip) || DEFAULT_TIP; }
 

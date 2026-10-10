@@ -25,6 +25,8 @@ jobs:
         run: node --test server/test/tester-mode.cjs
       - name: Admin authorization, account edits and bug report checks
         run: node --test server/test/admin-panel.cjs
+      - name: Leaderboard checks (only real server results count, no emails shown)
+        run: node --test server/test/leaderboard.cjs
       - name: No private email or keys in the code
         run: |
           if grep -rIn --exclude-dir=.git -E "@gmail\.com|CLOUDFLARE_API_TOKEN *=|-----BEGIN" . | grep -v "secrets.CLOUDFLARE_API_TOKEN"; then echo "Found something private"; exit 1; fi
