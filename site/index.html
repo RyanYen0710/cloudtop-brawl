@@ -25,7 +25,7 @@
 <link rel="icon" href="icon-192.png" type="image/png" sizes="192x192">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="stylesheet" href="admin.css?v=20261009-sync1">
-<link rel="stylesheet" href="leaderboard.css?v=20261009-sync1">
+<link rel="stylesheet" href="leaderboard.css?v=20261009-season1">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;500;600;700&family=Dela+Gothic+One&display=swap" rel="stylesheet">
@@ -534,6 +534,7 @@ body.tester-on #go-online .tt-off{display:block;font-weight:800;color:#ffd35c}
     <div class="hub">
       <div class="hub-top">
         <div class="logo hub-logo"><span class="l1">CLOUDTOP</span><span class="l2">BRAWL</span></div>
+        <div class="season-chip" id="season-chip" role="timer" aria-live="off" hidden><b id="season-n">SEASON 1</b><span id="season-cd"></span></div>
         <div class="tester-bar" id="tester-bar" role="status" hidden>TESTER MODE · nothing is saved · press Tester to go back</div>
         <button type="button" class="hub-back" id="hub-back" hidden>← Back</button>
       </div>
@@ -565,7 +566,7 @@ body.tester-on #go-online .tt-off{display:block;font-weight:800;color:#ffd35c}
       </nav>
       <div class="hub-foot">
         <span class="hub-tip" id="hub-tip"></span>
-        <span class="hub-side"><span id="main-count">17 fighters · 8 stages · CPU levels 1–10</span><button type="button" class="mini acct-btn" id="acct-btn" hidden>Sign in</button><button type="button" class="mini tester-btn" id="go-tester" title="Tester mode: every fighter and level, nothing saved. Press again to go back." aria-pressed="false" hidden>Tester</button><button type="button" class="mini admin-btn" id="go-admin" title="Players and bug reports (admins)" hidden>Admin panel</button><button type="button" class="mini owner-btn" id="go-owner" title="Owner only: players, bug reports and roles" hidden>Owner panel</button><button type="button" class="mini" id="go-bug-report">Report a bug</button><button type="button" class="mini" data-open-settings>Settings</button></span>
+        <span class="hub-side"><span id="main-count">17 fighters · 8 stages · CPU levels 1–10</span><button type="button" class="mini acct-btn" id="acct-btn" hidden>Sign in</button><button type="button" class="mini tester-btn" id="go-tester" title="Tester mode: every fighter and level, nothing saved. Press again to go back." aria-pressed="false" hidden>Tester</button><button type="button" class="mini admin-btn" id="go-admin" title="Players and bug reports (admins)" hidden>Admin panel</button><button type="button" class="mini owner-btn" id="go-owner" title="Owner only: players, bug reports and roles" hidden>Owner panel</button><button type="button" class="mini claim-btn" id="go-claim" title="Season results and titles to claim" hidden>Claim</button><button type="button" class="mini" id="go-bug-report">Report a bug</button><button type="button" class="mini" data-open-settings>Settings</button></span>
       </div>
     </div>
   </section>
@@ -670,6 +671,7 @@ body.tester-on #go-online .tt-off{display:block;font-weight:800;color:#ffd35c}
           <tr><td>Online</td><td>Host a lobby and send friends the 4-letter code, or join theirs. You can add CPUs too.</td></tr>
           <tr><td>Boss Fight</td><td>30 levels in 3 chapters. Beat a whole chapter to unlock its boss as a fighter. Needs a signed-in account so your progress is saved.</td></tr>
           <tr><td>Leaderboard</td><td>The top players for most time online, most wins, most games, highest Boss Fight level and overall (K/D, win/loss, Boss level and time online). Time online counts while the game is open and you're signed in. Wins, games and K/D come from online matches and Boss Fights, because the game server checks those. Your Vs CPU games are saved to your account and show in <b>Your stats</b>, but never on the leaderboard.</td></tr>
+          <tr><td>Seasons</td><td>Each season lasts 30 days, with a 2-day break before the next one. The countdown is next to the title. Everyone starts each season at 0 (the <b>All time</b> board keeps counting). When a season ends, #1 in each section wins a title: Cloud Dweller (most online), Sky Champion (most wins), Iron Brawler (most games), Boss Slayer (Boss Fight), and the Overall #1 writes their own. Claim yours with the <b>Claim</b> button.</td></tr>
           <tr><td>Menus with the keyboard</td><td>Use the <kbd>arrow keys</kbd> to move between buttons, <kbd>Enter</kbd> to pick, and <kbd>Esc</kbd> to go back.</td></tr>
           <tr><td>Found a bug?</td><td>Press <b>Report a bug</b> at the bottom of the main menu. It goes straight to the game owner.</td></tr>
         </tbody></table></div>
@@ -801,7 +803,8 @@ body.tester-on #go-online .tt-off{display:block;font-weight:800;color:#ffd35c}
 <script src="settings-ui.js?v=20261009-op1"></script>
 <script src="boss.js?v=20261009-owner1"></script>
 <script src="admin.js?v=20261009-op1"></script>
-<script src="leaderboard.js?v=20261009-sync1"></script>
+<script src="leaderboard.js?v=20261009-season1"></script>
+<script src="season.js?v=20261009-season1"></script>
 <script src="gameui.js?v=20261009-gameui2"></script>
 <script src="intro.js?v=20261009-text1"></script>
 <script src="menu.js?v=20261009-lb1"></script>

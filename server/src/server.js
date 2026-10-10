@@ -86,6 +86,7 @@ const LIMITS = {
   reports: [[60000, 2], [86400000, 10]],
   cpu: [[60000, 4], [86400000, 300]],   // Vs CPU results saved to the account (a match takes at least half a minute)
   opSelf: [[60000, 6], [86400000, 100]],   // OP changes to their own account (Settings > Special)
+  claim: [[60000, 10], [86400000, 100]],   // claiming or changing a season title
   reportsIp: [[60000, 10], [86400000, 100]]
 };
 async function hit(env, key, kind) {
@@ -152,24 +153,47 @@ const toUsername = n => { const v = String(n || '').trim().replace(/\s+/g, '_').
 const overallScore = x => (x.wins | 0) * 10 + (x.kos | 0) * 2 + (x.bestLevel | 0) * 5 + Math.floor((x.onlineMs || 0) / 3600000);
 const BOARD_SECTIONS = ['overall', 'online', 'wins', 'games', 'boss'];
 const BOARD_FIELDS = { onlineMs: 3153600000000, games: 10000000, wins: 10000000, losses: 10000000, kos: 10000000, deaths: 10000000, bossWins: 10000000, bestLevel: 30 };
-/* orders = { section: [uid, ...] } set by the owner with the arrows; those players come first, in that order */
-function leaderboard(stats, meUid, orders, ownerView) {
-  orders = orders || {};
+/* Seasons: 30 days, then a 2-day break, then the next one. Season 1 starts the first time the leaderboard is used after this
+   update. Each season's leaderboard starts at 0 (the all-time numbers keep counting). When a season ends, #1 in each section
+   (as the board is shown, so the owner's arrow order counts) wins a title; the Overall #1 writes their own. */
+const SEASON_MS = 30 * 86400000, SEASON_BREAK_MS = 2 * 86400000, SEASON_CYCLE = SEASON_MS + SEASON_BREAK_MS;
+const SEASON_TITLES = { online: 'Cloud Dweller', wins: 'Sky Champion', games: 'Iron Brawler', boss: 'Boss Slayer', overall: '' };
+const TITLE_RE = /^[A-Za-z0-9 ]{1,20}$/;   // the Overall winner's own title: letters, numbers and spaces
+const cleanTitle = t => typeof t === 'string' ? t.trim().replace(/\s+/g, ' ') : '';
+function seasonAt(start, now) {
+  const k = Math.max(0, Math.floor((now - start) / SEASON_CYCLE)), s0 = start + k * SEASON_CYCLE;
+  return { n: k + 1, start: s0, end: s0 + SEASON_MS, next: s0 + SEASON_CYCLE, active: now < s0 + SEASON_MS, now };
+}
+const statZero = uid => ({ uid, name: '', onlineMs: 0, games: 0, wins: 0, losses: 0, kos: 0, deaths: 0, bossGames: 0, bossWins: 0, bestLevel: 0 });
+function statAdd(cur, d) {
+  const a = d.add || {};
+  ['onlineMs', 'games', 'wins', 'losses', 'kos', 'deaths', 'bossGames', 'bossWins', 'cpuGames', 'cpuWins', 'cpuKos', 'cpuDeaths'].forEach(k => { const v = Number(a[k]) || 0; if (v > 0) cur[k] = (cur[k] || 0) + Math.min(v, k === 'onlineMs' ? 3600000 : 1000); });
+  if (Number.isInteger(d.level) && d.level > (cur.bestLevel || 0)) cur.bestLevel = Math.min(d.level, BOSS_LEVELS.length);
+  if (typeof d.name === 'string' && d.name) cur.name = d.name;
+  cur.updated = Date.now();
+  return cur;
+}
+/* how each section is sorted (the first number decides; the second breaks ties) */
+const SECTION_KEYS = {
+  online: [x => x.onlineMs || 0], wins: [x => x.wins | 0], games: [x => x.games | 0],
+  boss: [x => x.bestLevel | 0, x => x.bossWins | 0], overall: [overallScore]
+};
+const BOARD_MAX = 1000;   // every player is listed (up to this many), players on 0 at the bottom
+/* orders = { section: [uid, ...] } set by the owner with the arrows; those players come first, in that order.
+   titles = { uid: 'Season title' } shown next to the name. */
+function leaderboard(stats, meUid, orders, ownerView, titles) {
+  orders = orders || {}; titles = titles || {};
   const pub = x => ({ name: x.name || 'Player', onlineMs: x.onlineMs || 0, games: x.games | 0, wins: x.wins | 0, losses: x.losses | 0,
     kos: x.kos | 0, deaths: x.deaths | 0, bossWins: x.bossWins | 0, bestLevel: x.bestLevel | 0, score: overallScore(x), me: x.uid === meUid || undefined,
-    uid: ownerView ? x.uid : undefined });
-  const sections = {
-    online: [x => x.onlineMs || 0], wins: [x => x.wins | 0], games: [x => x.games | 0],
-    boss: [x => x.bestLevel | 0, x => x.bossWins | 0], overall: [overallScore]
-  };
+    title: titles[x.uid] || undefined, uid: ownerView ? x.uid : undefined });
   const out = { sections: {}, me: null, players: stats.length, owner: ownerView || undefined, custom: {} };
-  for (const k in sections) {
-    const keys = sections[k], order = Array.isArray(orders[k]) ? orders[k] : [];
-    const sorted = stats.filter(x => keys[0](x) > 0).sort((a, b) => keys.reduce((r, f) => r || f(b) - f(a), 0) || String(a.name).localeCompare(String(b.name)));
+  for (const k in SECTION_KEYS) {
+    const keys = SECTION_KEYS[k], order = Array.isArray(orders[k]) ? orders[k] : [];
+    const sorted = stats.slice().sort((a, b) => keys.reduce((r, f) => r || f(b) - f(a), 0) || String(a.name).localeCompare(String(b.name)));
     const pinned = order.map(uid => stats.find(x => x.uid === uid)).filter(Boolean);
     const list = pinned.concat(sorted.filter(x => !order.includes(x.uid)));
     if (pinned.length) out.custom[k] = true;
-    out.sections[k] = list.slice(0, 50).map(pub);
+    out.sections[k] = list.slice(0, BOARD_MAX).map(pub);
     if (meUid) { const i = list.findIndex(x => x.uid === meUid); if (out.me === null) out.me = {}; out.me[k] = i < 0 ? null : i + 1; }
   }
   const mine = meUid && stats.find(x => x.uid === meUid);
@@ -180,6 +204,39 @@ function leaderboard(stats, meUid, orders, ownerView) {
 
 export class Accounts {
   constructor(state) { this.state = state; }
+  /* board instance: the owner's arrow order for the all-time board (n = 0) or one season */
+  async orders(st, n) {
+    const orders = {};
+    for (const k of BOARD_SECTIONS) { const o = await st.get((n ? 'sorder:' + n + ':' : 'order:') + k); if (o) orders[k] = o; }
+    return orders;
+  }
+  /* board instance: the season clock. Season 1 starts on first use; any season that has ended gets its results saved once. */
+  async season(st) {
+    let start = await st.get('season:start');
+    if (!start) { start = Date.now(); await st.put('season:start', start); }
+    const now = Date.now(), info = seasonAt(start, now);
+    let done = (await st.get('season:done')) || 0;
+    const last = info.active ? info.n - 1 : info.n;
+    while (done < last) { done++; await this.finishSeason(st, done, start); await st.put('season:done', done); }
+    return info;
+  }
+  async finishSeason(st, n, start) {
+    const stats = [...(await st.list({ prefix: 'ss:' + n + ':', limit: 5000 })).values()], orders = await this.orders(st, n);
+    const board = leaderboard(stats, null, orders, true);
+    const res = { n, end: start + (n - 1) * SEASON_CYCLE + SEASON_MS, top: {}, winners: {}, titles: SEASON_TITLES };
+    const awards = new Map();
+    for (const k of BOARD_SECTIONS) {
+      const list = board.sections[k], first = list[0];
+      res.top[k] = list.slice(0, 3).map(x => Object.assign({}, x, { uid: undefined, me: undefined, title: undefined }));
+      const pinned = Array.isArray(orders[k]) && first && orders[k][0] === first.uid;
+      if (!first || !(pinned || SECTION_KEYS[k][0](first) > 0)) continue;   // nobody played: no winner
+      res.winners[k] = { name: first.name };
+      if (!awards.has(first.uid)) awards.set(first.uid, (await st.get('award:' + first.uid)) || []);
+      awards.get(first.uid).push({ season: n, section: k, title: SEASON_TITLES[k], claimed: false });
+    }
+    for (const [uid, list] of awards) await st.put('award:' + uid, list);
+    await st.put('result:' + n, res);
+  }
   async fetch(req) {
     const op = new URL(req.url).pathname.slice(1);
     let d = {}; try { d = await req.json(); } catch (e) { }
@@ -215,34 +272,78 @@ export class Accounts {
     if (op === 'player-get') return json((await st.get('player:' + d.uid)) || {});
     /* leaderboard stats (board instance). Only the game server adds to these, when an online match or Boss Fight ends. */
     if (op === 'stat-add') {
-      const key = 'stat:' + d.uid, cur = (await st.get(key)) || { uid: d.uid, name: '', onlineMs: 0, games: 0, wins: 0, losses: 0, kos: 0, deaths: 0, bossGames: 0, bossWins: 0, bestLevel: 0 };
-      const a = d.add || {};
-      ['onlineMs', 'games', 'wins', 'losses', 'kos', 'deaths', 'bossGames', 'bossWins', 'cpuGames', 'cpuWins', 'cpuKos', 'cpuDeaths'].forEach(k => { const v = Number(a[k]) || 0; if (v > 0) cur[k] = (cur[k] || 0) + Math.min(v, k === 'onlineMs' ? 3600000 : 1000); });
-      if (Number.isInteger(d.level) && d.level > (cur.bestLevel || 0)) cur.bestLevel = Math.min(d.level, BOSS_LEVELS.length);
-      if (typeof d.name === 'string' && d.name) cur.name = d.name;
-      cur.updated = Date.now();
-      await st.put(key, cur);
+      const all = await st.get('stat:' + d.uid);
+      await st.put('stat:' + d.uid, statAdd(all || statZero(d.uid), d));
+      const season = await this.season(st);   // this season's board counts too (not during the break)
+      if (season.active) {
+        const key = 'ss:' + season.n + ':' + d.uid, cur = (await st.get(key)) || statZero(d.uid);
+        if (!cur.name && all && all.name) cur.name = all.name;
+        await st.put(key, statAdd(cur, d));
+      }
       return json({ ok: true });
     }
     if (op === 'stat-list') {
-      const rows = await st.list({ prefix: 'stat:', limit: 5000 }), orders = {};
-      for (const k of BOARD_SECTIONS) { const o = await st.get('order:' + k); if (o) orders[k] = o; }
-      return json({ stats: [...rows.values()], orders });
+      const season = await this.season(st), n = d.view === 'all' ? 0 : season.n;
+      const all = await st.list({ prefix: 'stat:', limit: 5000 });
+      let stats = [...all.values()];
+      if (n) {   // this season's numbers; everyone else who has played before is listed with 0
+        const rows = await st.list({ prefix: 'ss:' + n + ':', limit: 5000 }), mine = new Map([...rows.values()].map(x => [x.uid, x]));
+        stats = [...mine.values()].concat(stats.filter(x => !mine.has(x.uid)).map(x => Object.assign(statZero(x.uid), { name: x.name })));
+      }
+      const titles = {}; (await st.list({ prefix: 'title:', limit: 5000 })).forEach((t, k) => { titles[k.slice(6)] = t; });
+      const mine = d.uid && all.get('stat:' + d.uid);   // your Vs CPU numbers are all-time in both views
+      const cpu = mine ? { cpuGames: mine.cpuGames | 0, cpuWins: mine.cpuWins | 0, cpuKos: mine.cpuKos | 0, cpuDeaths: mine.cpuDeaths | 0 } : null;
+      return json({ stats, orders: await this.orders(st, n), titles, season, view: n ? 'season' : 'all', cpu });
     }
-    /* owner edits from the Leaderboard screen: exact numbers, or the order of a section (both logged) */
+    /* owner edits from the Leaderboard screen: exact numbers, or the order of a section (both logged).
+       season = a season number edits that season's board; no season edits the all-time board. */
     if (op === 'stat-set') {
-      const key = 'stat:' + d.uid, cur = await st.get(key);
-      if (!cur) return json({ error: 'not-found' }, 404);
+      const key = (d.season ? 'ss:' + d.season + ':' : 'stat:') + d.uid;
+      const cur = (await st.get(key)) || Object.assign(statZero(d.uid), { name: ((await st.get('stat:' + d.uid)) || {}).name || d.name || '' });
       const before = Object.assign({}, cur);
       for (const k in d.set) cur[k] = d.set[k];
       cur.updated = Date.now();
       await st.put(key, cur);
-      await st.put('audit:' + newestKey(), { at: Date.now(), actor: d.actor, uid: d.uid, before, after: cur });
+      await st.put('audit:' + newestKey(), { at: Date.now(), actor: d.actor, uid: d.uid, season: d.season || 'all', before, after: cur });
       return json({ ok: true });
     }
     if (op === 'order-set') {
-      if (d.reset) await st.delete('order:' + d.section); else await st.put('order:' + d.section, d.uids);
-      await st.put('audit:' + newestKey(), { at: Date.now(), actor: d.actor, section: d.section, order: d.reset ? 'reset' : d.uids });
+      const key = (d.season ? 'sorder:' + d.season + ':' : 'order:') + d.section;
+      if (d.reset) await st.delete(key); else await st.put(key, d.uids);
+      await st.put('audit:' + newestKey(), { at: Date.now(), actor: d.actor, section: d.section, season: d.season || 'all', order: d.reset ? 'reset' : d.uids });
+      return json({ ok: true });
+    }
+    /* the season clock, the last finished season's results, and (signed in) your titles */
+    if (op === 'season-get') {
+      const season = await this.season(st), done = (await st.get('season:done')) || 0;
+      const result = done ? await st.get('result:' + done) : null;
+      const awards = d.uid ? (await st.get('award:' + d.uid)) || [] : [];
+      const title = d.uid ? (await st.get('title:' + d.uid)) || '' : '';
+      return json({ season, result, awards, title });
+    }
+    /* claim a title you won (or show a title you already claimed). The Overall winner writes their own and can change it. */
+    if (op === 'title-claim') {
+      const awards = (await st.get('award:' + d.uid)) || [];
+      const a = awards.find(x => x.season === d.season && x.section === d.section);
+      if (!a) return json({ error: 'not-found' }, 404);
+      if (a.section === 'overall') {
+        const t = cleanTitle(d.title);
+        if (!TITLE_RE.test(t)) return json({ error: 'invalid' }, 400);
+        a.title = t;
+      }
+      a.claimed = true; a.claimedAt = Date.now();
+      await st.put('award:' + d.uid, awards);
+      await st.put('title:' + d.uid, a.title);
+      return json({ awards, title: a.title });
+    }
+    /* owner: remove a player's shown title (for example a rude custom title). They can write a new Overall title again. */
+    if (op === 'title-clear') {
+      const before = (await st.get('title:' + d.uid)) || '';
+      await st.delete('title:' + d.uid);
+      const awards = (await st.get('award:' + d.uid)) || [];
+      awards.forEach(a => { if (a.section === 'overall') { a.claimed = false; a.title = ''; } });
+      if (awards.length) await st.put('award:' + d.uid, awards);
+      await st.put('audit:' + newestKey(), { at: Date.now(), actor: d.actor, uid: d.uid, title: { before, after: '' } });
       return json({ ok: true });
     }
     if (op === 'report-delete') {
@@ -628,8 +729,20 @@ export default {
       if (url.pathname === '/api/leaderboard' && req.method === 'GET') {
         let me = null, ownerView = false;
         if (tok) { try { const v = await verifyIdToken(tok, env); me = v.uid; ownerView = isOwner(v, env); } catch (e) { } }
-        const b = await acct(env, BOARD, 'stat-list', {});
-        return json(leaderboard(b.stats || [], me, b.orders, ownerView), 200, cors);
+        const view = url.searchParams.get('view') === 'all' ? 'all' : 'season';
+        const [b, reg] = await Promise.all([acct(env, BOARD, 'stat-list', { view, uid: me }), acct(env, NAMES, 'name-list', {})]);
+        // every player with a username is listed, even before they have played (all 0)
+        const stats = b.stats || [], byUid = new Map(stats.map(x => [x.uid, x]));
+        (reg.names || []).forEach(n => { const x = byUid.get(n.uid); if (!x) { const z = Object.assign(statZero(n.uid), { name: n.name }); stats.push(z); byUid.set(n.uid, z); } else if (!x.name) x.name = n.name; });
+        const out = leaderboard(stats, me, b.orders, ownerView, b.titles);
+        if (out.me && out.me.stats && b.cpu) Object.assign(out.me.stats, b.cpu);
+        return json(Object.assign(out, { season: b.season, view }), 200, cors);
+      }
+      /* the season clock and last season's results (public); signed in, also your titles to claim */
+      if (url.pathname === '/api/season' && req.method === 'GET') {
+        let me = null;
+        if (tok) { try { me = (await verifyIdToken(tok, env)).uid; } catch (e) { } }
+        return json(await acct(env, BOARD, 'season-get', { uid: me }), 200, cors);
       }
       let u;
       try { u = await verifyIdToken(tok, env); } catch (e) { return json({ error: String(e.message || 'auth') }, 401, cors); }
@@ -656,6 +769,16 @@ export default {
         if (!(await hit(env, 'uid:' + u.uid, 'cpu'))) return json({ error: 'slow-down' }, 429, cors);
         await acct(env, BOARD, 'stat-add', { uid: u.uid, add: { cpuGames: 1, cpuWins: d.win ? 1 : 0, cpuKos: d.kos, cpuDeaths: d.falls } });
         return json({ ok: true }, 200, cors);
+      }
+      /* claim a season title you won. The Overall #1 writes their own title (letters, numbers, spaces, up to 20). */
+      if (url.pathname === '/api/season/claim' && req.method === 'POST') {
+        let d; try { d = await apiBody(req); } catch (e) { return json({ error: 'invalid' }, 400, cors); }
+        if (!u.verified) return json({ error: 'verify-email' }, 403, cors);
+        if (!Number.isInteger(d.season) || d.season < 1 || d.season > 100000 || !BOARD_SECTIONS.includes(d.section) ||
+            (d.title !== undefined && (typeof d.title !== 'string' || d.title.length > 40))) return json({ error: 'invalid' }, 400, cors);
+        if (!(await hit(env, 'uid:' + u.uid, 'claim'))) return json({ error: 'slow-down' }, 429, cors);
+        const r = await acct(env, BOARD, 'title-claim', { uid: u.uid, season: d.season, section: d.section, title: d.title });
+        return json(r, r.error ? (r.error === 'not-found' ? 404 : 400) : 200, cors);
       }
       /* OP role: change your OWN Boss Fight level, wins and unlocked fighters (Settings > Special). Never anyone else's. */
       if (url.pathname === '/api/op/self' && req.method === 'POST') {
@@ -754,15 +877,22 @@ export default {
             set[k] = d.set[k];
           }
           if (!Object.keys(set).length) return json({ error: 'invalid' }, 400, cors);
-          return respond(await acct(env, BOARD, 'stat-set', { uid: d.uid, set, actor }));
+          if (d.season !== undefined && !(Number.isInteger(d.season) && d.season >= 1 && d.season <= 100000)) return json({ error: 'invalid' }, 400, cors);
+          return respond(await acct(env, BOARD, 'stat-set', { uid: d.uid, set, season: d.season, actor }));
+        }
+        if (url.pathname === '/api/admin/board/title' && req.method === 'POST') {
+          let d; try { d = await apiBody(req); } catch (e) { return json({ error: 'invalid' }, 400, cors); }
+          if (typeof d.uid !== 'string' || !/^[A-Za-z0-9_-]{1,128}$/.test(d.uid)) return json({ error: 'invalid' }, 400, cors);
+          return respond(await acct(env, BOARD, 'title-clear', { uid: d.uid, actor }));
         }
         if (url.pathname === '/api/admin/board/order' && req.method === 'POST') {
           let d; try { d = await apiBody(req); } catch (e) { return json({ error: 'invalid' }, 400, cors); }
           if (!BOARD_SECTIONS.includes(d.section)) return json({ error: 'invalid' }, 400, cors);
-          if (d.reset === true) return respond(await acct(env, BOARD, 'order-set', { section: d.section, reset: true, actor }));
-          if (!Array.isArray(d.uids) || !d.uids.length || d.uids.length > 50 || new Set(d.uids).size !== d.uids.length ||
+          if (d.season !== undefined && !(Number.isInteger(d.season) && d.season >= 1 && d.season <= 100000)) return json({ error: 'invalid' }, 400, cors);
+          if (d.reset === true) return respond(await acct(env, BOARD, 'order-set', { section: d.section, season: d.season, reset: true, actor }));
+          if (!Array.isArray(d.uids) || !d.uids.length || d.uids.length > BOARD_MAX || new Set(d.uids).size !== d.uids.length ||
               !d.uids.every(x => typeof x === 'string' && /^[A-Za-z0-9_-]{1,128}$/.test(x))) return json({ error: 'invalid' }, 400, cors);
-          return respond(await acct(env, BOARD, 'order-set', { section: d.section, uids: d.uids, actor }));
+          return respond(await acct(env, BOARD, 'order-set', { section: d.section, season: d.season, uids: d.uids, actor }));
         }
         if (url.pathname === '/api/admin/reports/delete' && req.method === 'POST') {
           let d; try { d = await apiBody(req); } catch (e) { return json({ error: 'invalid' }, 400, cors); }

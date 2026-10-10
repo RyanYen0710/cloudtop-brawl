@@ -104,8 +104,8 @@ test('one account playing two fighters in the same match is only counted once', 
 /* ---- the public API ---- */
 const keys = crypto.generateKeyPairSync('rsa', { modulusLength: 2048 });
 const jwk = { ...keys.publicKey.export({ format: 'jwk' }), kid: 'test-key' };
-function token(id) {
-  const now = Math.floor(Date.now() / 1000);
+function token(id, at) {
+  const now = Math.floor((at || Date.now()) / 1000);
   const head = Buffer.from(JSON.stringify({ alg: 'RS256', kid: jwk.kid })).toString('base64url');
   const body = Buffer.from(JSON.stringify({ aud: 'test-project', iss: 'https://securetoken.google.com/test-project', sub: id, name: id,
     email: id + '@example.invalid', email_verified: true, iat: now, auth_time: now, exp: now + 600, firebase: { sign_in_provider: 'google.com' } })).toString('base64url');
@@ -119,9 +119,10 @@ class Storage {
   async list({ prefix = '', limit = Infinity } = {}) { return new Map([...this.rows].filter(([k]) => k.startsWith(prefix)).sort(([a], [b]) => a.localeCompare(b)).slice(0, limit)); }
   transaction(fn) { return fn(this); }
 }
-function apiSetup() {
+function apiSetup(clock) {
   const objects = new Map();
   const context = vm.createContext({ Request, Response, Headers, URL, TextEncoder, TextDecoder, atob,
+    ...(clock ? { Date: class extends Date { static now() { return clock.now; } } } : {}),
     crypto: { subtle: crypto.webcrypto.subtle, randomUUID: crypto.randomUUID },
     fetch: async () => new Response(JSON.stringify({ keys: [jwk] })) });
   vm.runInContext(source(), context);
@@ -132,8 +133,8 @@ function apiSetup() {
       return { fetch: (url, opts) => objects.get(n).fetch(new Request(url, opts)) };
     } } };
   const add = (uid, name, a, level) => env.ACCOUNTS.get('u:__board').fetch('https://acct/stat-add', { method: 'POST', body: JSON.stringify({ uid, name, add: a, level }) });
-  const get = async id => {
-    const r = await worker.fetch(new Request('https://w.example.invalid/api/leaderboard', { headers: { origin: 'https://game.example.invalid', ...(id ? { authorization: 'Bearer ' + token(id) } : {}) } }), env);
+  const get = async (id, view) => {
+    const r = await worker.fetch(new Request('https://w.example.invalid/api/leaderboard' + (view ? '?view=' + view : ''), { headers: { origin: 'https://game.example.invalid', ...(id ? { authorization: 'Bearer ' + token(id, clock && clock.now) } : {}) } }), env);
     return { status: r.status, data: await r.json() };
   };
   return { add, get, worker, env, objects };
@@ -146,10 +147,11 @@ test('the leaderboard is public, sorted, and never shows emails or account ids',
   await f.add('u3', 'Bob', { games: 2, bossGames: 2, wins: 2, bossWins: 2, kos: 3, deaths: 1 }, 7);
   const r = await f.get();
   assert.equal(r.status, 200);
-  assert.deepEqual(r.data.sections.online.map(x => x.name), ['Ryan', 'Jams']);
+  // everyone is listed; players on 0 come last (A-Z)
+  assert.deepEqual(r.data.sections.online.map(x => x.name), ['Ryan', 'Jams', 'Bob']);
   assert.deepEqual(r.data.sections.wins.map(x => x.name), ['Ryan', 'Jams', 'Bob']);
   assert.deepEqual(r.data.sections.games.map(x => x.name), ['Jams', 'Ryan', 'Bob']);
-  assert.deepEqual(r.data.sections.boss.map(x => x.name), ['Bob']);
+  assert.deepEqual(r.data.sections.boss.map(x => x.name), ['Bob', 'Jams', 'Ryan']);
   assert.equal(r.data.sections.boss[0].bestLevel, 7);
   assert.equal(r.data.sections.overall[0].name, 'Ryan');
   const text = JSON.stringify(r.data);
@@ -162,7 +164,7 @@ test('a signed-in player also gets their own rank in every section', async () =>
   await f.add('u1', 'Ryan', { onlineMs: 3000000, games: 10, wins: 7, losses: 3, kos: 20, deaths: 8 });
   await f.add('u2', 'Jams', { onlineMs: 1800000, games: 12, wins: 4, losses: 8, kos: 9, deaths: 15 });
   const r = await f.get('u2');
-  assert.equal(r.data.me.online, 2); assert.equal(r.data.me.games, 1); assert.equal(r.data.me.boss, null);
+  assert.equal(r.data.me.online, 2); assert.equal(r.data.me.games, 1); assert.equal(r.data.me.boss, 1);   // 0 for both: A-Z
   assert.equal(r.data.me.stats.name, 'Jams');
   assert.equal(r.data.sections.games[0].me, true);
 });
@@ -175,11 +177,16 @@ test('stats only go up, and one result can never add an absurd amount', async ()
 });
 
 /* ---- the owner can edit the leaderboard; nobody else can ---- */
-function editSetup() {
-  const f = apiSetup();
+function editSetup(clock) {
+  const f = apiSetup(clock);
   f.post = async (id, path, body) => {
     const r = await f.worker.fetch(new Request('https://w.example.invalid' + path, { method: 'POST', body: JSON.stringify(body),
-      headers: { origin: 'https://game.example.invalid', 'content-type': 'application/json', authorization: 'Bearer ' + token(id) } }), f.env);
+      headers: { origin: 'https://game.example.invalid', 'content-type': 'application/json', authorization: 'Bearer ' + token(id, clock && clock.now) } }), f.env);
+    return { status: r.status, data: await r.json() };
+  };
+  f.season = async id => {
+    const r = await f.worker.fetch(new Request('https://w.example.invalid/api/season', { headers: { origin: 'https://game.example.invalid',
+      ...(id ? { authorization: 'Bearer ' + token(id, clock && clock.now) } : {}) } }), f.env);
     return { status: r.status, data: await r.json() };
   };
   return f;
@@ -198,8 +205,8 @@ test('the owner can set exact numbers; bad values and other players are refused'
   assert.equal((await f.post('u1', '/api/admin/board', { uid: 'u1', set: { wins: 99 } })).status, 403);
   for (const set of [{ wins: -1 }, { wins: 1.5 }, { bestLevel: 31 }, { name: 'x' }, {}])
     assert.equal((await f.post('boss', '/api/admin/board', { uid: 'u1', set })).status, 400);
-  assert.equal((await f.post('boss', '/api/admin/board', { uid: 'nobody', set: { wins: 1 } })).status, 404);
-  assert.equal((await f.post('boss', '/api/admin/board', { uid: 'u1', set: { wins: 50, onlineMs: 7200000, bestLevel: 12 } })).status, 200);
+  assert.equal((await f.post('boss', '/api/admin/board', { uid: 'u1', set: { wins: 1 }, season: 0 })).status, 400);
+  assert.equal((await f.post('boss', '/api/admin/board', { uid: 'u1', season: 1, set: { wins: 50, onlineMs: 7200000, bestLevel: 12 } })).status, 200);
   const s = (await f.get()).data.sections.wins[0];
   assert.equal(s.wins, 50); assert.equal(s.onlineMs, 7200000); assert.equal(s.bestLevel, 12); assert.equal(s.games, 3);
 });
@@ -209,11 +216,11 @@ test('the owner can move players with the arrows and reset the order', async () 
   assert.equal((await f.post('u2', '/api/admin/board/order', { section: 'wins', uids: ['u3', 'u1', 'u2'] })).status, 403);
   assert.equal((await f.post('boss', '/api/admin/board/order', { section: 'nope', uids: ['u1'] })).status, 400);
   assert.equal((await f.post('boss', '/api/admin/board/order', { section: 'wins', uids: ['u1', 'u1'] })).status, 400);
-  assert.equal((await f.post('boss', '/api/admin/board/order', { section: 'wins', uids: ['u3', 'u1', 'u2'] })).status, 200);
+  assert.equal((await f.post('boss', '/api/admin/board/order', { section: 'wins', season: 1, uids: ['u3', 'u1', 'u2'] })).status, 200);
   let r = (await f.get()).data;
   assert.deepEqual(r.sections.wins.map(x => x.name), ['Bob', 'Ryan', 'Jams']); assert.equal(r.custom.wins, true);
-  assert.deepEqual(r.sections.games.map(x => x.name), []);   // other sections untouched
-  assert.equal((await f.post('boss', '/api/admin/board/order', { section: 'wins', reset: true })).status, 200);
+  assert.deepEqual(r.sections.games.map(x => x.name), ['Bob', 'Jams', 'Ryan']);   // other sections untouched (all 0: A-Z)
+  assert.equal((await f.post('boss', '/api/admin/board/order', { section: 'wins', season: 1, reset: true })).status, 200);
   r = (await f.get()).data;
   assert.deepEqual(r.sections.wins.map(x => x.name), ['Ryan', 'Jams', 'Bob']); assert.equal(r.custom.wins, undefined);
 });
@@ -242,7 +249,73 @@ test('Vs CPU results save to the account but never rank on the leaderboard', asy
   assert.equal((await f.post('u5', '/api/cpu-result', { win: false, kos: 1, falls: 3 })).status, 200);
   const r = (await f.get('u5')).data;
   assert.equal(r.me.stats.cpuGames, 2); assert.equal(r.me.stats.cpuWins, 1); assert.equal(r.me.stats.cpuKos, 4); assert.equal(r.me.stats.cpuDeaths, 4);
-  for (const k in r.sections) assert.deepEqual(r.sections[k], [], k + ' must stay empty');
-  assert.equal((await f.get()).data.sections.wins.length, 0);
+  for (const k in r.sections) assert.ok(r.sections[k].every(x => !x.wins && !x.games && !x.kos && !x.score), k + ' must not count Vs CPU');
   assert.ok(!JSON.stringify((await f.get()).data).includes('cpu'));   // other people never see your CPU numbers
+});
+
+/* ---- seasons: 30 days, a 2-day break, then the next season; #1 in each section wins a title ---- */
+const DAY = 86400000;
+test('Season 1 starts on first use, counts its own board, and the break does not count', async () => {
+  const clock = { now: Date.now() }, f = editSetup(clock);
+  await f.add('u1', 'Ryan', { wins: 3, games: 4 });
+  let s = (await f.season()).data.season;
+  assert.equal(s.n, 1); assert.equal(s.active, true); assert.equal(s.end - s.start, 30 * DAY); assert.equal(s.next - s.start, 32 * DAY);
+  clock.now += 10 * DAY; await f.add('u2', 'Jams', { wins: 1, games: 1 });
+  assert.deepEqual((await f.get()).data.sections.wins.map(x => [x.name, x.wins]), [['Ryan', 3], ['Jams', 1]]);
+  assert.equal((await f.get()).data.view, 'season'); assert.equal((await f.get(null, 'all')).data.view, 'all');
+  clock.now += 21 * DAY;   // day 31: the break
+  s = (await f.season()).data.season; assert.equal(s.n, 1); assert.equal(s.active, false);
+  await f.add('u2', 'Jams', { wins: 10, games: 10 });   // counts all-time only
+  assert.equal((await f.get()).data.sections.wins[0].name, 'Ryan');
+  assert.equal((await f.get(null, 'all')).data.sections.wins[0].name, 'Jams');
+  clock.now += 2 * DAY;    // day 33: Season 2, everyone back to 0 (still listed)
+  s = (await f.season()).data.season; assert.equal(s.n, 2); assert.equal(s.active, true);
+  const w = (await f.get()).data.sections.wins;
+  assert.deepEqual(w.map(x => x.wins), [0, 0]); assert.deepEqual(w.map(x => x.name), ['Jams', 'Ryan']);
+  assert.equal((await f.get(null, 'all')).data.sections.wins[0].wins, 11);
+});
+
+test('when a season ends, #1 in each section wins a title; the Overall #1 writes their own', async () => {
+  const clock = { now: Date.now() }, f = editSetup(clock); f.env.OWNER_EMAILS = 'boss@example.invalid';
+  await f.add('u1', 'Ryan', { wins: 9, games: 9, kos: 20 });
+  await f.add('u2', 'Jams', { wins: 2, games: 12, onlineMs: 3000000 });
+  await f.add('u3', 'Bob', { games: 1, bossWins: 1 }, 6);
+  assert.equal((await f.season('u1')).data.result, null);
+  clock.now += 30 * DAY + 1000;
+  const r = (await f.season('u1')).data;
+  assert.equal(r.result.n, 1);
+  assert.deepEqual(Object.fromEntries(Object.entries(r.result.winners).map(([k, v]) => [k, v.name])),
+    { overall: 'Ryan', online: 'Jams', wins: 'Ryan', games: 'Jams', boss: 'Bob' });
+  assert.equal(r.result.top.wins.length, 3); assert.ok(!JSON.stringify(r.result).includes('"uid"'));
+  assert.deepEqual(r.awards.map(a => [a.section, a.title, a.claimed]), [['overall', '', false], ['wins', 'Sky Champion', false]]);
+  // claiming: only your own titles, the Overall one needs a clean title
+  assert.equal((await f.post('u3', '/api/season/claim', { season: 1, section: 'wins' })).status, 404);
+  assert.equal((await f.post('u1', '/api/season/claim', { season: 1, section: 'overall', title: 'bad<title>' })).status, 400);
+  assert.equal((await f.post('u1', '/api/season/claim', { season: 1, section: 'overall', title: 'x'.repeat(21) })).status, 400);
+  assert.equal((await f.post('u1', '/api/season/claim', { season: 1, section: 'nope' })).status, 400);
+  assert.equal((await f.post('u1', '/api/season/claim', { season: 1, section: 'wins' })).status, 200);
+  assert.equal((await f.get(null, 'all')).data.sections.wins.find(x => x.name === 'Ryan').title, 'Sky Champion');
+  const c = await f.post('u1', '/api/season/claim', { season: 1, section: 'overall', title: '  Cloud   King ' });
+  assert.equal(c.status, 200); assert.equal(c.data.title, 'Cloud King');
+  assert.equal((await f.post('u1', '/api/season/claim', { season: 1, section: 'overall', title: 'Sky Lord' })).data.title, 'Sky Lord');   // can change it
+  assert.equal((await f.season('u1')).data.title, 'Sky Lord');
+  // the owner can remove a title; the Overall winner can write a new one
+  assert.equal((await f.post('u1', '/api/admin/board/title', { uid: 'u1' })).status, 403);
+  assert.equal((await f.post('boss', '/api/admin/board/title', { uid: 'u1' })).status, 200);
+  const after = (await f.season('u1')).data;
+  assert.equal(after.title, ''); assert.equal(after.awards.find(a => a.section === 'overall').claimed, false);
+  assert.equal((await f.get(null, 'all')).data.sections.wins.find(x => x.name === 'Ryan').title, undefined);
+  // results are saved once; later requests do not hand out titles again
+  clock.now += DAY; await f.season('u1');
+  assert.equal((await f.season('u2')).data.awards.length, 2);
+});
+
+test("the owner's arrow order decides the winner; a section nobody played has no winner", async () => {
+  const clock = { now: Date.now() }, f = editSetup(clock); f.env.OWNER_EMAILS = 'boss@example.invalid';
+  await f.add('u1', 'Ryan', { wins: 9, games: 9 }); await f.add('u2', 'Jams', { wins: 1, games: 1 });
+  assert.equal((await f.post('boss', '/api/admin/board/order', { section: 'wins', season: 1, uids: ['u2'] })).status, 200);
+  clock.now += 30 * DAY + 1;
+  const res = (await f.season()).data.result;
+  assert.equal(res.winners.wins.name, 'Jams'); assert.equal(res.winners.boss, undefined);
+  assert.equal((await f.season('u2')).data.awards[0].title, 'Sky Champion');
 });
