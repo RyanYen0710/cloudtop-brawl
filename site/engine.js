@@ -27,7 +27,7 @@ class Fighter {
     this.anim = 0; this.land = 0; this.roll = 0; this.rollDir = 1; this.lastHit = -1; this.lastHitT = 0;
     this.dropT = 0; this.ff = false; this.armor = false; this.charge = 0;
     this.ledge = null; this.ledgeCD = 0; this.ledgeGrabs = 0; this.burn = 0;
-    this.zap = 0; this.slow = 0; this.hist = [];
+    this.zap = 0; this.slow = 0; this.hist = []; this.bubble = 0; this.bubbleBy = -1;
     this.avalanche = null; this.carriedBy = null;
   }
 }
@@ -92,7 +92,15 @@ function stepFighter(f, inp, g) {
   if (f.ground && (f.ground.dx || f.ground.dy)) { f.x += f.ground.dx; f.y += f.ground.dy; }
   const wasGround = !!f.ground;
   let grav = ph.grav * (g.gravMul || 1), fallCap = ph.maxFall * (g.gravMul < 1 ? 0.75 : 1), controlled = true;
-  if (f.frozen > 0) {
+  if (f.bubble > 0) {
+    /* trapped in Lumi's bubble: floats up, can't act, then it pops with a small hit */
+    f.bubble--; f.vx *= 0.85; f.vy = -1.2; grav = 0; controlled = false; f.pose = 'hurt'; f.pt = 0.6;
+    if (f.bubble === 0) {
+      const by = g.fighters.find(o => o.slot === f.bubbleBy && o !== f);
+      emit(g, 'bubblepop', f.x, f.y - f.H / 2);
+      if (by) applyHit(by, f, { dmg: 5, b: 6, g: 0.55, angle: 80 }, Math.sign(f.x - by.x) || 1, g, true);
+    }
+  } else if (f.frozen > 0) {
     f.frozen--; f.vx *= 0.92; controlled = false; f.pose = 'frozen';
     if (f.frozen === 0) emit(g, 'shatter', f.x, f.y - f.H / 2);
   } else if (f.zap > 0) {
@@ -309,7 +317,8 @@ function runAct(f, inp, g, dirX) {
         a.noGrav = false; f.vx = f.face * m.vx; if (!f.ground) f.vy = Math.min(f.vy, 1);
         f.hot = true; f.pose = 'dash'; f.pt = 1;
         if (m.finalB && a.t === S + m.dur - 1) { a.hit.clear(); hitCheck(f, g, Object.assign({}, m, { b: m.finalB, g: m.g * 2.5, rehit: 0 }), a, 1); }
-        else hitCheck(f, g, m, a, 1);
+        else if (!(m.fling && a.hit.size)) hitCheck(f, g, m, a, 1);   // Sky Snatch catches only the first enemy
+        if (m.fling && a.hit.size && !a.snatched) { a.snatched = 1; a.t = S + m.dur; emit(g, 'snatch', f.x + f.face * f.W * 0.5, f.y - f.H * 0.6, f.face, f.slot); }
         if (m.fx && a.t % 5 === 0) emit(g, 'trail', f.x - f.face * f.W * 0.3, f.y - f.H * 0.5, f.face, MOVEFX.indexOf(m.fx));
         if (a.t % 4 === 0) emit(g, 'dust', f.x - f.face * f.W * 0.4, f.y);
       } else {
@@ -476,8 +485,8 @@ function hitCheck(f, g, h, a, cm) {
     const last = a.hit.get(o);
     if (last !== undefined && (!h.rehit || a.t - last < h.rehit)) continue;
     a.hit.set(o, a.t);
-    const dir = h.sides ? (Math.sign(o.x - f.x) || f.face) : f.face;
-    const r = applyHit(f, o, { dmg: h.dmg * cm, b: h.b * (1 + (cm - 1) * 0.45), g: h.g, angle: h.angle, freeze: h.freeze, burn: h.burn, zap: h.zap, slow: h.slow }, dir, g, false);
+    const dir = h.sides ? (Math.sign(o.x - f.x) || f.face) : h.fling ? -f.face : f.face;   // Talon's Sky Snatch throws them behind him
+    const r = applyHit(f, o, { dmg: h.dmg * cm, b: h.b * (1 + (cm - 1) * 0.45), g: h.g, angle: h.angle, freeze: h.freeze, burn: h.burn, zap: h.zap, slow: h.slow, trip: h.trip }, dir, g, false);
     if (h.drain && (r === 'hit' || r === 'armor')) f.dmg = Math.max(0, f.dmg - h.drain);
   }
 }
@@ -531,6 +540,7 @@ function applyHit(att, tgt, h, dir, g, proj) {
     if (tgt.shieldHP <= 0) breakShield(tgt, g);
     return 'block';
   }
+  if (tgt.bubble > 0 && !h.bubble) { tgt.bubble = 0; emit(g, 'bubblepop', tgt.x, tgt.y - tgt.H / 2); }   // any other hit pops the bubble
   const aB = !att.boss && att.c && att.c.bonus, tB = !tgt.boss && tgt.c && tgt.c.bonus;
   const pow = att.ph.pm * (att.buffT > 0 ? att.buffPow : 1) * (att.boss ? att.boss.pow : 1) * (aB ? aB.pow : 1);
   const dmg = h.dmg * pow * tgt.ph.dt * (tgt.boss ? tgt.boss.dmgIn : 1) * (tB ? tB.dmgIn : 1);
@@ -560,7 +570,13 @@ function applyHit(att, tgt, h, dir, g, proj) {
     tgt.zap = Math.round(h.zap + tgt.dmg * 0.08); tgt.hitstun = 0; tgt.dazzle = !!h.flash;
     tgt.vx *= 0.35; tgt.vy = Math.min(tgt.vy * 0.35, 0);
     emit(g, h.flash ? 'dazzle' : 'shock', tgt.x, tgt.y - tgt.H / 2, 1);
+    if (h.trip) emit(g, 'ankles', tgt.x, tgt.y - tgt.H, 0, att.slot);   // Mythic Hsi's Ankle Breaker
   } else { tgt.zap = 0; tgt.dazzle = false; }
+  if (h.bubble) {   // Lumi's Bubble Trap: float up inside a bubble, then it pops
+    tgt.bubble = Math.round(h.bubble + tgt.dmg * 0.08); tgt.bubbleBy = att.slot; tgt.hitstun = 0;
+    tgt.vx = 0; tgt.vy = -1.2; tgt.ground = null; tgt.y -= 2;
+    emit(g, 'bubbled', tgt.x, tgt.y - tgt.H / 2);
+  }
   if (h.freeze) {
     tgt.frozen = Math.round(h.freeze + tgt.dmg * 0.15); tgt.hitstun = 0;
     tgt.vx *= 0.3; tgt.vy = Math.min(tgt.vy * 0.3, 0);
@@ -575,6 +591,7 @@ function applyHit(att, tgt, h, dir, g, proj) {
       tgt.hitstun = Math.max(2, Math.round(tgt.hitstun * k));
       if (tgt.frozen > 0) tgt.frozen = Math.max(4, Math.round(tgt.frozen * k));
       if (tgt.zap > 0) tgt.zap = Math.max(4, Math.round(tgt.zap * k));
+      if (tgt.bubble > 0) tgt.bubble = Math.max(10, Math.round(tgt.bubble * k));
     }
   }
   g.shake = Math.max(g.shake, Math.min(18, kb * 0.6));
