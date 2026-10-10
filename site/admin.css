@@ -43,9 +43,6 @@
 .ad-card .ad-actions{margin:14px 0 0;align-items:center}
 @media(max-width:600px){.ad-search-btns{width:100%}.ad-search-btns .btn{flex:1}.ad-player-head>.btn{width:100%}}
 #ad-pane>.ad-card:first-child{margin-top:8px}
-.ad-presets{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,250px),1fr));gap:14px}
-.ad-presets .ad-card{display:flex;flex-direction:column;align-items:flex-start;margin:8px 0}
-.ad-presets .ad-card p{flex:1;margin:0 0 16px}
 
 /* ----- Owner panel / Admin panel (players, roles, sections, characters) ----- */
 .ad-badge-owner{background:linear-gradient(90deg,#ffd35c,#ff8a4c);color:#1a1238;border-color:transparent}
