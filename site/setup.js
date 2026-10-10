@@ -44,7 +44,7 @@ function buildRoster() {
     if (c.ultimate && c.ultimate.colors) { b.style.setProperty('--t1', c.ultimate.colors[1]); b.style.setProperty('--t2', c.ultimate.colors[0]); }   // each fighter's own colors
     b.innerHTML = `<canvas class="tile-cv" aria-hidden="true"></canvas><span class="tile-name">${esc(c.name)}</span>`;
     b.addEventListener('mouseenter', () => { SETUP.hover = c.id; renderStatCard(); });
-    b.addEventListener('mouseleave', () => { SETUP.hover = null; renderStatCard(); });
+    b.addEventListener('mouseleave', () => setTimeout(() => { if (SETUP.hover === c.id && !SETUP.onCard) { SETUP.hover = null; renderStatCard(); } }, 250));   // a moment to move onto the card and pick a skin
     b.addEventListener('focus', () => { SETUP.hover = c.id; renderStatCard(); });
     b.addEventListener('blur', () => { SETUP.hover = null; renderStatCard(); });
     b.addEventListener('click', () => pickChar(c.id));
@@ -108,7 +108,10 @@ function renderStatCard() {
     <div class="stats">${bars}</div>
     <ul class="specials">${specials}</ul>
     <div class="matchups"><div><span class="mu-l good">Strong vs</span>${chip(c.strongVs)}</div><div><span class="mu-l bad">Weak vs</span>${chip(c.weakVs)}</div></div>`;
-  if (typeof skinRow === 'function' && cur && cur.char === id && canEditSlot(SETUP.edit)) skinRow(el, id);   // pick a skin for your fighter
+  // pick a skin for your fighter, or for any fighter you own that you point at
+  const mine = cur && canEditSlot(SETUP.edit) && (G.mode === 'guest' || cur.type === 'you');
+  if (typeof skinRow === 'function' && mine && isPickable(id, rosterPicks())) skinRow(el, id);
+  if (!el.dataset.hold) { el.dataset.hold = '1'; el.addEventListener('mouseenter', () => { SETUP.onCard = true; }); el.addEventListener('mouseleave', () => { SETUP.onCard = false; if (SETUP.hover) { SETUP.hover = null; renderStatCard(); } }); }
   requestAnimationFrame(() => drawPortrait(el.querySelector('.sc-cv'), id, { pose: 'idle', skin }));
 }
 
