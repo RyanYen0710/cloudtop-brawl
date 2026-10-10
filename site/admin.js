@@ -86,8 +86,7 @@ function renderAdmin() {
   wrap.appendChild(el('p', { class: 'muted', text: owner
     ? 'Every player, bug reports and roles. Only you can see this panel. Changes are saved and recorded in each account’s activity log.'
     : 'Every player and the bug reports. You can change players’ Boss Fight progress and fighters. Changes are saved and recorded in each account’s activity log.' }));
-  const tabs = [['players', 'Players'], ['reports', 'Bug reports']]
-    .concat(!owner && typeof isTesterAcct === 'function' && isTesterAcct() ? [['presets', 'Test presets']] : []);
+  const tabs = [['players', 'Players'], ['reports', 'Bug reports']];
   const bar = el('div', { class: 'ad-tabs', role: 'tablist', 'aria-label': owner ? 'Owner tools' : 'Admin tools' });
   tabs.forEach(([id, title]) => bar.appendChild(el('button', { type: 'button', id: 'ad-tab-' + id, role: 'tab', class: 'btn' + (ADMIN.tab === id ? ' sel' : ''),
     'aria-selected': String(ADMIN.tab === id), 'aria-controls': 'ad-pane', text: title, on: { click: () => {
@@ -99,40 +98,9 @@ function renderAdmin() {
     } } })));
   wrap.append(bar, el('p', { id: 'ad-msg', role: 'status', 'aria-live': 'polite', class: 'ad-message', text: ADMIN.message }));
   const pane = el('div', { id: 'ad-pane', role: 'tabpanel', 'aria-labelledby': 'ad-tab-' + ADMIN.tab }); wrap.appendChild(pane);
-  if (ADMIN.tab === 'presets') renderAdminPresets(pane);
-  else if (ADMIN.tab === 'reports') renderAdminReports(pane);
+  if (ADMIN.tab === 'reports') renderAdminReports(pane);
   else if (ADMIN.target) renderPlayer(pane);
   else renderPlayerList(pane);
-}
-
-/* ---------- test presets (Tester access) ---------- */
-function runTestPreset(id) {
-  if (!isTesterAcct()) { toast('Tester access is required for test presets.'); return; }
-  setTester(true);
-  if (id === 'training') { startTrainingSetup(); return; }
-  if (id === 'boss-first' || id === 'boss-last') {
-    BOSS.sel = id === 'boss-last' ? BOSS_LEVELS.length : 1;
-    BOSS.pick = 'random'; BOSS.result = null; showBoss(); return;
-  }
-  G.mode = 'solo'; G.training = false; SETUP.slots = defaultSlots('solo');
-  SETUP.slots[0].char = 'titan'; SETUP.slots[1].char = 'random';
-  SETUP.slots[1].lvl = id === 'cpu-10' ? 10 : 5;
-  SETUP.stage = -1; SETUP.stocks = 3; SETUP.time = 5; SETUP.edit = 0; SETUP.teams = false;
-  showSetup();
-}
-function renderAdminPresets(pane) {
-  pane.appendChild(el('p', { class: 'muted', text: 'Open a test setup, choose fighters using the game tiles, then start. Boss test results never save to account progress.' }));
-  const grid = el('div', { class: 'ad-presets' }); pane.appendChild(grid);
-  [['CPU level 5', 'Titan Ape vs a level 5 CPU on a random stage.', 'cpu-5'],
-    ['CPU level 10', 'Titan Ape vs a level 10 CPU on a random stage.', 'cpu-10'],
-    ['Training dummy', 'Open Training Lab with its standing dummy.', 'training'],
-    ['Boss Fight · first level', 'Open the first Boss Fight level in test mode.', 'boss-first'],
-    ['Boss Fight · final level', 'Open the final Boss Fight level in test mode.', 'boss-last']
-  ].forEach(([title, description, id]) => {
-    const card = el('article', { class: 'card ad-card ad-preset' });
-    card.append(el('h3', { text: title }), el('p', { class: 'muted', text: description }), adminButton('Open preset', () => runTestPreset(id), 'btn'));
-    grid.appendChild(card);
-  });
 }
 
 /* ---------- loading accounts ---------- */
