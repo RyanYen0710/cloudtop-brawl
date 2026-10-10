@@ -1,0 +1,33 @@
+/* ===== seasonal events: the menu look ===== */
+.ev-chip{display:inline-flex;align-items:center;gap:6px;margin:0 0 6px;padding:5px 12px;border-radius:12px;background:rgba(20,14,48,.78);border:2px solid var(--ev1,#ffb547);box-shadow:0 3px 0 rgba(0,0,0,.35);white-space:nowrap;font:700 12px var(--ui);color:#fff}
+.ev-chip b{font:400 14px var(--disp);color:var(--ev1,#ffb547);letter-spacing:.03em}
+.ev-chip .ev-ico{font-size:18px;line-height:1}
+.ev-fx{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:2}
+@media (max-width:600px){.ev-chip{padding:3px 9px;margin-bottom:4px}.ev-chip b{font-size:12px}}
+@media (max-height:460px){.ev-chip{display:none}}
+
+/* each event's colours */
+body.ev-thanksgiving{--ev1:#ffa23a;--ev2:#c2401a;--evbg:rgba(90,30,10,.55);--ev-mark:'🍁'}
+body.ev-halloween{--ev1:#ff8a1f;--ev2:#7a2ad8;--evbg:rgba(40,10,70,.6);--ev-mark:'🕸️'}
+body.ev-christmas{--ev1:#bfe8ff;--ev2:#e8364a;--evbg:rgba(10,30,70,.55);--ev-mark:'❄️'}
+body.ev-cny{--ev1:#ffcf3a;--ev2:#c4161c;--evbg:rgba(90,5,10,.55);--ev-mark:'🏮'}
+body.ev-spring{--ev1:#ff9cc4;--ev2:#7ad06a;--evbg:rgba(90,40,70,.4);--ev-mark:'🌸'}
+body.ev-summer{--ev1:#ffe14a;--ev2:#2ec4e8;--evbg:rgba(10,60,90,.4);--ev-mark:'☀️'}
+
+/* the menu: a tinted sky, glowing tile edges and a little mark in each tile's corner */
+body.ev-on #scr-main .hub{background:radial-gradient(ellipse at 50% 55%,rgba(14,11,32,.3),var(--evbg) 70%,rgba(14,11,32,.85))}
+body.ev-on #scr-main .hub-tile{box-shadow:inset 0 0 0 3px var(--ev1),inset 0 0 26px rgba(0,0,0,.25)}
+body.ev-on #scr-main .hub-tile::after{content:var(--ev-mark);position:absolute;top:8px;right:12%;font-size:clamp(16px,2.6vh,26px);opacity:.9;pointer-events:none;filter:drop-shadow(0 2px 0 rgba(0,0,0,.35))}
+body.ev-on .xp-bar,body.ev-on .season-chip{border-color:var(--ev1)}
+body.ev-on .xp-lv{background:radial-gradient(circle at 35% 30%,#fff,var(--ev1) 50%,var(--ev2))}
+body.ev-on .start{background:linear-gradient(90deg,var(--ev2),var(--ev1))}
+/* Christmas: icy, with snow on top of the tiles */
+body.ev-christmas #scr-main .hub-tile{box-shadow:inset 0 9px 0 rgba(255,255,255,.9),inset 0 0 0 3px #bfe8ff,inset 0 0 30px rgba(190,232,255,.35)}
+body.ev-christmas .hub-tile b{text-shadow:0 0 12px rgba(190,232,255,.8),0 3px 0 rgba(0,0,0,.25)}
+/* Halloween: a spooky glow on the titles */
+body.ev-halloween .hub-tile b{text-shadow:0 0 14px rgba(255,138,31,.75),0 3px 0 rgba(0,0,0,.3)}
+/* Chinese New Year: gold edges */
+body.ev-cny #scr-main .hub-tile{box-shadow:inset 0 0 0 3px #ffcf3a,inset 0 0 0 6px rgba(196,22,28,.7)}
+/* the stage picker marks event maps */
+.stage-chip.ev-stage{border-color:var(--ev1,#ffb547);box-shadow:0 0 0 2px rgba(255,181,71,.2)}
+@media (prefers-reduced-motion:reduce){.ev-fx{display:none}}
