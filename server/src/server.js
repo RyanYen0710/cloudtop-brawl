@@ -87,6 +87,8 @@ const LIMITS = {
   cpu: [[60000, 4], [86400000, 300]],   // Vs CPU results saved to the account (a match takes at least half a minute)
   opSelf: [[60000, 6], [86400000, 100]],   // OP changes to their own account (Settings > Special)
   claim: [[60000, 10], [86400000, 100]],   // claiming or changing a season title
+  queue: [[60000, 45], [86400000, 6000]],   // Ranked: "still searching" every few seconds
+  ranked: [[60000, 6], [86400000, 300]],    // Ranked: starting a CPU Ladder fight
   reportsIp: [[60000, 10], [86400000, 100]]
 };
 async function hit(env, key, kind) {
@@ -119,8 +121,24 @@ function isTester(u, env) {
   return !!(u && u.verified && u.email && list.indexOf(String(u.email).toLowerCase()) >= 0);
 }
 const ADMIN_STORE = '__admin';
+const QUEUE = '__queue';   // the Ranked matchmaking queue
 const BOARD = '__board';   // leaderboard stats, written only by this server (match results + time the game is open)
 const REPORT_STATUSES = ['open', 'investigating', 'resolved', 'closed'];
+/* ---------- Ranked (unlocks at level 5) ----------
+   Online Ranked: two players from the queue, 1v1, 3 lives, 5 minutes, random stage. CPU Ladder: 10 steps against
+   stronger and stronger CPUs. Both run here on the server. Win +75 XP / +25 RP, lose -20 XP / -15 RP (never below 0). */
+const RANKED_LEVEL = 5, LADDER_STEPS = 10;
+const RANKED_XP = { win: 75, loss: -20, draw: 10 }, RANKED_RP = { win: 25, loss: -15 };
+const RANK_TIERS = [['Bronze', 0], ['Silver', 100], ['Gold', 250], ['Diamond', 500], ['Legend', 900]];
+function rankTier(rp) {
+  let i = 0; while (i + 1 < RANK_TIERS.length && rp >= RANK_TIERS[i + 1][1]) i++;
+  return { name: RANK_TIERS[i][0], i, min: RANK_TIERS[i][1], next: i + 1 < RANK_TIERS.length ? RANK_TIERS[i + 1][1] : null };
+}
+function rankedInfo(p) {
+  const level = xpLevel(p.xp || 0).level, rp = p.rp || 0;
+  return { level, need: RANKED_LEVEL, unlocked: level >= RANKED_LEVEL, rp, tier: rankTier(rp), tiers: RANK_TIERS, wins: p.rw || 0, losses: p.rl || 0,
+    ladder: Math.min(LADDER_STEPS, Math.max(1, p.ladder || 1)), steps: LADDER_STEPS, clears: p.clears || 0 };
+}
 const newestKey = () => String(9999999999999 - Date.now()).padStart(13, '0') + '-' + crypto.randomUUID();
 const plain = (v, max) => typeof v === 'string' ? v.trim().slice(0, max) : '';
 async function apiBody(req) {
@@ -389,6 +407,35 @@ export class Accounts {
       await st.put('rl:' + d.kind, rec);
       return json({ ok });
     }
+    /* the Ranked queue instance: pairs two waiting players into a private match room */
+    if (op === 'mm-join') return st.transaction(async tx => {
+      const now = Date.now(), mine = await tx.get('m:' + d.uid);
+      if (mine && now - mine.at < 30000 && await tx.get('r:' + mine.room)) return json({ match: mine });
+      let other = null, me = null, waiting = 0;
+      for (const [k, q] of await tx.list({ prefix: 'q:', limit: 500 })) {
+        if (now - q.seen > 8000) { await tx.delete(k); continue; }   // stopped searching (closed the game)
+        if (q.uid === d.uid) me = q; else { waiting++; if (!other) other = q; }
+      }
+      if (other) {
+        const room = (crypto.randomUUID() + crypto.randomUUID()).replace(/[^a-z0-9]/g, '').slice(0, 16);
+        const m = { room, opp: other.name || 'Player', at: now };
+        await tx.put('r:' + room, { uids: [other.uid, d.uid], at: now });
+        await tx.put('m:' + other.uid, { room, opp: d.name || 'Player', at: now });
+        await tx.put('m:' + d.uid, m);
+        await tx.delete('q:' + other.uid); await tx.delete('q:' + d.uid);
+        return json({ match: m });
+      }
+      const since = me ? me.since : now;
+      await tx.put('q:' + d.uid, { uid: d.uid, name: d.name || 'Player', since, seen: now });
+      return json({ waiting: true, since });
+    });
+    if (op === 'mm-leave') { await st.delete('q:' + d.uid); return json({ ok: true }); }
+    if (op === 'mm-room') return json((await st.get('r:' + d.room)) || {});
+    if (op === 'mm-done') {
+      const r = await st.get('r:' + d.room);
+      if (r) { for (const id of r.uids) { const m = await st.get('m:' + id); if (m && m.room === d.room) await st.delete('m:' + id); } await st.delete('r:' + d.room); }
+      return json({ ok: true });
+    }
     return st.transaction(async tx => {
     const stored = await tx.get('profile');
     const p = stored || { name: '', beaten: 0, unlocked: [], wins: 0, created: Date.now() };
@@ -481,6 +528,16 @@ export class Accounts {
       if (!(d.owner ? OWNER_NAME_RE : NAME_RE).test(String(d.name || ''))) return json({ error: 'name' }, 400);
       p.name = d.name; p.revision = (p.revision || 0) + 1; await tx.put('profile', p); return json(p);
     }
+    /* a Ranked result: rank points (never below 0), wins/losses, and the CPU Ladder step */
+    if (op === 'ranked-add') {
+      if (!stored) return json({ error: 'not-found' }, 404);
+      const before = p.rp || 0, step = Math.min(LADDER_STEPS, Math.max(1, p.ladder || 1));
+      if (d.win === true) { p.rp = before + RANKED_RP.win; p.rw = (p.rw || 0) + 1; }
+      else if (d.win === false) { p.rp = Math.max(0, before + RANKED_RP.loss); p.rl = (p.rl || 0) + 1; }
+      if (d.ladder && d.win === true) { if (step >= LADDER_STEPS) p.clears = (p.clears || 0) + 1; p.ladder = Math.min(LADDER_STEPS, step + 1); }
+      await tx.put('profile', p);
+      return json({ rp: p.rp || 0, drp: (p.rp || 0) - before, tier: rankTier(p.rp || 0), ladder: p.ladder || 1, step, clears: p.clears || 0 });
+    }
     if (op === 'beat') {
       const lv = d.level | 0;
       if (lv >= 1 && lv <= BOSS_LEVELS.length) {
@@ -522,10 +579,12 @@ export class Room {
   async fetch(req) {
     const url = new URL(req.url);
     this.code = (url.pathname.split('/').pop() || '').toUpperCase();
-    this.boss = req.headers.get('x-cb-mode') === 'boss';
+    this.mode = req.headers.get('x-cb-mode') || '';   // '' (a lobby), 'boss', 'ranked' or 'ladder'
+    this.boss = this.mode === 'boss';
     const id = String(url.searchParams.get('id') || '').replace(/[^a-z0-9]/gi, '').slice(0, 16);
     if (!id) return new Response('Missing player id', { status: 400 });
-    if (this.clients.size >= (this.boss ? 1 : 12) && !this.clients.has(id)) return new Response('Room full', { status: 429 });
+    const cap = this.boss || this.mode === 'ladder' ? 1 : this.mode === 'ranked' ? 2 : 12;
+    if (this.clients.size >= cap && !this.clients.has(id)) return new Response('Room full', { status: 429 });
     const pair = new WebSocketPair();
     const client = pair[0], ws = pair[1];
     ws.accept();
@@ -560,12 +619,15 @@ export class Room {
     if (m.ping) { this.send(c, { pong: m.ping }); return; }
     if (typeof m.auth === 'string') { this.auth(c, m.auth); return; }
     if (m.cmd === 'boss') { this.startBoss(c, m); return; }
+    if ((m.cmd === 'ranked' && this.mode === 'ranked') || (m.cmd === 'ladder' && this.mode === 'ladder')) { c.want = { cmd: m.cmd, char: String(m.char || 'random').slice(0, 24) }; if (c.uid) this.rankedWant(c); return; }
+    if (m.cmd === 'forfeit') { this.forfeit(c); return; }
     if (m.cmd === 'pause') { this.pauseBoss(c, m); return; }
     if (m.d && typeof m.d === 'object' && !Array.isArray(m.d)) {
       if (m.full) c.pres = {};
       srvApply(c.pres, m.d);
       this.broadcast(m.full ? { from: c.id, d: c.pres, full: 1 } : { from: c.id, d: m.d }, c.id);
     }
+    if (this.mode) return;   // Boss Fight and Ranked rooms have no host
     const isHost = !!(c.pres.lb && c.pres.lb.c === this.code);
     if (m.cmd === 'start' && isHost && !this.boss) this.start(m.cfg || {}, m.gid | 0, c);
     if (m.cmd === 'stop' && isHost) this.stop(false);
@@ -580,6 +642,7 @@ export class Room {
       const p = await acct(this.env, u.uid, 'get', { name: toUsername(u.name), owner: c.owner, gift: giftsFor(u, this.env) });
       c.uid = u.uid; c.unlocked = Array.isArray(p.unlocked) ? p.unlocked : []; c.pname = p.name || '';
       this.send(c, { acct: { name: p.name, beaten: p.beaten, unlocked: c.unlocked, tester: c.tester } });
+      if (c.want) this.rankedWant(c);
     } catch (e) { c.uid = null; c.owner = false; c.tester = false; c.authUntil = 0; c.unlocked = []; this.send(c, { acct: null, err: String(e.message || 'auth') }); }
   }
 
@@ -621,6 +684,127 @@ export class Room {
     this.srv = { boss: { gid: this.gid, lvl: level, st: cfg.stage, sk: cfg.stocks, fm } };
     this.broadcast({ from: 'srv', d: { boss: this.srv.boss } });
     this.timer = setInterval(() => this.tick(), 8);
+  }
+
+  /* ---------- Ranked ---------- */
+  rankedErr(c, err) { this.send(c, { from: 'srv', d: { rkErr: err } }); }
+  async rankedWant(c) {
+    const m = c.want; c.want = null;
+    if (!m || !c.uid) return;
+    if (m.cmd === 'ladder') await this.startLadder(c, m); else await this.joinRanked(c, m);
+  }
+  pickFor(c, ch) { return ch === 'random' ? resolvePick('random') : this.allowedChar(ch, c); }
+  fighterMap() { return this.g.fighters.map(f => [f.slot, f.c.id, f.tid, f.name.slice(0, 16), f.color, f.tag.slice(0, 16), f.team, f.boss ? 1 : 0]); }
+  async startLadder(c, m) {
+    if (this.g) return;
+    if (!(await hit(this.env, 'uid:' + c.uid, 'ranked'))) { this.rankedErr(c, 'slow-down'); return; }
+    const p = await acct(this.env, c.uid, 'get', {});
+    if (xpLevel(p.xp || 0).level < RANKED_LEVEL) { this.rankedErr(c, 'level'); return; }
+    if (this.g || this.clients.get(c.id) !== c) return;
+    c.unlocked = p.unlocked || [];
+    const step = Math.min(LADDER_STEPS, Math.max(1, p.ladder || 1)), name = clip(p.name || 'Player');
+    // step 1 is a level 1 CPU ... step 10 a level 10 CPU; from step 8 on, a second CPU helps it
+    const slots = [{ type: 'peer', char: this.pickFor(c, m.char), lvl: 5, team: 0, ctrl: { type: 'remote', peer: c.id }, name, tag: name },
+      { type: 'cpu', char: resolvePick('random'), lvl: step, team: 1, ctrl: { type: 'cpu' }, name: 'CPU', tag: 'CPU' }];
+    if (step >= 8) slots.push({ type: 'cpu', char: resolvePick('random'), lvl: step - 2, team: 1, ctrl: { type: 'cpu' }, name: 'CPU', tag: 'CPU' });
+    while (slots.length < 4) slots.push({ type: 'off' });
+    const stage = Math.floor(Math.random() * STAGES.length);
+    this.gid = (this.gid | 0) + 1;
+    this.g = makeGame({ stage, stocks: 3, time: 5, teams: true, slots });
+    this.ended = false; this.lastSent = -9; this.last = Date.now();
+    const mine = this.g.fighters.find(f => f.ctrl.type === 'remote' && f.ctrl.peer === c.id);
+    this.bossRun = { kind: 'ladder', uid: c.uid, peer: c.id, level: step, gid: this.gid, slot: mine ? mine.slot : 0, name };
+    this.srv = { ladder: { gid: this.gid, step, st: stage, sk: 3, fm: this.fighterMap(), sl: { [c.id]: mine ? mine.slot : 0 } } };
+    this.broadcast({ from: 'srv', d: { ladder: this.srv.ladder } });
+    this.timer = setInterval(() => this.tick(), 8);
+  }
+  async finishLadder(g, run, gaveUp) {
+    const win = !gaveUp && g.winTid === 0, me = computeResults(g).find(r => r.slot === run.slot) || { kos: 0, falls: 0 };
+    let ladderRes;
+    try {
+      acct(this.env, BOARD, 'stat-add', { uid: run.uid, name: run.name,
+        add: { games: 1, wins: win ? 1 : 0, losses: win ? 0 : 1, kos: me.kos | 0, deaths: me.falls | 0 } }).catch(() => {});
+      const r = await acct(this.env, run.uid, 'ranked-add', { win, ladder: true });
+      const x = await acct(this.env, run.uid, 'xp-add', { amount: win ? RANKED_XP.win : RANKED_XP.loss, why: 'Ranked CPU Ladder step ' + run.level + (win ? ' win' : '') });
+      ladderRes = { gid: run.gid, win, step: run.level, next: r.ladder, rp: r.rp, drp: r.drp, tier: r.tier.name, xp: x.amt | 0 };
+    } catch (e) { ladderRes = { gid: run.gid, win, step: run.level, error: 1 }; }
+    this.srv.ladderRes = ladderRes;
+    this.broadcast({ from: 'srv', d: { ladderRes } });
+  }
+  async joinRanked(c, m) {
+    if (this.g || this.rkDone) return;
+    const room = this.code.toLowerCase();
+    if (!this.rk) {
+      const r = await acct(this.env, QUEUE, 'mm-room', { room });
+      if (!this.rk) {
+        if (!Array.isArray(r.uids)) { this.rankedErr(c, 'no-match'); return; }
+        this.rk = { uids: r.uids, ready: new Map() };
+        this.rkTimer = setTimeout(() => this.cancelRanked(), 25000);   // the other player never showed up
+      }
+    }
+    if (this.rk.uids.indexOf(c.uid) < 0) { this.rankedErr(c, 'not-yours'); return; }
+    const p = await acct(this.env, c.uid, 'get', {});
+    if (xpLevel(p.xp || 0).level < RANKED_LEVEL) { this.rankedErr(c, 'level'); return; }
+    if (this.g || this.rkDone || this.clients.get(c.id) !== c) return;
+    c.unlocked = p.unlocked || [];
+    this.rk.ready.set(c.uid, { c, ch: this.pickFor(c, m.char), name: clip(p.name || 'Player') });
+    if (this.rk.ready.size >= 2) this.startRanked();
+  }
+  startRanked() {
+    clearTimeout(this.rkTimer);
+    const pl = [...this.rk.ready.values()].slice(0, 2);
+    const mk = (x, team) => ({ type: 'peer', char: x.ch, lvl: 5, team, ctrl: { type: 'remote', peer: x.c.id }, name: x.name, tag: x.name });
+    const stage = Math.floor(Math.random() * STAGES.length);
+    this.gid = (this.gid | 0) + 1;
+    this.g = makeGame({ stage, stocks: 3, time: 5, teams: false, slots: [mk(pl[0], 0), mk(pl[1], 1), { type: 'off' }, { type: 'off' }] });
+    this.ended = false; this.lastSent = -9; this.last = Date.now();
+    const sl = {};
+    this.rkRun = { gid: this.gid, players: pl.map(x => {
+      const f = this.g.fighters.find(y => y.ctrl.type === 'remote' && y.ctrl.peer === x.c.id);
+      sl[x.c.id] = f.slot;
+      return { uid: x.c.uid, peer: x.c.id, slot: f.slot, tid: f.tid, name: x.name, gone: 0 };
+    }) };
+    this.srv = { rk: { gid: this.gid, st: stage, sk: 3, fm: this.fighterMap(), sl } };
+    this.broadcast({ from: 'srv', d: { rk: this.srv.rk } });
+    this.timer = setInterval(() => this.tick(), 8);
+  }
+  cancelRanked() {
+    if (this.g || this.rkDone) return;
+    this.rkDone = true;
+    this.broadcast({ from: 'srv', d: { rkCancel: 1 } });
+    acct(this.env, QUEUE, 'mm-done', { room: this.code.toLowerCase() }).catch(() => {});
+  }
+  /* leaving early (or Give up) is a loss */
+  forfeit(c) {
+    const g = this.g; if (!g || this.ended) return;
+    if (this.rkRun && this.rkRun.players.some(x => x.peer === c.id)) this.finishRanked(g, c.id);
+    else if (this.bossRun && this.bossRun.kind === 'ladder' && this.bossRun.peer === c.id) {
+      this.ended = true; clearInterval(this.timer); this.timer = null;
+      const run = this.bossRun; this.bossRun = null; this.g = null;
+      this.finishLadder(g, run, true);
+    }
+  }
+  async finishRanked(g, leaver) {
+    this.ended = true; clearInterval(this.timer); this.timer = null;
+    const run = this.rkRun; this.rkRun = null; this.g = null; this.rkDone = true;
+    const results = computeResults(g);
+    const winTid = leaver ? (run.players.find(x => x.peer !== leaver) || {}).tid : g.winTid;
+    const p = {};
+    await Promise.all(run.players.map(async pl => {
+      const r = results.find(x => x.slot === pl.slot) || { kos: 0, falls: 0 };
+      const win = winTid == null ? null : pl.tid === winTid;   // null: a draw
+      acct(this.env, BOARD, 'stat-add', { uid: pl.uid, name: pl.name,
+        add: { games: 1, wins: win ? 1 : 0, losses: win === false ? 1 : 0, kos: r.kos | 0, deaths: r.falls | 0 } }).catch(() => {});
+      try {
+        const rr = await acct(this.env, pl.uid, 'ranked-add', { win });
+        const x = await acct(this.env, pl.uid, 'xp-add', { amount: win === null ? RANKED_XP.draw : win ? RANKED_XP.win : RANKED_XP.loss, why: 'Ranked ' + (win === null ? 'draw' : win ? 'win' : 'loss') });
+        p[pl.peer] = { win, rp: rr.rp, drp: rr.drp, tier: rr.tier.name, xp: x.amt | 0, left: pl.peer === leaver ? 1 : 0 };
+      } catch (e) { p[pl.peer] = { win, error: 1 }; }
+    }));
+    const rkRes = { gid: run.gid, p, left: leaver ? 1 : 0 };
+    this.srv.rkRes = rkRes;
+    this.broadcast({ from: 'srv', d: { rkRes } });
+    acct(this.env, QUEUE, 'mm-done', { room: this.code.toLowerCase() }).catch(() => {});
   }
 
   pauseBoss(c, m) {
@@ -668,7 +852,7 @@ export class Room {
 
   stop(silent) {
     if (this.timer) { clearInterval(this.timer); this.timer = null; }
-    this.bossRun = null; this.bossPaused = false;
+    this.bossRun = null; this.bossPaused = false; this.rkRun = null;
     this.g = null;
     if (!silent || Object.keys(this.srv).length) { this.srv = {}; this.broadcast({ from: 'srv', d: { gs: null, res: null } }); }
   }
@@ -707,11 +891,22 @@ export class Room {
       this.srv.gs = gs;
       this.broadcast({ from: 'srv', d: { gs } });
     }
+    if (this.rkRun && !this.ended) {
+      // Online Ranked: someone gone for more than 8 seconds loses
+      for (const pl of this.rkRun.players) {
+        if (this.clients.has(pl.peer)) pl.gone = 0;
+        else if (!pl.gone) pl.gone = now;
+        else if (now - pl.gone > 8000) { this.finishRanked(g, pl.peer); return; }
+      }
+      if (g.over && g.overT >= 110) this.finishRanked(g, null);
+      return;
+    }
     if (g.over && g.overT >= 110 && !this.ended && this.bossRun) {
       this.ended = true;
       clearInterval(this.timer); this.timer = null;
       const run = this.bossRun, win = g.winTid === 0;
       this.bossRun = null;
+      if (run.kind === 'ladder') { this.g = null; this.finishLadder(g, run, false); return; }
       if (run.test) {   // Tester mode: tell the player who won, but don't touch their account
         const bossRes = { gid: run.gid, win, level: run.level, test: 1 };
         this.srv.bossRes = bossRes;
@@ -792,7 +987,7 @@ export default {
       }
       let u;
       try { u = await verifyIdToken(tok, env); } catch (e) { return json({ error: String(e.message || 'auth') }, 401, cors); }
-      if (!(await hit(env, 'uid:' + u.uid, 'api'))) return json({ error: 'slow-down' }, 429, cors);
+      if (!(await hit(env, 'uid:' + u.uid, url.pathname === '/api/ranked/queue' ? 'queue' : 'api'))) return json({ error: 'slow-down' }, 429, cors);
       if (url.pathname === '/api/me' && req.method === 'GET') {
         const p = await acct(env, u.uid, 'get', { name: toUsername(u.name), owner: isOwner(u, env), gift: giftsFor(u, env) });
         if (p && p.name) await acct(env, NAMES, 'claim', { name: p.name, uid: u.uid });   // reserve the name this player already uses
@@ -825,6 +1020,14 @@ export default {
         await acct(env, BOARD, 'stat-add', { uid: u.uid, add: { cpuGames: 1, cpuWins: d.win ? 1 : 0, cpuKos: d.kos, cpuDeaths: d.falls } });
         return json({ ok: true, xp: x && x.xp != null ? x.xp : undefined }, 200, cors);
       }
+      /* Ranked (unlocks at level 5): your rank, and the Online Ranked queue */
+      if (url.pathname === '/api/ranked' && req.method === 'GET') return json(rankedInfo(await acct(env, u.uid, 'get', {})), 200, cors);
+      if (url.pathname === '/api/ranked/queue' && req.method === 'POST') {
+        const p = await acct(env, u.uid, 'get', {});
+        if (xpLevel(p.xp || 0).level < RANKED_LEVEL) return json({ error: 'level' }, 403, cors);
+        return json(await acct(env, QUEUE, 'mm-join', { uid: u.uid, name: clip(p.name || 'Player') }), 200, cors);
+      }
+      if (url.pathname === '/api/ranked/leave' && req.method === 'POST') return json(await acct(env, QUEUE, 'mm-leave', { uid: u.uid }), 200, cors);
       /* your XP and the history behind it (the Sky Road) */
       if (url.pathname === '/api/xp' && req.method === 'GET') return json(await acct(env, u.uid, 'xp-get', { limit: 100 }), 200, cors);
       /* claim a season title you won. The Overall #1 writes their own title (letters, numbers, spaces, up to 20). */
@@ -996,14 +1199,16 @@ export default {
 
     const room = url.pathname.match(/^\/room\/([A-Za-z0-9]{4})$/);
     const boss = url.pathname.match(/^\/boss\/([a-z0-9]{8,24})$/);
-    if (!room && !boss) return new Response('Cloudtop Brawl game server is running.', { headers: { 'content-type': 'text/plain; charset=utf-8', 'access-control-allow-origin': '*' } });
+    const ranked = url.pathname.match(/^\/ranked\/([a-z0-9]{16})$/), ladder = url.pathname.match(/^\/ladder\/([a-z0-9]{8,24})$/);
+    if (!room && !boss && !ranked && !ladder) return new Response('Cloudtop Brawl game server is running.', { headers: { 'content-type': 'text/plain; charset=utf-8', 'access-control-allow-origin': '*' } });
     if (req.headers.get('Upgrade') !== 'websocket') return new Response('This address is for game connections.', { status: 426 });
-    if (boss && !originOk) return new Response('Not allowed', { status: 403 });
+    if ((boss || ranked || ladder) && !originOk) return new Response('Not allowed', { status: 403 });
     if (!(await hit(env, 'ip:' + ip, 'ws'))) return new Response('Too many connections, wait a minute.', { status: 429 });
     const h = new Headers(req.headers);
     h.delete('x-cb-mode'); h.set('x-cb-ip', ip);
-    if (boss) h.set('x-cb-mode', 'boss');
-    const name = boss ? 'boss:' + boss[1] : room[1].toUpperCase();
+    const mode = boss ? 'boss' : ranked ? 'ranked' : ladder ? 'ladder' : '';
+    if (mode) h.set('x-cb-mode', mode);
+    const name = boss ? 'boss:' + boss[1] : ranked ? 'ranked:' + ranked[1] : ladder ? 'ladder:' + ladder[1] : room[1].toUpperCase();
     const stub = env.ROOMS.get(env.ROOMS.idFromName(name));
     return stub.fetch(new Request(req, { headers: h }));
   }

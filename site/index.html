@@ -27,6 +27,7 @@
 <link rel="stylesheet" href="admin.css?v=20261010-xp1">
 <link rel="stylesheet" href="leaderboard.css?v=20261009-season1">
 <link rel="stylesheet" href="xp.css?v=20261010-xp1">
+<link rel="stylesheet" href="ranked.css?v=20261010-rk1">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;500;600;700&family=Dela+Gothic+One&display=swap" rel="stylesheet">
@@ -541,6 +542,9 @@ body.tester-on #go-online .tt-off{display:block;font-weight:800;color:#ffd35c}
       </div>
       <button type="button" class="xp-bar" id="xp-bar" hidden data-tip="Your level. Tap for the Sky Road: rewards and your XP history."><span class="xp-lv"><small>LV</small><b>1</b></span><span class="xp-mid"><span class="xp-track"><i class="xp-fill"></i></span><span class="xp-txt"><span class="xp-num"></span><span class="xp-next"></span></span></span></button>
       <nav class="hub-grid" id="hub-home" aria-label="Main menu">
+        <button type="button" class="hub-tile ht-ranked" id="go-ranked" data-tip="Ranked: 1v1 against other players or climb the CPU Ladder. Win rank points and go from Bronze to Legend. Unlocks at level 5.">
+          <svg class="ht-ico" viewBox="0 0 64 64" aria-hidden="true"><path d="M32 4l22 8v16c0 15-9 26-22 32C19 54 10 43 10 28V12zm0 9l-6 12-13 2 9 9-2 13 12-6 12 6-2-13 9-9-13-2z"/></svg>
+          <span class="rk-tile-txt"><b>Ranked</b><span class="rk-sub">Online · CPU Ladder</span></span><span class="tt-off">Not in tester mode</span></button>
         <button type="button" class="hub-tile ht-solo" id="go-single" data-tip="Fight CPUs, practice in the Training Lab, or take on the bosses.">
           <svg class="ht-ico" viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="16" r="9"/><path d="M18 58l4-22-8-6 6-6 12 6 12-6 6 6-8 6 4 22h-8l-6-16-6 16z"/></svg>
           <b>Single Player<em class="tt-tag">Tester</em></b><span>Vs CPU · Training Lab · Boss Fight</span></button>
@@ -808,7 +812,8 @@ body.tester-on #go-online .tt-off{display:block;font-weight:800;color:#ffd35c}
 <script src="admin.js?v=20261010-xp1"></script>
 <script src="leaderboard.js?v=20261010-xp1"></script>
 <script src="season.js?v=20261009-season1"></script>
-<script src="xp.js?v=20261010-xp1"></script>
+<script src="xp.js?v=20261010-rk1"></script>
+<script src="ranked.js?v=20261010-rk1"></script>
 <script src="gameui.js?v=20261009-gameui2"></script>
 <script src="intro.js?v=20261009-text1"></script>
 <script src="menu.js?v=20261009-lb1"></script>
