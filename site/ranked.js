@@ -185,7 +185,7 @@ async function rankedConnect(kind, room, opp) {
     RELAY.mine = { nick: (ACCT.profile && ACCT.profile.name) || 'Player', ib: 0, ic: IN.counters.slice() };
     NET.room = relayRoom; NET.me = RELAY.id;
     await connectServer(room, kind);
-    SRV.ws.send(JSON.stringify({ cmd: kind, char: RANKED.char }));
+    SRV.ws.send(JSON.stringify({ cmd: kind, char: RANKED.char, skin: typeof mySkin === 'function' ? mySkin(RANKED.char) : '' }));
   } catch (e) { rankedEnd(); toast('Couldn’t reach the game server. Check your internet and try again.'); }
 }
 function rankedBegin(s) {
