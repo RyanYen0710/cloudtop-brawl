@@ -113,6 +113,7 @@ function isTester(u, env) {
   return !!(u && u.verified && u.email && list.indexOf(String(u.email).toLowerCase()) >= 0);
 }
 const ADMIN_STORE = '__admin';
+const BOARD = '__board';   // leaderboard stats, written only by this server when a real match ends
 const REPORT_STATUSES = ['open', 'investigating', 'resolved', 'closed'];
 const newestKey = () => String(9999999999999 - Date.now()).padStart(13, '0') + '-' + crypto.randomUUID();
 const plain = (v, max) => typeof v === 'string' ? v.trim().slice(0, max) : '';
@@ -141,6 +142,27 @@ function giftsFor(u, env) {
     .map(([, id]) => id.trim()).filter(id => id !== 'yen' && CHAR[id] && CHAR[id].locked);
 }
 const toUsername = n => { const v = String(n || '').trim().replace(/\s+/g, '_').replace(/[^A-Za-z0-9_]/g, '').slice(0, 16); return NAME_RE.test(v) ? v : ''; };
+
+/* score for the Overall section: wins count most, then KOs, Boss Fight level and hours played online */
+const overallScore = x => (x.wins | 0) * 10 + (x.kos | 0) * 2 + (x.bestLevel | 0) * 5 + Math.floor((x.onlineMs || 0) / 3600000);
+function leaderboard(stats, meUid) {
+  const pub = x => ({ name: x.name || 'Player', onlineMs: x.onlineMs || 0, games: x.games | 0, wins: x.wins | 0, losses: x.losses | 0,
+    kos: x.kos | 0, deaths: x.deaths | 0, bossWins: x.bossWins | 0, bestLevel: x.bestLevel | 0, score: overallScore(x), me: x.uid === meUid || undefined });
+  const sections = {
+    online: [x => x.onlineMs || 0], wins: [x => x.wins | 0], games: [x => x.games | 0],
+    boss: [x => x.bestLevel | 0, x => x.bossWins | 0], overall: [overallScore]
+  };
+  const out = { sections: {}, me: null, players: stats.length };
+  for (const k in sections) {
+    const keys = sections[k];
+    const list = stats.filter(x => keys[0](x) > 0).sort((a, b) => keys.reduce((r, f) => r || f(b) - f(a), 0) || String(a.name).localeCompare(String(b.name)));
+    out.sections[k] = list.slice(0, 50).map(pub);
+    if (meUid) { const i = list.findIndex(x => x.uid === meUid); if (out.me === null) out.me = {}; out.me[k] = i < 0 ? null : i + 1; }
+  }
+  const mine = meUid && stats.find(x => x.uid === meUid);
+  if (mine) out.me.stats = pub(mine);
+  return out;
+}
 
 export class Accounts {
   constructor(state) { this.state = state; }
@@ -172,6 +194,21 @@ export class Accounts {
       return json({ players: [...rows.values()] });
     }
     if (op === 'player-get') return json((await st.get('player:' + d.uid)) || {});
+    /* leaderboard stats (board instance). Only the game server adds to these, when an online match or Boss Fight ends. */
+    if (op === 'stat-add') {
+      const key = 'stat:' + d.uid, cur = (await st.get(key)) || { uid: d.uid, name: '', onlineMs: 0, games: 0, wins: 0, losses: 0, kos: 0, deaths: 0, bossGames: 0, bossWins: 0, bestLevel: 0 };
+      const a = d.add || {};
+      ['onlineMs', 'games', 'wins', 'losses', 'kos', 'deaths', 'bossGames', 'bossWins'].forEach(k => { const v = Number(a[k]) || 0; if (v > 0) cur[k] = (cur[k] || 0) + Math.min(v, k === 'onlineMs' ? 3600000 : 1000); });
+      if (Number.isInteger(d.level) && d.level > (cur.bestLevel || 0)) cur.bestLevel = Math.min(d.level, BOSS_LEVELS.length);
+      if (typeof d.name === 'string' && d.name) cur.name = d.name;
+      cur.updated = Date.now();
+      await st.put(key, cur);
+      return json({ ok: true });
+    }
+    if (op === 'stat-list') {
+      const rows = await st.list({ prefix: 'stat:', limit: 5000 });
+      return json({ stats: [...rows.values()] });
+    }
     if (op === 'report-delete') {
       const key = 'report:' + d.id;
       if (!(await st.get(key))) return json({ error: 'not-found' }, 404);
@@ -398,7 +435,8 @@ export class Room {
     this.g.orbNext = 2400;
     this.ended = false; this.lastSent = -9; this.last = Date.now();
     this.bossPaused = false;
-    this.bossRun = { uid: c.uid, peer: c.id, level, gid: this.gid, test };
+    const mine = this.g.fighters.find(f => f.ctrl.type === 'remote' && f.ctrl.peer === c.id);
+    this.bossRun = { uid: c.uid, peer: c.id, level, gid: this.gid, test, slot: mine ? mine.slot : 0, name: c.pname || p.name || '' };
     const fm = this.g.fighters.map(f => [f.slot, f.c.id, f.tid, f.name.slice(0, 16), f.color, f.tag.slice(0, 16), f.team, f.boss ? 1 : 0]);
     this.srv = { boss: { gid: this.gid, lvl: level, st: cfg.stage, sk: cfg.stocks, fm } };
     this.broadcast({ from: 'srv', d: { boss: this.srv.boss } });
@@ -438,6 +476,11 @@ export class Room {
     const gcfg = { stage: clamp(cfg.stage | 0, 0, STAGES.length - 1), stocks: clamp(cfg.stocks | 0, 1, 9), time: clamp(cfg.time | 0, 2, 15), teams: !!cfg.teams, slots };
     if (slots.filter(s => s.type !== 'off').length < 2) return;
     this.gid = gid; this.g = makeGame(gcfg); this.ended = false; this.lastSent = -9;
+    // who is playing which fighter (for the leaderboard): signed-in players only, counted once per account
+    this.humans = this.g.fighters.filter(f => f.ctrl.type === 'remote').map(f => {
+      const pc = this.clients.get(f.ctrl.peer);
+      return { slot: f.slot, peer: f.ctrl.peer, uid: pc && pc.uid, name: pc && pc.pname };
+    });
     this.srv = {};
     this.last = Date.now();
     this.timer = setInterval(() => this.tick(), 8);
@@ -496,6 +539,10 @@ export class Room {
         this.g = null;
         return;
       }
+      const me = computeResults(g).find(r => r.slot === run.slot) || { kos: 0, falls: 0 };
+      if (run.uid) acct(this.env, BOARD, 'stat-add', { uid: run.uid, name: run.name,
+        add: { games: 1, bossGames: 1, wins: win ? 1 : 0, losses: win ? 0 : 1, bossWins: win ? 1 : 0, kos: me.kos | 0, deaths: me.falls | 0 },
+        level: win ? run.level : 0 }).catch(() => {});
       (win ? acct(this.env, run.uid, 'beat', { level: run.level }) : acct(this.env, run.uid, 'get', {}))
         .then(p => {
           const bossRes = { gid: run.gid, win, level: run.level, beaten: p.beaten | 0, unlocked: p.unlocked || [] };
@@ -507,8 +554,18 @@ export class Room {
     }
     if (g.over && g.overT >= 110 && !this.ended) {
       this.ended = true;
-      const rows = computeResults(g).map(r => [r.slot, r.place, r.kos, r.falls, r.win ? 1 : 0]);
+      const results = computeResults(g);
+      const rows = results.map(r => [r.slot, r.place, r.kos, r.falls, r.win ? 1 : 0]);
       this.srv.res = { gid: this.gid, r: rows };
+      // leaderboard: every signed-in player in this match gets the game, its result and the time played
+      const ms = Math.round(g.frame * TICK), counted = new Set();
+      (this.humans || []).forEach(h => {
+        const pc = this.clients.get(h.peer), uid = h.uid || (pc && pc.uid), r = results.find(x => x.slot === h.slot);
+        if (!uid || !r || counted.has(uid)) return;
+        counted.add(uid);
+        acct(this.env, BOARD, 'stat-add', { uid, name: h.name || (pc && pc.pname) || '',
+          add: { onlineMs: ms, games: 1, wins: r.win ? 1 : 0, losses: !r.win && g.winTid !== null ? 1 : 0, kos: r.kos | 0, deaths: r.falls | 0 } }).catch(() => {});
+      });
       this.broadcast({ from: 'srv', d: { res: this.srv.res } });
       clearInterval(this.timer); this.timer = null;
     }
@@ -531,6 +588,11 @@ export default {
       if (!env.FIREBASE_PROJECT_ID || !env.ACCOUNTS) return json({ error: 'accounts-off' }, 503, cors);
       if (!(await hit(env, 'ip:' + ip, 'apiIp'))) return json({ error: 'slow-down' }, 429, cors);
       const tok = (req.headers.get('authorization') || '').replace(/^Bearer\s+/i, '');
+      /* the leaderboard is public (usernames and numbers only, never emails). Signed-in players also get their own row. */
+      if (url.pathname === '/api/leaderboard' && req.method === 'GET') {
+        let me = null; if (tok) { try { me = (await verifyIdToken(tok, env)).uid; } catch (e) { } }
+        return json(leaderboard((await acct(env, BOARD, 'stat-list', {})).stats || [], me), 200, cors);
+      }
       let u;
       try { u = await verifyIdToken(tok, env); } catch (e) { return json({ error: String(e.message || 'auth') }, 401, cors); }
       if (!(await hit(env, 'uid:' + u.uid, 'api'))) return json({ error: 'slow-down' }, 429, cors);
