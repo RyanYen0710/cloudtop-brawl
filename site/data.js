@@ -453,6 +453,21 @@ const BL = 1, BR = 2, BU = 4, BD = 8, BJ = 16, BA = 32, BS = 64, BM = 128, BH = 
 const BITS = [BL, BR, BU, BD, BJ, BA, BS, BM, BH, BZ];
 const POSES = ['idle', 'run', 'jump', 'fall', 'helpless', 'land', 'hurt', 'shield', 'guard', 'roll', 'dodge', 'punch', 'up', 'low', 'split', 'spin', 'back', 'stomp', 'charge', 'dash', 'slam', 'counter', 'cast', 'cast2', 'fly', 'vanish', 'frozen', 'dizzy', 'halo', 'power', 'ledge', 'climb'];
 const MOVEFX = ['fire', 'bolt', 'thunder', 'feathers', 'rope', 'scythe', 'arc', 'beat', 'fizz', 'knife', 'speaker', 'spring', 'palm', 'dribble', 'tripod', 'dunk'];
+/* ---------- XP and levels (the Sky Road) ----------
+   Level 1 -> 2 costs 100 XP, each level after that costs 100 more (200, 300, ...) until 2,000 a level from level 20 on.
+   The highest level is 300. The game server is the only one that gives XP; these helpers just do the math. */
+const XP_MAX_LEVEL = 300;
+const xpCost = lv => lv < 20 ? lv * 100 : 2000;   // XP needed to go from level lv to lv + 1
+const xpTotal = lv => { lv = Math.max(1, Math.min(XP_MAX_LEVEL, lv | 0)); return lv <= 20 ? 50 * lv * (lv - 1) : 19000 + (lv - 20) * 2000; };   // XP to reach a level
+const XP_CAP = xpTotal(XP_MAX_LEVEL);
+function xpLevel(xp) {
+  xp = Math.max(0, Math.min(XP_CAP, xp || 0));
+  let lv = xp >= 19000 ? Math.min(XP_MAX_LEVEL, 20 + Math.floor((xp - 19000) / 2000)) : Math.floor((1 + Math.sqrt(1 + xp / 12.5)) / 2);
+  while (lv < XP_MAX_LEVEL && xp >= xpTotal(lv + 1)) lv++;
+  while (lv > 1 && xp < xpTotal(lv)) lv--;
+  const cur = xp - xpTotal(lv), need = lv >= XP_MAX_LEVEL ? 0 : xpCost(lv);
+  return { xp, level: lv, cur, need, max: lv >= XP_MAX_LEVEL };
+}
 const MOVEKEYS = [...Object.keys(NORMALS), 'sp_neutral', 'sp_side', 'sp_up', 'sp_down'];
 const SHAPES = ['orb', 'star', 'laser', 'fist', 'mine', 'shard', 'spike', 'fire', 'bolt', 'strike', 'void', 'pillar', 'arrow', 'arrowbomb', 'javelin', 'hammer', 'tstrike', 'leafnado', 'feather', 'capture', 'shark', 'eel', 'bullet', 'dagger', 'soundwave', 'gear', 'potion', 'puddle', 'flask', 'flash', 'photo', 'cammine', 'ball', 'firewall', 'bubble'];
 
