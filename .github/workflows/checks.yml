@@ -39,6 +39,8 @@ jobs:
         run: node --test server/test/skins.cjs
       - name: Professor Sprocket checks (level 50 unlock, safe spring legs, Grapple Hand)
         run: node --test server/test/sprocket.cjs
+      - name: Shop checks (coins, Sky Road coin stops, buying fighters and skins)
+        run: node --test server/test/shop.cjs
       - name: No private email or keys in the code
         run: |
           if grep -rIn --exclude-dir=.git -E "@gmail\.com|CLOUDFLARE_API_TOKEN *=|-----BEGIN" . | grep -v "secrets.CLOUDFLARE_API_TOKEN"; then echo "Found something private"; exit 1; fi
