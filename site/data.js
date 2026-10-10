@@ -161,8 +161,8 @@ const ROSTER = [
     specials: {
       neutral: { name: 'Fireball', desc: 'Throw a roaring fireball that sets the target on fire.', kind: 'proj',
         dmg: 7, b: 3.5, g: 0.5, angle: 30, startup: 9, end: 14, speed: 11, life: 60, size: 20, shape: 'fire', color: '#ff7a1a', max: 2, burn: 180 },
-      side: { name: 'Blazing Rush', desc: 'Dash forward wrapped in flames, burning anyone you pass through.', kind: 'dash',
-        dmg: 8, b: 6, g: 0.85, angle: 32, startup: 7, dur: 20, vx: 12.5, end: 16, hx: 0.6, hy: 0.5, hw: 1.2, hh: 0.8, burn: 120, fx: 'fire' },
+      side: { name: 'Fire Wall', desc: 'Plant a wall of fire in front of you for 3 seconds. It burns anyone who walks through it and burns up enemy projectiles.', kind: 'proj',
+        dmg: 3, b: 4.5, g: 0.35, angle: 65, startup: 12, end: 18, speed: 0, life: 180, size: 30, shape: 'firewall', color: '#ff6a1a', max: 1, ground: true, pierce: true, wall: true, rehit: 24, offset: 95, burn: 120 },
       up: { name: 'Phoenix Rise', desc: 'Spiral upward in a pillar of fire that hits again and again.', kind: 'leap',
         vy: 18, vx: 3, dmg: 3, b: 3, g: 0.3, angle: 85, rehit: 5, startup: 5, active: 22, hx: 0, hy: 0.6, hw: 1.6, hh: 1.4, finalB: 8, pose: 'spin', fx: 'fire', burn: 90 },
       down: { name: 'Eruption', desc: 'Punch the ground to blast a column of fire up in front of you.', kind: 'proj',
@@ -175,7 +175,7 @@ const ROSTER = [
     look: { build: 'slim', body: '#1b2440', skin: '#d9b08c', accent: '#ffe14a', hair: '#fff38a', extra: ['storm'] },
     passive: 'Has the fastest projectile in the game and can call lightning down on enemies from the sky.',
     strongVs: ['rivet', 'titan'], weakVs: ['nova', 'nyx'],
-    ultimate: { style: 'storm', kind: 'aim', name: 'Wrath of the Storm', desc: 'Lightning strikes the circle at random. Keep moving and some bolts miss.', theme: 'storm', colors: ['#070a1c', '#ffe14a', '#7ad7ff'], hits: 8, dmg: 3, final: { dmg: 19, b: 13, g: 1.4, angle: 80 } },
+    ultimate: { style: 'chain', kind: 'all', name: 'Chain Lightning', desc: 'No aiming: a bolt leaps from Volt to every enemy in a chain, shocks them again and again, then one huge thunderclap.', theme: 'storm', colors: ['#070a1c', '#ffe14a', '#7ad7ff'], hits: 8, dmg: 2.2, final: { dmg: 19, b: 13, g: 1.4, angle: 80 } },
     specials: {
       neutral: { name: 'Thunderbolt', desc: 'Fire a crackling bolt that flies faster than any other projectile.', kind: 'proj',
         dmg: 5, b: 3, g: 0.35, angle: 20, startup: 6, end: 10, speed: 22, life: 34, size: 12, shape: 'bolt', color: '#ffe14a', max: 2, pierce: true },
@@ -212,7 +212,7 @@ const ROSTER = [
     look: { build: 'normal', body: '#4a5d2a', skin: '#c98e62', accent: '#b5412b', hair: '#7a3f1d', legs: '#5a3b22', extra: ['archer'] },
     passive: 'The best range in the game: charge arrows until they pierce, rain them from the sky, or plant a blast arrow.',
     strongVs: ['nyx', 'tseng'], weakVs: ['zephyr', 'nova'],
-    ultimate: { style: 'arrows', kind: 'aim', name: 'Thousand Arrow Volley', desc: 'A storm of arrows rains on the circle. Escape it and the arrows stop finding you.', theme: 'arrows', colors: ['#10180a', '#9bc45a', '#f2e3b3'], hits: 10, dmg: 2.2, final: { dmg: 18, b: 12.5, g: 1.35, angle: 50 } },
+    ultimate: { style: 'snare', kind: 'aim', name: "Hunter's Snare", desc: 'Aim the circle. Vines and a net trap whoever is inside so they can’t escape, then one giant glowing arrow pierces them.', theme: 'arrows', colors: ['#10180a', '#9bc45a', '#f2e3b3'], hits: 5, dmg: 3.2, final: { dmg: 18, b: 12.5, g: 1.35, angle: 50 } },
     specials: {
       neutral: { name: 'Power Shot', desc: 'Hold to draw the bow further. A full draw fires a glowing arrow that pierces.', kind: 'proj',
         dmg: 7, b: 3.2, g: 0.55, angle: 20, startup: 10, end: 12, speed: 16, life: 55, size: 14, shape: 'arrow', color: '#e8d9b0', max: 3, charge: 50, chargeMul: 1.4 },
@@ -254,8 +254,8 @@ const ROSTER = [
       neutral: { name: 'Leaf Tornado', desc: 'Send out a tornado of leaves that carries enemies up, then bursts.', kind: 'proj',
         dmg: 3, b: 3.4, g: 0.2, angle: 88, startup: 10, end: 14, speed: 5, life: 90, size: 36, shape: 'leafnado', color: '#6fd35a', max: 1, pierce: true, rehit: 9, tall: true, yoff: 18,
         burst: { dmg: 7, b: 8, g: 1.0, angle: 85, r: 95, fx: 'leafburst' } },
-      side: { name: 'Gale Dash', desc: 'Shoot forward on a gust of wind, leaving feathers behind.', kind: 'dash',
-        dmg: 8, b: 6, g: 0.9, angle: 40, startup: 6, dur: 18, vx: 14, end: 12, hx: 0.6, hy: 0.5, hw: 1.2, hh: 0.8, fx: 'feathers' },
+      side: { name: 'Sky Snatch', desc: 'Swoop forward, catch the first enemy in your talons and fling them behind you.', kind: 'dash',
+        dmg: 9, b: 7.5, g: 0.85, angle: 55, startup: 6, dur: 16, vx: 13.5, end: 14, hx: 0.6, hy: 0.5, hw: 1.2, hh: 0.8, fx: 'feathers', fling: true },
       up: { name: 'Soar', desc: 'Spread the wings and fly anywhere for 7 seconds.', kind: 'fly',
         dur: 420, speed: 7.5, startup: 3, fx: 'birdwings' },
       down: { name: 'Feather Fan', desc: 'Flick three razor feathers in a spread.', kind: 'proj',
@@ -288,7 +288,7 @@ const ROSTER = [
     look: { build: 'slim', body: '#2a2d34', skin: '#e8c19c', accent: '#e8354a', hair: '#151515', legs: '#3a3f4a', extra: ['agent'] },
     passive: 'Hold the special button to keep firing the Ghostor. He can shoot, throw daggers and knife people while hovering.',
     strongVs: ['rowan', 'nyx'], weakVs: ['nova', 'titan'],
-    ultimate: { style: 'barrage', kind: 'aim', name: 'Phantom Barrage', desc: 'Empties a glowing magazine that pushes the target back with every shot.', theme: 'tactical', colors: ['#0a0c12', '#e8354a', '#f2f4f8'], hits: 14, dmg: 1.8, final: { dmg: 17, b: 12.5, g: 1.35, angle: 40 } },
+    ultimate: { style: 'snipe', kind: 'aim', aim: 'scope', name: 'Phantom Sniper', desc: 'Look down a sniper scope (the rest of the screen goes dark). Three precise shots, each one pushing the target back.', theme: 'tactical', colors: ['#0a0c12', '#e8354a', '#f2f4f8'], hits: 3, dmg: 8.4, final: { dmg: 17, b: 12.5, g: 1.35, angle: 40 } },
     specials: {
       neutral: { name: 'Ghostor', desc: 'A silenced pistol that fires really fast. Hold the button to keep shooting (up to 8 shots).', kind: 'proj',
         dmg: 2.1, b: 1.6, g: 0.12, angle: 18, startup: 5, end: 10, speed: 26, life: 26, size: 8, shape: 'bullet', color: '#ffe9a8', max: 8, jitter: 1.2, auto: { every: 6, max: 8 } },
@@ -351,8 +351,8 @@ const ROSTER = [
           { dmg: 3, b: 2, g: 0.15, angle: 80, speed: 0, life: 200, size: 64, shape: 'puddle', color: '#9fe7ff', ground: true, pierce: true, rehit: 50, freeze: 22 },
           { dmg: 3, b: 2.5, g: 0.2, angle: 80, speed: 0, life: 200, size: 64, shape: 'puddle', color: '#7cff6b', ground: true, pierce: true, rehit: 36, slow: 90 }
         ] },
-      side: { name: 'Fizz Rocket', desc: 'Shake a soda flask and rocket forward on the fizz.', kind: 'dash',
-        dmg: 8, b: 6, g: 0.85, angle: 35, startup: 6, dur: 18, vx: 13.5, end: 14, hx: 0.6, hy: 0.5, hw: 1.2, hh: 0.8, fx: 'fizz' },
+      side: { name: 'Bubble Trap', desc: 'Blow a big fizzy bubble that floats forward. Whoever it touches is trapped inside and floats up for a second, then it pops.', kind: 'proj',
+        dmg: 3, b: 0, g: 0, angle: 90, bubble: 55, startup: 10, end: 16, speed: 4.5, life: 100, size: 36, shape: 'bubble', color: '#bff3ff', max: 1, wave: 0.9 },
       up: { name: 'Balloon Brew', desc: 'Drink a floaty potion and drift around on a balloon for 2 seconds.', kind: 'fly',
         dur: 125, speed: 4.6, startup: 4, fx: 'balloon' },
       down: { name: 'Explosive Flask', desc: 'Lob a bubbling flask that sticks where it lands and explodes.', kind: 'proj',
@@ -365,7 +365,7 @@ const ROSTER = [
     look: { build: 'normal', body: '#6b5638', skin: '#e5bf98', accent: '#ffd84a', hair: '#2a211b', legs: '#2f3340', extra: ['photo'] },
     passive: 'Boss-class. His flashes dazzle (stun) anyone they catch, Film Strip fires five photos, and two Photo Traps can be set at once.',
     strongVs: ['guo', 'zephyr'], weakVs: ['titan', 'hsi'],
-    ultimate: { style: 'photo', kind: 'aim', name: 'Final Exposure', desc: 'Blinding flashes, a storm of polaroids, then the shutter slams and leaves them dazed.', theme: 'photo', colors: ['#0c0b10', '#ffd84a', '#ffffff'], hits: 6, dmg: 3.2, final: { dmg: 21, b: 13.2, g: 1.42, angle: 55 } },
+    ultimate: { style: 'photo', kind: 'aim', aim: 'frame', name: 'Final Exposure', desc: 'Aim a camera viewfinder. Snap! Whoever is in the frame is frozen inside a giant polaroid while the flashes hit, then the photo bursts.', theme: 'photo', colors: ['#0c0b10', '#ffd84a', '#ffffff'], hits: 6, dmg: 3.2, final: { dmg: 21, b: 13.2, g: 1.42, angle: 55 } },
     specials: {
       neutral: { name: 'Flash Burst', desc: 'Pop the camera flash in front of you. Short range, but it dazzles whoever it catches.', kind: 'proj',
         dmg: 6, b: 4, g: 0.45, angle: 30, startup: 7, end: 17, speed: 14, life: 15, size: 34, shape: 'flash', color: '#fff6c8', max: 1, pierce: true, grow: 3.5, maxSize: 74, zap: 17, flash: true },
@@ -381,14 +381,14 @@ const ROSTER = [
     id: 'hsi', name: 'Mythic Hsi', title: 'Sky-walking point guard', legend: true, locked: true,
     stats: { power: 9, speed: 9, weight: 6, jump: 9, defense: 6, skill: 6 },
     look: { build: 'normal', body: '#5b2a86', skin: '#d9a87e', accent: '#ff8a1f', hair: '#1a1410', legs: '#5b2a86', extra: ['baller'] },
-    passive: 'Boss-class. Triple jump, two bouncing Jump Shots at once, an armored Crossover and a multi-hit Alley-Oop.',
+    passive: 'Boss-class. Triple jump, two bouncing Jump Shots at once, an Ankle Breaker crossover that trips people, and a multi-hit Alley-Oop.',
     strongVs: ['chuang', 'rowan'], weakVs: ['nova', 'kiro'],
     ultimate: { style: 'court', kind: 'close', name: 'Buzzer Beater', desc: 'Basketballs bounce the target around, then he slam-dunks them.', theme: 'court', colors: ['#1a0f06', '#ff8a1f', '#ffe2b8'], hits: 5, dmg: 3.4, final: { dmg: 21, b: 13.2, g: 1.42, angle: 70 } },
     specials: {
       neutral: { name: 'Jump Shot', desc: 'Shoot a basketball in an arc. It bounces off the floor and can hit again.', kind: 'proj',
         dmg: 8, b: 5.2, g: 0.75, angle: 45, startup: 8, end: 14, speed: 12, aim: 30, grav: 0.4, life: 120, size: 19, shape: 'ball', color: '#ff8a1f', max: 2, bounce: 3 },
-      side: { name: 'Crossover', desc: 'An unstoppable dribble-dash: small hits can’t stop him, and he plows through anyone in the way.', kind: 'dash',
-        dmg: 10, b: 7, g: 0.9, angle: 35, startup: 5, dur: 18, vx: 13.5, end: 11, hx: 0.6, hy: 0.5, hw: 1.3, hh: 0.85, armor: true, fx: 'dribble' },
+      side: { name: 'Ankle Breaker', desc: 'A lightning-quick crossover right past the enemy. Whoever he passes trips and is stunned for a moment, and he ends up behind them.', kind: 'dash',
+        dmg: 7, b: 2, g: 0.1, angle: 80, zap: 32, trip: true, startup: 5, dur: 16, vx: 15.5, end: 10, hx: 0.3, hy: 0.5, hw: 1.3, hh: 0.85, fx: 'dribble' },
       up: { name: 'Alley-Oop', desc: 'Sky high off one foot, swatting anyone above again and again, then a big finish.', kind: 'leap',
         vy: 22, vx: 3, dmg: 3, b: 3, g: 0.3, angle: 85, rehit: 5, startup: 4, active: 18, hx: 0.2, hy: 0.9, hw: 1.4, hh: 1.0, finalB: 8.5, fx: 'dunk' },
       down: { name: 'Posterize', desc: 'Slam down like a dunk. In the air it spikes anyone below; on the ground it sends out a shockwave.', kind: 'slam',
@@ -454,7 +454,7 @@ const BITS = [BL, BR, BU, BD, BJ, BA, BS, BM, BH, BZ];
 const POSES = ['idle', 'run', 'jump', 'fall', 'helpless', 'land', 'hurt', 'shield', 'guard', 'roll', 'dodge', 'punch', 'up', 'low', 'split', 'spin', 'back', 'stomp', 'charge', 'dash', 'slam', 'counter', 'cast', 'cast2', 'fly', 'vanish', 'frozen', 'dizzy', 'halo', 'power', 'ledge', 'climb'];
 const MOVEFX = ['fire', 'bolt', 'thunder', 'feathers', 'rope', 'scythe', 'arc', 'beat', 'fizz', 'knife', 'speaker', 'spring', 'palm', 'dribble', 'tripod', 'dunk'];
 const MOVEKEYS = [...Object.keys(NORMALS), 'sp_neutral', 'sp_side', 'sp_up', 'sp_down'];
-const SHAPES = ['orb', 'star', 'laser', 'fist', 'mine', 'shard', 'spike', 'fire', 'bolt', 'strike', 'void', 'pillar', 'arrow', 'arrowbomb', 'javelin', 'hammer', 'tstrike', 'leafnado', 'feather', 'capture', 'shark', 'eel', 'bullet', 'dagger', 'soundwave', 'gear', 'potion', 'puddle', 'flask', 'flash', 'photo', 'cammine', 'ball'];
+const SHAPES = ['orb', 'star', 'laser', 'fist', 'mine', 'shard', 'spike', 'fire', 'bolt', 'strike', 'void', 'pillar', 'arrow', 'arrowbomb', 'javelin', 'hammer', 'tstrike', 'leafnado', 'feather', 'capture', 'shark', 'eel', 'bullet', 'dagger', 'soundwave', 'gear', 'potion', 'puddle', 'flask', 'flash', 'photo', 'cammine', 'ball', 'firewall', 'bubble'];
 
 /* 'random' is a pick, not a fighter: it becomes a real fighter when the battle starts */
 /* fighters this player has unlocked (filled in after signing in) */

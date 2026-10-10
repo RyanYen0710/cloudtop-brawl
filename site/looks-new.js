@@ -552,6 +552,7 @@ const PROJ_NEW = {
 /* ---------- status effects ---------- */
 function drawStatusNew(g, f, t) {
   if (f.c && f.c.modes && typeof drawLegendOrbs === 'function') drawLegendOrbs(g, f, t);
+  if (f.bubble > 0 && typeof drawBubbleStatus === 'function') drawBubbleStatus(g, f, t);   // trapped in Lumi's bubble
   if (f.zap > 0 && f.dazzle && typeof drawDazzle === 'function') drawDazzle(g, f, t);
   else if (f.zap > 0 && !(t % 3 === 2)) {
     g.save(); g.globalCompositeOperation = 'lighter'; g.strokeStyle = '#fff6a0'; g.lineWidth = 2; g.lineJoin = 'miter';
@@ -579,6 +580,7 @@ function drawStatusNew(g, f, t) {
 function fxEventNew(type, x, y, a, b, col) {
   if (typeof fxLegend === 'function' && fxLegend(type, x, y, a, b)) return;
   if (typeof fxEventBoss2 === 'function' && fxEventBoss2(type, x, y, a, b)) return;
+  if (typeof fxEventRemake === 'function' && fxEventRemake(type, x, y, a, b)) return;   // ult-remake.js
   switch (type) {
     case 'summon': {
       const sh = SHAPES[a] || '';

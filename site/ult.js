@@ -8,6 +8,15 @@ const ULT_CUT = 90, ULT_FX = 130;
 /* aimed ultimates: after the splash the user vanishes and steers a crosshair (WASD / arrows).
    K fires (or it fires itself when time runs out). Only enemies inside the circle get hit. */
 const ULT_AIM = 300, ULT_LOCK = 15, ULT_R = 110, ULT_SPD = 6.5;
+/* some aimed ultimates have their own sight (ultimate.aim in data.js):
+   frame - Master Chuang's camera viewfinder (a rectangle); scope - Mr. Guo's sniper scope (a smaller circle) */
+const ULT_FRAME_W = 280, ULT_FRAME_H = 176, ULT_SCOPE_R = 92;
+function ultInAim(def, u, o, grow) {
+  grow = grow || 1;
+  const dx = Math.abs(o.x - u.ax), dy = Math.abs((o.y - o.H / 2) - u.ay);
+  if (def.aim === 'frame') return dx < ULT_FRAME_W / 2 * grow + o.W * 0.35 && dy < ULT_FRAME_H / 2 * grow + o.H * 0.3;
+  return Math.hypot(dx, dy) < (def.aim === 'scope' ? ULT_SCOPE_R : ULT_R) * grow + o.W * 0.35;
+}
 /* the finisher itself is quick: small hits, then the big blow at FX_FINAL, done at FX_END.
    The art was drawn for ULT_FX frames, so it plays sped up by ULT_ART to match. */
 const ULT_FX_FINAL = 60, ULT_FX_END = 72, ULT_ART = ULT_FX / ULT_FX_END;
@@ -30,6 +39,12 @@ const ULT_STYLES = {
   shatter: { angle: () => ultRnd(20, 35), finMul: 0.59 },
   phoenix: { hit: (o, i, u, g) => ultPush(o, g, (i % 2 ? -1 : 1) * 10, -4), angle: () => ultRnd(45, 60), after: { burn: 240 }, finMul: 0.5 },
   storm: { free: true, reach: 1.35, chance: 0.65, finMul: 1.24 },
+  /* Volt: lightning jumps from him to every enemy in a chain (hits everyone, so the launch is scaled up to match) */
+  chain: { hit: (o, i, u, g) => ultPush(o, g, (i % 2 ? -1 : 1) * 6, -5), angle: () => ultRnd(70, 85), finMul: 1.46 },
+  /* Rowan: trapped by vines and a net (can't escape), then one giant arrow sends them sideways */
+  snare: { angle: () => ultRnd(20, 32), dir: (o, u, f) => Math.sign(o.x - f.x) || f.face, finMul: 0.6 },
+  /* Mr. Guo: three sniper shots, each one knocks the target back */
+  snipe: { hit: (o, i, u, g, f) => ultPush(o, g, (Math.sign(o.x - f.x) || 1) * 18, -4), angle: () => ultRnd(20, 32), dir: (o, u, f) => Math.sign(o.x - f.x) || f.face, finMul: 0.34 },
   vortex: { tick: (o, k, u, g) => { if (k < ULT_FX_FINAL) { o.x += (u.ax - o.x) * 0.08; o.y += ((u.ay + o.H / 2) - o.y) * 0.08; } }, angle: () => ultRnd(45, 70), dir: (o, u) => Math.sign(o.x - u.ax) || (Math.random() < 0.5 ? -1 : 1), finMul: 0.98 },
   arrows: { free: true, reach: 1.3, chance: 0.75, angle: () => ultRnd(25, 40), finMul: 0.51 },
   hammer: { angle: () => ultRnd(80, 88), finMul: 1.5 },
@@ -288,8 +303,8 @@ function stepUlt(g, inputs) {
       u.aim--;
       if (inp.spp || inp.ap || inp.smp || inp.zp || u.aim <= 0) { u.ph = 'lock'; u.lock = ULT_LOCK; emit(g, 'ultlock', u.ax, u.ay, 0, f.slot); }
     } else if (--u.lock <= 0) {
-      u.targets = g.fighters.filter(o => o !== f && !o.out && o.dead <= 0 && !o.vanish && o.carriedBy == null && o.tid !== f.tid &&
-        Math.hypot(o.x - u.ax, (o.y - o.H / 2) - u.ay) < ULT_R + o.W * 0.35).map(o => o.slot);
+      const def = ultDef(f.c);
+      u.targets = g.fighters.filter(o => o !== f && !o.out && o.dead <= 0 && !o.vanish && o.carriedBy == null && o.tid !== f.tid && ultInAim(def, u, o)).map(o => o.slot);
       if (!u.targets.length) { emit(g, 'ultmiss', u.ax, u.ay, 0, f.slot); endUlt(g, f); return false; }
       u.ph = 'fx'; u.t = ULT_CUT; emit(g, 'ulthitok', u.ax, u.ay, u.targets.length, f.slot);
     }
@@ -300,7 +315,7 @@ function stepUlt(g, inputs) {
   const def = ultDef(f.c), st = ULT_STYLES[def.style] || ULT_STYLES.basic, k = u.t - ULT_CUT;
   const tg = u.targets.map(s => g.fighters.find(x => x.slot === s)).filter(o => o && !o.out && o.dead <= 0 && o.carriedBy == null);
   // free styles: the target can keep moving; hits only land while they're still inside the (slightly bigger) circle
-  const inside = o => !st.free || Math.hypot(o.x - u.ax, (o.y - o.H / 2) - u.ay) < ULT_R * (st.reach || 1.2) + o.W * 0.35;
+  const inside = o => !st.free || ultInAim(def, u, o, st.reach || 1.2);
   f.vanish = true; f.inv = Math.max(f.inv, 4);
   if (k === 1 && def.freeze) tg.forEach(o => { o.frozen = ULT_FX_FINAL + 4; emit(g, 'freeze', o.x, o.y - o.H / 2); });
   const hits = def.hits || 3;
@@ -406,7 +421,8 @@ function drawUltWorld(g, view, t) {
   const c = ultCtx(view); if (!c || c.k <= 0 || c.u.ph === 'aim' || c.u.ph === 'lock') return;
   const { f, tg, def, k } = c, col = def.colors, B = view.stage.blast;
   g.save(); g.globalCompositeOperation = 'lighter';
-  if (def.theme === 'dragon') {
+  if (typeof drawUltWorldRemake === 'function' && drawUltWorldRemake(g, view, c, t)) {   // the remade ultimates draw their own art (ult-remake.js)
+  } else if (def.theme === 'dragon') {
     const p = Math.min(1, k / 100), L = B.l + 200, R = B.r - 200;
     const hx = f.x < view.stage.cx ? L + (R - L) * p : R - (R - L) * p, dir = f.x < view.stage.cx ? 1 : -1;
     const midY = tg.length ? tg.reduce((a, o) => a + o.y - o.H / 2, 0) / tg.length : view.stage.spawnY + 150;
@@ -690,6 +706,7 @@ function drawThemeArt(g, def, vw, vh, t, k) {
 /* ---------- aimed ultimate: crosshair (world) + banner (screen) ---------- */
 function drawUltAim(g, view, t) {
   const u = view.ult; if (!u || (u.ph !== 'aim' && u.ph !== 'lock')) return;
+  if (typeof drawUltAimRemake === 'function' && drawUltAimRemake(g, view, t)) return;   // camera viewfinder / sniper scope (ult-remake.js)
   const f = view.fighters.find(x => x.slot === u.slot); if (!f) return;
   const col = ultDef(f.c).colors[1] || '#ffd35c', x = u.ax, y = u.ay, R = ULT_R;
   const lock = u.ph === 'lock', lk = lock ? 1 - (u.lock / ULT_LOCK) : 0;

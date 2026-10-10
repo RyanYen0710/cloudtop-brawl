@@ -68,6 +68,7 @@ function drawUltActor(g, view, c, t) {
   const D = (o) => uaDraw(g, f, Object.assign({ alpha: fade }, o), t);
   const trail = (pos, num, gap) => { for (let q = num; q >= 1; q--) { const p = pos(k - q * gap); if (p) D(Object.assign({}, p, { alpha: fade * (0.32 - q * 0.05) })); } };
 
+  if (typeof drawUltActorRemake === 'function' && drawUltActorRemake(g, c, t, D, fade, fl, T, n, k)) return;   // remade ultimates (ult-remake.js)
   switch (def.style) {
     /* Zephyr: dashes all over the map, appears next to the target for every cut, last cut from behind */
     case 'slash': {
