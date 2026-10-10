@@ -193,7 +193,7 @@ function onAcctMsg(m) {
     return;
   }
   if (m.acct && SRV.ws && SRV.ws.readyState === 1) {
-    try { SRV.ws.send(JSON.stringify({ cmd: 'boss', level: BOSS.pending.level, char: BOSS.pending.char, test: BOSS.pending.test ? 1 : undefined })); } catch (e) { }
+    try { SRV.ws.send(JSON.stringify({ cmd: 'boss', level: BOSS.pending.level, char: BOSS.pending.char, skin: typeof mySkin === 'function' ? mySkin(BOSS.pending.char) : '', test: BOSS.pending.test ? 1 : undefined })); } catch (e) { }
   }
 }
 function onBossSrv(d) {
