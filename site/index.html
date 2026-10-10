@@ -24,8 +24,8 @@
 <link rel="icon" href="icon-96.png" type="image/png" sizes="96x96">
 <link rel="icon" href="icon-192.png" type="image/png" sizes="192x192">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<link rel="stylesheet" href="admin.css?v=20261009-owner1">
-<link rel="stylesheet" href="leaderboard.css?v=20261009-lb1">
+<link rel="stylesheet" href="admin.css?v=20261009-sync1">
+<link rel="stylesheet" href="leaderboard.css?v=20261009-sync1">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;500;600;700&family=Dela+Gothic+One&display=swap" rel="stylesheet">
@@ -565,7 +565,7 @@ body.tester-on #go-online .tt-off{display:block;font-weight:800;color:#ffd35c}
       </nav>
       <div class="hub-foot">
         <span class="hub-tip" id="hub-tip"></span>
-        <span class="hub-side"><span id="main-count">17 fighters · 8 stages · CPU levels 1–10</span><button type="button" class="mini acct-btn" id="acct-btn" hidden>Sign in</button><button type="button" class="mini tester-btn" id="go-tester" title="Tester mode: every fighter and level, nothing saved. Press again to go back." aria-pressed="false" hidden>Tester</button><button type="button" class="mini admin-btn" id="go-admin" title="Change your own account (OP)" hidden>Admin panel</button><button type="button" class="mini owner-btn" id="go-owner" title="Owner only: players, bug reports and roles" hidden>Owner panel</button><button type="button" class="mini" id="go-bug-report">Report a bug</button><button type="button" class="mini" data-open-settings>Settings</button></span>
+        <span class="hub-side"><span id="main-count">17 fighters · 8 stages · CPU levels 1–10</span><button type="button" class="mini acct-btn" id="acct-btn" hidden>Sign in</button><button type="button" class="mini tester-btn" id="go-tester" title="Tester mode: every fighter and level, nothing saved. Press again to go back." aria-pressed="false" hidden>Tester</button><button type="button" class="mini admin-btn" id="go-admin" title="Players and bug reports (admins)" hidden>Admin panel</button><button type="button" class="mini owner-btn" id="go-owner" title="Owner only: players, bug reports and roles" hidden>Owner panel</button><button type="button" class="mini" id="go-bug-report">Report a bug</button><button type="button" class="mini" data-open-settings>Settings</button></span>
       </div>
     </div>
   </section>
@@ -669,7 +669,8 @@ body.tester-on #go-online .tt-off{display:block;font-weight:800;color:#ffd35c}
           <tr><td>Training Lab</td><td>Practice on a dummy that never runs out of lives. Your ultimate is always ready. Press <kbd>R</kbd> to reset the dummy.</td></tr>
           <tr><td>Online</td><td>Host a lobby and send friends the 4-letter code, or join theirs. You can add CPUs too.</td></tr>
           <tr><td>Boss Fight</td><td>30 levels in 3 chapters. Beat a whole chapter to unlock its boss as a fighter. Needs a signed-in account so your progress is saved.</td></tr>
-          <tr><td>Leaderboard</td><td>The top players for most time online, most wins, most games, highest Boss Fight level and overall (K/D, win/loss, Boss level and time online). Only online matches and Boss Fights count, because the game server checks those. Your Vs CPU games show in <b>Your stats</b> on your own device.</td></tr>
+          <tr><td>Leaderboard</td><td>The top players for most time online, most wins, most games, highest Boss Fight level and overall (K/D, win/loss, Boss level and time online). Time online counts while the game is open and you're signed in. Wins, games and K/D come from online matches and Boss Fights, because the game server checks those. Your Vs CPU games are saved to your account and show in <b>Your stats</b>, but never on the leaderboard.</td></tr>
+          <tr><td>Menus with the keyboard</td><td>Use the <kbd>arrow keys</kbd> to move between buttons, <kbd>Enter</kbd> to pick, and <kbd>Esc</kbd> to go back.</td></tr>
           <tr><td>Found a bug?</td><td>Press <b>Report a bug</b> at the bottom of the main menu. It goes straight to the game owner.</td></tr>
         </tbody></table></div>
         <div class="card"><div class="card-h">Touch &amp; gamepad</div><table class="keys"><tbody>
@@ -767,7 +768,7 @@ body.tester-on #go-online .tt-off{display:block;font-weight:800;color:#ffd35c}
 
 <!-- ?v= on every game file: bump it (e.g. to today's date) whenever a .js file changes, so players' browsers load the new version instead of an old saved copy -->
 <script src="data.js?v=20261008-boss1"></script>
-<script src="engine.js?v=20261008-titan1"></script>
+<script src="engine.js?v=20261009-kd1"></script>
 <script src="match.js?v=20261008-boss1"></script>
 <script src="fighters-draw.js?v=20261008-titan2"></script>
 <script src="anim.js?v=20261008b"></script>
@@ -795,10 +796,11 @@ body.tester-on #go-online .tt-off{display:block;font-weight:800;color:#ffd35c}
 <script src="account.js?v=20261009-owner1"></script>
 <script src="settings-ui.js?v=20261008g"></script>
 <script src="boss.js?v=20261009-owner1"></script>
-<script src="admin.js?v=20261009-owner1"></script>
-<script src="leaderboard.js?v=20261009-lb1"></script>
+<script src="admin.js?v=20261009-sync1"></script>
+<script src="leaderboard.js?v=20261009-sync1"></script>
 <script src="gameui.js?v=20261009-gameui2"></script>
 <script src="intro.js?v=20261009-text1"></script>
 <script src="menu.js?v=20261009-lb1"></script>
+<script src="keynav.js?v=20261009-sync1"></script>
 
 </html>
