@@ -242,10 +242,11 @@ test('time online counts while the game is open (the "still here" ping), up to 3
 });
 
 test('Vs CPU results save to the account but never rank on the leaderboard', async () => {
-  const f = editSetup();
+  const clock = { now: Date.now() }, f = editSetup(clock);
   for (const bad of [{ win: 'yes', kos: 1, falls: 0 }, { win: true, kos: 99, falls: 0 }, { win: true, kos: 1.5, falls: 0 }])
     assert.equal((await f.post('u5', '/api/cpu-result', bad)).status, 400);
   assert.equal((await f.post('u5', '/api/cpu-result', { win: true, kos: 3, falls: 1 })).status, 200);
+  clock.now += 46000;   // a real match takes longer than 45 seconds
   assert.equal((await f.post('u5', '/api/cpu-result', { win: false, kos: 1, falls: 3 })).status, 200);
   const r = (await f.get('u5')).data;
   assert.equal(r.me.stats.cpuGames, 2); assert.equal(r.me.stats.cpuWins, 1); assert.equal(r.me.stats.cpuKos, 4); assert.equal(r.me.stats.cpuDeaths, 4);

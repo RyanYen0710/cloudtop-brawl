@@ -414,9 +414,20 @@ export class Accounts {
     /* XP (the Sky Road): only the server adds it. You never drop below the start of your current level. */
     if (op === 'xp-add') {
       if (!stored) return json({ error: 'not-found' }, 404);
+      let add = d.amount | 0;
+      if (d.cpu) {
+        /* Vs CPU is reported by the browser: at most one result every 45 seconds (no real match is shorter),
+           and at most 600 XP a day from it. Losses always count. */
+        const now = Date.now(), day = new Date(now).toISOString().slice(0, 10);
+        if (now - (p.cpuAt || 0) < 45000) return json({ xp: p.xp || 0, amt: 0, tooSoon: true });
+        p.cpuAt = now;
+        if (!p.cpuDay || p.cpuDay.d !== day) p.cpuDay = { d: day, xp: 0 };
+        if (add > 0) { add = Math.min(add, Math.max(0, 600 - p.cpuDay.xp)); p.cpuDay.xp += add; }
+      }
       const before = p.xp || 0, floor = xpTotal(xpLevel(before).level);
-      p.xp = Math.max(floor, Math.min(XP_CAP, before + (d.amount | 0)));
+      p.xp = Math.max(floor, Math.min(XP_CAP, before + add));
       const amt = p.xp - before;
+      if (d.cpu && !amt) await tx.put('profile', p);
       if (amt) {
         await tx.put('profile', p);
         await tx.put('xplog:' + newestKey(), { at: Date.now(), amt, why: String(d.why || '').slice(0, 60), xp: p.xp });
@@ -807,10 +818,11 @@ export default {
             (d.lvl !== undefined && !(Number.isInteger(d.lvl) && d.lvl >= 1 && d.lvl <= 10)))
           return json({ error: 'invalid' }, 400, cors);
         if (!(await hit(env, 'uid:' + u.uid, 'cpu'))) return json({ error: 'slow-down' }, 429, cors);
-        await acct(env, BOARD, 'stat-add', { uid: u.uid, add: { cpuGames: 1, cpuWins: d.win ? 1 : 0, cpuKos: d.kos, cpuDeaths: d.falls } });
         // XP by CPU level L: a win gives 4 x L; a loss gives L, but losing to a level 8, 9 or 10 CPU costs 5, 10 or 15
         const L = d.lvl || 5, amount = d.win ? 4 * L : L >= 8 ? -(L - 7) * 5 : L;
-        const x = await acct(env, u.uid, 'xp-add', { amount, why: 'Vs CPU level ' + L + (d.win ? ' win' : '') });
+        const x = await acct(env, u.uid, 'xp-add', { amount, cpu: true, why: 'Vs CPU level ' + L + (d.win ? ' win' : '') });
+        if (x && x.tooSoon) return json({ error: 'too-soon' }, 429, cors);   // a result less than 45 seconds after the last one isn't saved
+        await acct(env, BOARD, 'stat-add', { uid: u.uid, add: { cpuGames: 1, cpuWins: d.win ? 1 : 0, cpuKos: d.kos, cpuDeaths: d.falls } });
         return json({ ok: true, xp: x && x.xp != null ? x.xp : undefined }, 200, cors);
       }
       /* your XP and the history behind it (the Sky Road) */

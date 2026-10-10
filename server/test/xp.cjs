@@ -58,6 +58,8 @@ function setup() {
 
 const xpOf = async (f, id) => (await f.call(id, '/api/me')).data.xp || 0;
 const setXp = (f, id, xp) => { const st = f.objects.get('u:' + id).storage, p = st.rows.get('profile'); p.xp = xp; st.rows.set('profile', p); };
+const nextMatch = (f, id) => { const st = f.objects.get('u:' + id).storage, p = st.rows.get('profile'); p.cpuAt = Date.now() - 46000; st.rows.set('profile', p);
+  const rl = f.objects.get('rl:uid:' + id); if (rl) rl.storage.rows.clear(); };   // pretend 46 seconds (and the rate limit window) went by
 
 test('the level math: 100 XP for level 2, +100 more each level, 2,000 a level from 20 on, max 300', () => {
   const ctx = vm.createContext({});
@@ -72,16 +74,31 @@ test('Vs CPU: XP grows with the CPU level; losing to a level 8-10 CPU costs XP, 
   const f = setup(); await f.call('player1', '/api/me');
   let r = await f.call('player1', '/api/cpu-result', { win: true, kos: 3, falls: 1, lvl: 10 });
   assert.equal(r.status, 200); assert.equal(r.data.xp, 40);
-  r = await f.call('player1', '/api/cpu-result', { win: false, kos: 0, falls: 3, lvl: 3 });
+  nextMatch(f, 'player1'); r = await f.call('player1', '/api/cpu-result', { win: false, kos: 0, falls: 3, lvl: 3 });
   assert.equal(r.data.xp, 43);
-  r = await f.call('player1', '/api/cpu-result', { win: false, kos: 0, falls: 3, lvl: 10 });
+  nextMatch(f, 'player1'); r = await f.call('player1', '/api/cpu-result', { win: false, kos: 0, falls: 3, lvl: 10 });
   assert.equal(r.data.xp, 28, 'lost 15');
   setXp(f, 'player1', 1005);   // level 5 (1,000 XP) plus 5
-  r = await f.call('player1', '/api/cpu-result', { win: false, kos: 0, falls: 3, lvl: 10 });
+  nextMatch(f, 'player1'); r = await f.call('player1', '/api/cpu-result', { win: false, kos: 0, falls: 3, lvl: 10 });
   assert.equal(r.data.xp, 1000, 'stops at the start of level 5');
   assert.equal((await f.call('player1', '/api/cpu-result', { win: true, kos: 0, falls: 0, lvl: 11 })).status, 400);
   const h = (await f.call('player1', '/api/xp')).data;
   assert.equal(h.xp, 1000); assert.ok(h.log.length >= 3); assert.equal(h.log[0].why, 'Vs CPU level 10');
+});
+
+test('Vs CPU can\'t be farmed: one result per 45 seconds, and at most 600 XP a day from it', async () => {
+  const f = setup(); await f.call('player1', '/api/me');
+  assert.equal((await f.call('player1', '/api/cpu-result', { win: true, kos: 3, falls: 0, lvl: 10 })).data.xp, 40);
+  const soon = await f.call('player1', '/api/cpu-result', { win: true, kos: 3, falls: 0, lvl: 10 });
+  assert.equal(soon.status, 429); assert.equal(soon.data.error, 'too-soon');
+  assert.equal(await xpOf(f, 'player1'), 40, 'the early result gave nothing');
+  const board = f.objects.get('u:__board').storage.rows.get('stat:player1');
+  assert.equal(board.cpuGames, 1, 'and was not counted in your stats');
+  let xp = 40;
+  for (let i = 0; i < 20; i++) { nextMatch(f, 'player1'); xp = (await f.call('player1', '/api/cpu-result', { win: true, kos: 3, falls: 0, lvl: 10 })).data.xp; }
+  assert.equal(xp, 600, 'capped at 600 a day');
+  const lv = (await f.call('player1', '/api/xp')).data;
+  assert.equal(lv.xp, 600);
 });
 
 test('time online gives +1 XP a minute (from the "still here" ping)', async () => {
