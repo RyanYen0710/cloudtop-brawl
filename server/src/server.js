@@ -139,6 +139,12 @@ function rankedInfo(p) {
   return { level, need: RANKED_LEVEL, unlocked: level >= RANKED_LEVEL, rp, tier: rankTier(rp), tiers: RANK_TIERS, wins: p.rw || 0, losses: p.rl || 0,
     ladder: Math.min(LADDER_STEPS, Math.max(1, p.ladder || 1)), steps: LADDER_STEPS, clears: p.clears || 0 };
 }
+/* fighters you unlock by reaching a level (Professor Sprocket at 50): added to the account. Returns true if anything was added. */
+function applyLevelUnlocks(p) {
+  let added = false;
+  levelUnlocksFor(xpLevel(p.xp || 0).level).forEach(id => { if (p.unlocked.indexOf(id) < 0) { p.unlocked.push(id); added = true; } });
+  return added;
+}
 const newestKey = () => String(9999999999999 - Date.now()).padStart(13, '0') + '-' + crypto.randomUUID();
 const plain = (v, max) => typeof v === 'string' ? v.trim().slice(0, max) : '';
 async function apiBody(req) {
@@ -486,6 +492,7 @@ export class Accounts {
           evGot = true;
         }
       }
+      if (amt && applyLevelUnlocks(p)) p.revision = (p.revision || 0) + 1;   // e.g. Professor Sprocket at level 50
       if ((d.cpu || evGot) && !amt) await tx.put('profile', p);
       if (amt) {
         await tx.put('profile', p);
@@ -499,14 +506,14 @@ export class Accounts {
     }
     if (op === 'xp-get') {
       const log = await tx.list({ prefix: 'xplog:', limit: Math.min(200, d.limit || 100) });
-      return json({ xp: p.xp || 0, log: [...log.values()], evSkins: p.evSkins || [], evPlays: p.evPlays || {} });
+      return json({ xp: p.xp || 0, log: [...log.values()], evSkins: p.evSkins || [], evPlays: p.evPlays || {}, unlocked: p.unlocked || [] });
     }
     /* Admin / Owner panel: set someone's level (their XP goes to the start of that level). The owner's account only by the owner. */
     if (op === 'xp-set') {
       if (!stored) return json({ error: 'not-found' }, 404);
       if (p.owner && !d.byOwner) return json({ error: 'owner-protected' }, 409);
       const prevXp = p.xp || 0, before = xpLevel(prevXp).level;
-      p.xp = xpTotal(d.level); p.revision = (p.revision || 0) + 1;
+      p.xp = xpTotal(d.level); p.revision = (p.revision || 0) + 1; applyLevelUnlocks(p);
       const same = { beaten: p.beaten, wins: p.wins, unlocked: p.unlocked.slice() };
       await tx.put('audit:' + newestKey(), { at: Date.now(), actor: d.actor, reason: 'Level ' + before + ' → ' + d.level, before: same, after: same });
       await tx.put('xplog:' + newestKey(), { at: Date.now(), amt: p.xp - prevXp, why: 'Level set to ' + d.level + ' by ' + ((d.actor && d.actor.name) || 'an admin'), xp: p.xp, set: true });
@@ -522,6 +529,7 @@ export class Accounts {
         if (!p.owner) { p.owner = true; dirty = true; }
       }
       if (Array.isArray(d.gift)) d.gift.forEach(id => { if (id !== 'yen' && CHAR[id] && CHAR[id].locked && p.unlocked.indexOf(id) < 0) { p.unlocked.push(id); dirty = true; } });
+      if (applyLevelUnlocks(p)) dirty = true;
       if (!stored || dirty) { p.revision = (p.revision || 0) + 1; await tx.put('profile', p); }
       return json(p);
     }
