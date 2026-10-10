@@ -112,6 +112,8 @@ function explode(p, g) {
   }
 }
 
+/* the area Blaze's Fire Wall covers (it stands on the floor) */
+const wallBox = p => ({ x: p.x - 44, y: p.y - 124, w: 88, h: 142 });
 function stepProjs(g) {
   const st = g.stage, B = st.blast;
   for (const p of g.projs) {
@@ -192,11 +194,11 @@ function stepProjs(g) {
     if (!m.mine) {
       for (const o of g.fighters) {
         if (o.out || o.dead > 0 || o.halo > 0 || o.vanish || o.tid === p.tid || p.hit.has(o)) continue;
-        if (m.tall ? !overlap({ x: p.x - p.size * 0.55, y: p.y - p.size * 3.4, w: p.size * 1.1, h: p.size * 3.9 }, hurtbox(o)) : !circRect(p.x, p.y, p.size * 0.6, hurtbox(o))) continue;
+        if (m.wall ? !overlap(wallBox(p), hurtbox(o)) : m.tall ? !overlap({ x: p.x - p.size * 0.55, y: p.y - p.size * 3.4, w: p.size * 1.1, h: p.size * 3.9 }, hurtbox(o)) : !circRect(p.x, p.y, p.size * 0.6, hurtbox(o))) continue;
         p.hit.add(o);
         const dir = Math.sign(p.vx) || (o.x > p.x ? 1 : -1);
         if (m.fuse) { if (!p.stuck) explode(p, g); p.hit.delete(o); break; }
-        const r = applyHit(p.owner, o, { dmg: p.dmg, b: m.b * (p.bMul || 1), g: m.g, angle: m.angle, freeze: m.freeze || p.frz, burn: m.burn, zap: m.zap, slow: m.slow, flash: m.flash }, dir, g, p);
+        const r = applyHit(p.owner, o, { dmg: p.dmg, b: m.b * (p.bMul || 1), g: m.g, angle: m.angle, freeze: m.freeze || p.frz, burn: m.burn, zap: m.zap, slow: m.slow, flash: m.flash, bubble: m.bubble }, dir, g, p);
         if (!(m.pierce || p.pierce) || r === 'block' || r === 'counter') { p.life = 0; break; }
       }
     }
@@ -211,6 +213,13 @@ function stepProjs(g) {
     const a = ps[i]; if (a.life <= 0 || a.m.mine || a.m.shape === 'puddle') continue;
     for (let j = i + 1; j < ps.length; j++) {
       const b = ps[j]; if (b.life <= 0 || b.m.mine || b.m.shape === 'puddle' || a.tid === b.tid) continue;
+      if (a.m.wall || b.m.wall) {   // Blaze's Fire Wall burns up enemy projectiles and stays
+        if (a.m.wall && b.m.wall) continue;
+        const w = a.m.wall ? a : b, o = w === a ? b : a;
+        if (o.stuck) continue;
+        if (circRect(o.x, o.y, o.size * 0.5, wallBox(w))) { o.life = 0; emit(g, 'wallburn', o.x, o.y); }
+        continue;
+      }
       if (Math.hypot(a.x - b.x, a.y - b.y) < (a.size + b.size) * 0.5) {
         if (!a.m.pierce || b.m.pierce) b.life = 0;
         if (!b.m.pierce || a.m.pierce) a.life = 0;
