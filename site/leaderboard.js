@@ -5,9 +5,10 @@
    Vs CPU games run in your own browser, so they never rank. Signed in, they're saved to your account ("Your stats");
    signed out, they're kept on this device.
    Time online = time the game is open while you're signed in (the game tells the server "still here" every 2 minutes).
-   The owner (and only the owner, checked by the server) gets ↑ ↓ arrows to reorder a section and can tap a number to edit it. */
+   The owner (and only the owner, checked by the server) gets ↑ ↓ arrows to reorder a section and can tap a number to edit it.
+   Seasons (season.js): "This season" starts everyone at 0 each season; "All time" keeps counting. Every player is listed. */
 
-const LB = { data: null, tab: 'overall', busy: false, err: '' };
+const LB = { data: null, tab: 'overall', view: 'season', busy: false, err: '' };
 const LB_TABS = [
   ['overall', 'Overall', 'Wins, KOs, Boss Fight level and time online together'],
   ['online', 'Most online', 'Most time spent in the game while signed in'],
@@ -68,9 +69,9 @@ async function loadLeaderboard() {
   LB.busy = true; LB.err = ''; renderLeaderboard();
   try {
     const t = typeof acctToken === 'function' ? await acctToken() : null;
-    const r = await fetch(serverUrl() + '/api/leaderboard', { cache: 'no-store', headers: t ? { authorization: 'Bearer ' + t } : {} });
+    const r = await fetch(serverUrl() + '/api/leaderboard?view=' + LB.view, { cache: 'no-store', headers: t ? { authorization: 'Bearer ' + t } : {} });
     if (!r.ok) throw new Error('http');
-    LB.data = await r.json();
+    LB.data = await r.json(); LB.loadedAt = Date.now(); if (LB.data.season) LB.season = LB.data.season;
   } catch (e) { LB.err = 'Couldn’t load the leaderboard. Check your connection and try again.'; }
   finally { LB.busy = false; if (G.screen === 'leaderboard') renderLeaderboard(); }
 }
@@ -78,19 +79,21 @@ function lbMedal(rank) { return el('span', { class: 'lb-medal m' + rank, 'aria-l
 /* ---- owner tools ---- */
 const lbOwner = () => !!(LB.data && LB.data.owner && typeof acctApi === 'function');
 const lbPost = (path, data) => acctApi(path, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(data) });
+/* owner edits go to the board on screen: this season's, or all time */
+const lbSeasonArg = () => (LB.view === 'season' && LB.data && LB.data.season ? { season: LB.data.season.n } : {});
 async function lbMove(i, dir) {
   const list = LB.data.sections[LB.tab] || [], j = i + dir;
   if (LB.busy || j < 0 || j >= list.length) return;
   const uids = list.map(x => x.uid);
   [uids[i], uids[j]] = [uids[j], uids[i]];
   LB.busy = true; renderLeaderboard();
-  try { await lbPost('/api/admin/board/order', { section: LB.tab, uids }); } catch (e) { toast('Couldn’t move that player. Try again.'); }
+  try { await lbPost('/api/admin/board/order', Object.assign({ section: LB.tab, uids: uids.slice(0, Math.max(i, j) + 1) }, lbSeasonArg())); } catch (e) { toast('Couldn’t move that player. Try again.'); }
   LB.busy = false; loadLeaderboard();
 }
 async function lbResetOrder() {
   if (LB.busy || !(await gameConfirm('Put “' + LB_TABS.find(x => x[0] === LB.tab)[1] + '” back in order by the numbers?', 'Yes, reset'))) return;
   LB.busy = true; renderLeaderboard();
-  try { await lbPost('/api/admin/board/order', { section: LB.tab, reset: true }); } catch (e) { toast('Couldn’t reset the order. Try again.'); }
+  try { await lbPost('/api/admin/board/order', Object.assign({ section: LB.tab, reset: true }, lbSeasonArg())); } catch (e) { toast('Couldn’t reset the order. Try again.'); }
   LB.busy = false; loadLeaderboard();
 }
 function lbEdit(x) {
@@ -100,11 +103,19 @@ function lbEdit(x) {
     return el('label', { class: 'lb-edit-f' }, [el('span', { text: label }), i]);
   };
   const h = Math.floor(x.onlineMs / 3600000), m = Math.floor((x.onlineMs % 3600000) / 60000);
-  box.append(el('h3', { text: 'Edit ' + x.name }), el('p', { class: 'muted', text: 'Only you can do this. The change is saved right away and logged.' }),
+  box.append(el('h3', { text: 'Edit ' + x.name }), el('p', { class: 'muted', text: (LB.view === 'season' ? 'This season’s numbers. ' : 'All-time numbers. ') + 'Only you can do this. The change is saved right away and logged.' }),
     el('div', { class: 'lb-edit-grid' }, [num('Online hours', 'h', h, 876000), num('Online minutes', 'm', m, 59), num('Games', 'games', x.games, 1e7),
       num('Wins', 'wins', x.wins, 1e7), num('Losses', 'losses', x.losses, 1e7), num('KOs', 'kos', x.kos, 1e7), num('Deaths', 'deaths', x.deaths, 1e7),
       num('Boss wins', 'bossWins', x.bossWins, 1e7), num('Boss level', 'bestLevel', x.bestLevel, BOSS_LEVELS.length)]));
   const msg = el('p', { class: 'ad-message', role: 'status' });
+  if (x.title) {   // remove a season title (for example a rude Overall title); they can write a new one
+    const clear = el('button', { type: 'button', class: 'mini', text: 'Remove title “' + x.title + '”' });
+    clear.addEventListener('click', async () => {
+      if (!(await gameConfirm('Remove ' + x.name + '’s title “' + x.title + '”?', 'Yes, remove'))) return;
+      try { await lbPost('/api/admin/board/title', { uid: x.uid }); close(); loadLeaderboard(); } catch (err) { msg.textContent = 'Couldn’t remove the title. Try again.'; }
+    });
+    box.appendChild(el('div', { class: 'lb-edit-title' }, [clear]));
+  }
   const cancel = el('button', { type: 'button', class: 'btn', text: 'Cancel' }), save = el('button', { type: 'submit', class: 'btn start', text: 'Save' });
   box.append(msg, el('div', { class: 'gc-row' }, [cancel, save]));
   back.appendChild(box); document.body.appendChild(back);
@@ -118,7 +129,7 @@ function lbEdit(x) {
     const set = { onlineMs: (v.h * 60 + v.m) * 60000 };
     ['games', 'wins', 'losses', 'kos', 'deaths', 'bossWins', 'bestLevel'].forEach(k => { set[k] = v[k]; });
     save.disabled = true; msg.textContent = 'Saving…';
-    try { await lbPost('/api/admin/board', { uid: x.uid, set }); close(); loadLeaderboard(); }
+    try { await lbPost('/api/admin/board', Object.assign({ uid: x.uid, set }, lbSeasonArg())); close(); loadLeaderboard(); }
     catch (err) { msg.textContent = 'Couldn’t save. Check the numbers and try again.'; save.disabled = false; }
   });
   setTimeout(() => { const f = box.querySelector('input'); if (f) f.focus(); }, 0);
@@ -134,6 +145,18 @@ function lbValue(cls, x, text) {
   if (!lbOwner()) return el(cls === 'lb-pval' ? 'div' : 'span', { class: cls, text });
   return el('button', { type: 'button', class: cls + ' lb-editable', text, title: 'Tap to edit', 'aria-label': 'Edit ' + x.name + ': ' + text, on: { click: () => lbEdit(x) } });
 }
+/* a player's name with their season title (if they claimed one) */
+function lbName(cls, x) {
+  return el(cls === 'lb-pname' ? 'div' : 'span', { class: cls }, [el('span', { text: x.name }), x.title ? el('em', { class: 'lb-title-tag', text: x.title }) : null]);
+}
+function lbSeasonLine() {
+  const s = LB.data && LB.data.season; if (!s) return null;
+  const t = typeof seasonLeft === 'function' ? seasonLeft : (ms => Math.ceil(ms / 86400000) + 'd');
+  const skew = s.now - (LB.loadedAt || Date.now()), now = Date.now() + skew;
+  if (LB.view === 'all') return 'All-time numbers. They never reset.';
+  return s.active ? 'Season ' + s.n + ' · ends in ' + t(s.end - now) + ' · everyone started this season at 0'
+    : 'Season ' + s.n + ' final results · Season ' + (s.n + 1) + ' starts in ' + t(s.next - now);
+}
 
 function renderLeaderboard() {
   const s = lbScreen(); s.textContent = '';
@@ -145,7 +168,15 @@ function renderLeaderboard() {
   const tabs = el('div', { class: 'lb-tabs', role: 'tablist', 'aria-label': 'Leaderboard sections' });
   LB_TABS.forEach(([id, name]) => tabs.appendChild(el('button', { type: 'button', role: 'tab', class: 'lb-tab' + (LB.tab === id ? ' on' : ''),
     'aria-selected': String(LB.tab === id), text: name, on: { click: () => { LB.tab = id; if (typeof SFX !== 'undefined') SFX.play('ui'); renderLeaderboard(); } } })));
-  wrap.appendChild(tabs);
+  // This season / All time
+  const views = el('div', { class: 'lb-views', role: 'group', 'aria-label': 'Which leaderboard' });
+  const sn = LB.season ? LB.season.n : null;
+  [['season', sn ? 'Season ' + sn : 'This season'], ['all', 'All time']].forEach(([id, name]) => views.appendChild(el('button', { type: 'button',
+    class: 'lb-view' + (LB.view === id ? ' on' : ''), 'aria-pressed': String(LB.view === id), text: name,
+    on: { click: () => { if (LB.view === id) return; LB.view = id; LB.data = null; if (typeof SFX !== 'undefined') SFX.play('ui'); loadLeaderboard(); } } })));
+  const line = lbSeasonLine();
+  wrap.append(views, tabs);
+  if (line) wrap.appendChild(el('p', { class: 'lb-season-line', text: line }));
   const tabInfo = LB_TABS.find(x => x[0] === LB.tab);
   wrap.appendChild(el('p', { class: 'lb-sub', text: tabInfo[2] + (LB.tab === 'overall' ? ' · points = 10 per win + 2 per KO + 5 per Boss level + 1 per hour online' : '') }));
   if (lbOwner()) {
@@ -165,7 +196,7 @@ function renderLeaderboard() {
     const rank = i + 1;
     podium.appendChild(el('div', { class: 'lb-step s' + rank + (x.me ? ' me' : '') }, [
       lbOwner() ? lbArrows(i, list.length) : null,
-      lbMedal(rank), el('div', { class: 'lb-pname', text: x.name }), lbValue('lb-pval', x, lbMain(LB.tab, x)),
+      lbMedal(rank), lbName('lb-pname', x), lbValue('lb-pval', x, lbMain(LB.tab, x)),
       el('div', { class: 'lb-pdet', text: lbDetails(LB.tab, x).map(([k, v]) => k + ' ' + v).join(' · ') }),
       el('div', { class: 'lb-block', 'aria-hidden': 'true', text: String(rank) })]));
   });
@@ -174,7 +205,7 @@ function renderLeaderboard() {
     const rows = el('ol', { class: 'lb-list', start: '4' }); wrap.appendChild(rows);
     list.slice(3).forEach((x, i) => rows.appendChild(el('li', { class: 'lb-row' + (x.me ? ' me' : '') + (lbOwner() ? ' own' : '') }, [
       lbOwner() ? lbArrows(i + 3, list.length) : null,
-      el('span', { class: 'lb-rank', text: String(i + 4) }), el('span', { class: 'lb-name', text: x.name }),
+      el('span', { class: 'lb-rank', text: String(i + 4) }), lbName('lb-name', x),
       el('span', { class: 'lb-det' }, lbDetails(LB.tab, x).map(([k, v]) => el('span', {}, [el('small', { text: k }), el('b', { text: String(v) })]))),
       lbValue('lb-val', x, lbMain(LB.tab, x))])));
   }
