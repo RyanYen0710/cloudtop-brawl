@@ -24,8 +24,9 @@
 <link rel="icon" href="icon-96.png" type="image/png" sizes="96x96">
 <link rel="icon" href="icon-192.png" type="image/png" sizes="192x192">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<link rel="stylesheet" href="admin.css?v=20261010-remake1">
+<link rel="stylesheet" href="admin.css?v=20261010-xp1">
 <link rel="stylesheet" href="leaderboard.css?v=20261009-season1">
+<link rel="stylesheet" href="xp.css?v=20261010-xp1">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;500;600;700&family=Dela+Gothic+One&display=swap" rel="stylesheet">
@@ -538,6 +539,7 @@ body.tester-on #go-online .tt-off{display:block;font-weight:800;color:#ffd35c}
         <div class="tester-bar" id="tester-bar" role="status" hidden>TESTER MODE · nothing is saved · press Tester to go back</div>
         <button type="button" class="hub-back" id="hub-back" hidden>← Back</button>
       </div>
+      <button type="button" class="xp-bar" id="xp-bar" hidden data-tip="Your level. Tap for the Sky Road: rewards and your XP history."><span class="xp-lv"><small>LV</small><b>1</b></span><span class="xp-mid"><span class="xp-track"><i class="xp-fill"></i></span><span class="xp-txt"><span class="xp-num"></span><span class="xp-next"></span></span></span></button>
       <nav class="hub-grid" id="hub-home" aria-label="Main menu">
         <button type="button" class="hub-tile ht-solo" id="go-single" data-tip="Fight CPUs, practice in the Training Lab, or take on the bosses.">
           <svg class="ht-ico" viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="16" r="9"/><path d="M18 58l4-22-8-6 6-6 12 6 12-6 6 6-8 6 4 22h-8l-6-16-6 16z"/></svg>
@@ -773,7 +775,7 @@ body.tester-on #go-online .tt-off{display:block;font-weight:800;color:#ffd35c}
 </div>
 
 <!-- ?v= on every game file: bump it (e.g. to today's date) whenever a .js file changes, so players' browsers load the new version instead of an old saved copy -->
-<script src="data.js?v=20261010-remake1"></script>
+<script src="data.js?v=20261010-xp1"></script>
 <script src="engine.js?v=20261010-remake1"></script>
 <script src="match.js?v=20261010-remake1"></script>
 <script src="fighters-draw.js?v=20261008-titan2"></script>
@@ -803,9 +805,10 @@ body.tester-on #go-online .tt-off{display:block;font-weight:800;color:#ffd35c}
 <script src="account.js?v=20261009-owner1"></script>
 <script src="settings-ui.js?v=20261009-op1"></script>
 <script src="boss.js?v=20261009-owner1"></script>
-<script src="admin.js?v=20261010-remake1"></script>
-<script src="leaderboard.js?v=20261009-season1"></script>
+<script src="admin.js?v=20261010-xp1"></script>
+<script src="leaderboard.js?v=20261010-xp1"></script>
 <script src="season.js?v=20261009-season1"></script>
+<script src="xp.js?v=20261010-xp1"></script>
 <script src="gameui.js?v=20261009-gameui2"></script>
 <script src="intro.js?v=20261009-text1"></script>
 <script src="menu.js?v=20261009-lb1"></script>

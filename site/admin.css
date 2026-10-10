@@ -108,3 +108,14 @@
   .ad-report{padding-right:16px;padding-top:62px}
 }
 .ad-role-player{background:#3ee06a;color:#0c2a14}
+/* player level (XP) under Reload */
+.ad-head-side{display:flex;flex-direction:column;align-items:flex-end;gap:8px}
+.ad-level{display:flex;align-items:center;gap:6px;padding:6px 8px;border-radius:8px;background:rgba(255,255,255,.04);border:1px solid #3c3466}
+.ad-level-l{font:700 12px var(--ui);color:var(--mute);text-transform:uppercase;letter-spacing:.06em;white-space:nowrap}
+.ad-level b{font:400 18px var(--disp);padding:0 6px}
+.ad-lv-save{white-space:nowrap}
+.ad-level input{width:64px;text-align:center;font-variant-numeric:tabular-nums}
+.ad-level .gn-wrap{flex:none;width:auto}
+.ad-level .gn-wrap input{flex:none;width:64px}
+.ad-level.locked{opacity:.55}
+@media(max-width:600px){.ad-head-side{width:100%;align-items:stretch}.ad-head-side>.btn{width:100%}.ad-level{justify-content:center}}

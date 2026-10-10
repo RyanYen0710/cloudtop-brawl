@@ -46,7 +46,10 @@ function lbCpuStats() { try { return JSON.parse(loadLocal('cb.cpuStats') || 'nul
 function lbRecordCpu(row) {
   if (!row) return;
   if (typeof acctSignedIn === 'function' && acctSignedIn() && typeof acctApi === 'function') {
-    acctApi('/api/cpu-result', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ win: !!row.win, kos: Math.min(50, row.kos | 0), falls: Math.min(50, row.falls | 0) }) }).catch(() => {});
+    // the XP depends on the strongest CPU you faced (level 1 to 10)
+    const cpus = ((typeof G !== 'undefined' && G.cfg && G.cfg.slots) || []).filter(s => s.type === 'cpu');
+    const lvl = Math.max(1, Math.min(10, cpus.reduce((m, s) => Math.max(m, s.lvl | 0), 0) || 5));
+    acctApi('/api/cpu-result', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ win: !!row.win, kos: Math.min(50, row.kos | 0), falls: Math.min(50, row.falls | 0), lvl }) }).catch(() => {});
     return;
   }
   const s = lbCpuStats();
@@ -132,6 +135,10 @@ function lbEdit(x) {
     try { await lbPost('/api/admin/board', Object.assign({ uid: x.uid, set }, lbSeasonArg())); close(); loadLeaderboard(); }
     catch (err) { msg.textContent = 'Couldn’t save. Check the numbers and try again.'; save.disabled = false; }
   });
+  // Games is always wins + losses, so nobody has to do the math
+  const inp = k => box.querySelector('input[data-k="' + k + '"]');
+  const sum = () => { inp('games').value = String(Math.max(0, Math.floor(+inp('wins').value || 0)) + Math.max(0, Math.floor(+inp('losses').value || 0))); };
+  inp('wins').addEventListener('input', sum); inp('losses').addEventListener('input', sum);
   setTimeout(() => { const f = box.querySelector('input'); if (f) f.focus(); }, 0);
 }
 function lbArrows(i, n) {

@@ -1,0 +1,68 @@
+/* ===== XP, levels and the Sky Road ===== */
+/* the level bar on the main menu, above the mode tiles */
+.xp-bar{display:flex;align-items:center;gap:12px;width:100%;max-width:640px;padding:6px 14px 6px 6px;border:2px solid rgba(255,211,92,.55);border-radius:14px;background:rgba(20,14,48,.78);color:#fff;cursor:pointer;text-align:left;box-shadow:0 3px 0 rgba(0,0,0,.35);transition:border-color .12s,transform .12s}
+.xp-bar[hidden]{display:none}
+.xp-bar:hover,.xp-bar:focus-visible{border-color:#ffd35c;outline:none;transform:translateY(-1px);box-shadow:0 3px 0 rgba(0,0,0,.35),0 0 0 3px rgba(255,211,92,.25)}
+.xp-lv{flex:none;display:grid;place-items:center;width:46px;height:46px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#ffe9a3,#ffb547 55%,#c97a12);color:#2a1606;box-shadow:inset 0 -3px 0 rgba(0,0,0,.25),0 2px 0 rgba(0,0,0,.35);line-height:1}
+.xp-lv small{font:700 9px var(--ui);letter-spacing:.08em;margin-top:6px}
+.xp-lv b{font:400 18px var(--disp);margin-bottom:6px}
+.xp-lv.big{width:74px;height:74px}
+.xp-lv.big small{font-size:11px}
+.xp-lv.big b{font-size:30px}
+.xp-mid{flex:1;min-width:0;display:flex;flex-direction:column;gap:5px}
+.xp-track{position:relative;height:12px;border-radius:7px;background:rgba(0,0,0,.45);overflow:hidden;box-shadow:inset 0 0 0 1px rgba(255,255,255,.12)}
+.xp-fill{position:absolute;left:0;top:0;bottom:0;width:0;border-radius:7px;background:linear-gradient(90deg,#7ad7ff,#6fe39a 60%,#ffd35c);transition:width .25s}
+.xp-txt{display:flex;justify-content:space-between;gap:10px;font:700 12px var(--ui);font-variant-numeric:tabular-nums}
+.xp-next{color:#ffd35c;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+@media (max-width:600px){.xp-bar{max-width:none;padding:4px 10px 4px 4px;gap:8px}.xp-lv{width:38px;height:38px}.xp-lv b{font-size:15px}.xp-txt{font-size:11px}}
+@media (max-height:460px){.xp-bar{padding:2px 10px 2px 2px}.xp-lv{width:30px;height:30px}.xp-lv small{display:none}.xp-lv b{font-size:13px;margin:0}.xp-track{height:8px}.xp-next{display:none}}
+
+/* the small slide during a fight */
+.xp-slide{position:fixed;z-index:60;top:72px;right:0;display:flex;flex-direction:column;align-items:flex-end;gap:1px;padding:7px 14px 7px 18px;border-radius:12px 0 0 12px;background:rgba(20,14,48,.88);border:2px solid #ffd35c;border-right:0;color:#fff;pointer-events:none;transform:translateX(110%);transition:transform .35s cubic-bezier(.2,.9,.3,1.2)}
+.xp-slide.in{transform:none}
+.xp-slide b{font:400 18px var(--disp);color:#ffd35c}
+.xp-slide span{font:700 11px var(--ui);color:#cfc8ff}
+
+/* after a match: the XP counting up */
+.xp-card{position:fixed;z-index:70;left:50%;bottom:22px;width:min(360px,calc(100vw - 32px));padding:12px 16px 10px;border-radius:14px;background:rgba(20,14,48,.95);border:2px solid #ffd35c;color:#fff;box-shadow:0 6px 0 rgba(0,0,0,.35);transform:translate(-50%,140%);transition:transform .35s cubic-bezier(.2,.9,.3,1.2);pointer-events:none}
+.xp-card.in{transform:translate(-50%,0)}
+.xp-big{font:400 30px var(--disp);color:#ffd35c;text-align:center;font-variant-numeric:tabular-nums}
+.xp-big.neg{color:#ff7a8a}
+.xp-card-row{display:flex;align-items:center;gap:10px;margin-top:6px}
+.xp-card-row .xp-track{flex:1}
+.xp-card-lv{flex:none;font:700 13px var(--ui);color:#fff;white-space:nowrap}
+.xp-card.up{border-color:#6fe39a;animation:xp-pop .5s}
+.xp-card.up .xp-card-lv{color:#6fe39a}
+.xp-card ul{margin:8px 0 0;padding:0;list-style:none;font:600 12px var(--ui);color:#cfc8ff}
+.xp-card li{padding:1px 0}
+@keyframes xp-pop{40%{transform:translate(-50%,0) scale(1.06)}}
+
+/* the Sky Road */
+.xp-road{width:min(760px,calc(100vw - 32px));max-height:calc(100vh - 40px);display:flex;flex-direction:column;gap:12px;overflow:hidden}
+.xp-road-head{display:flex;align-items:center;gap:16px}
+.xp-road-sum{flex:1;min-width:0;display:flex;flex-direction:column;gap:6px}
+.xp-road-sum h3{margin:0}
+.xp-road-sum p{margin:0}
+.xp-path{display:flex;align-items:flex-start;gap:0;overflow-x:auto;overflow-y:hidden;padding:14px 8px 10px;scroll-behavior:smooth;min-height:118px;border-radius:10px;background:rgba(0,0,0,.25)}
+.xp-node{position:relative;flex:none;width:46px;display:flex;flex-direction:column;align-items:center;gap:4px}
+.xp-node::before{content:"";position:absolute;top:15px;left:0;right:0;height:4px;background:rgba(255,255,255,.14)}
+.xp-node.got::before{background:#6fe39a}
+.xp-dot{position:relative;display:grid;place-items:center;width:22px;height:22px;margin-top:4px;border-radius:50%;background:#2b2452;border:2px solid #4d4580;font:700 12px var(--ui);color:#fff}
+.xp-node.got .xp-dot{background:#3c7a5c;border-color:#6fe39a}
+.xp-node.reward .xp-dot{width:32px;height:32px;margin-top:-1px;background:#4a3a12;border-color:#ffd35c;color:#ffd35c;font-size:15px}
+.xp-node.reward.got .xp-dot{background:#ffd35c;color:#2a1606}
+.xp-node.here .xp-dot{box-shadow:0 0 0 4px rgba(122,215,255,.45);border-color:#7ad7ff}
+.xp-node small{font:700 11px var(--ui);color:var(--mute);font-variant-numeric:tabular-nums}
+.xp-node.here small{color:#7ad7ff}
+.xp-node em{position:absolute;top:62px;width:110px;font:600 11px/1.25 var(--ui);font-style:normal;color:#ffd35c;text-align:center}
+.xp-node.reward{width:110px}
+.xp-how{margin:0;font-size:12px}
+.xp-hist{margin:0;padding:0;list-style:none;overflow-y:auto;max-height:46vh;display:flex;flex-direction:column;gap:4px}
+.xp-hist li{display:grid;grid-template-columns:90px 1fr auto;align-items:center;gap:10px;padding:7px 10px;border-radius:8px;background:rgba(255,255,255,.04)}
+.xp-hist li.muted{display:block}
+.xp-hist b{font:400 15px var(--disp);color:#6fe39a;font-variant-numeric:tabular-nums}
+.xp-hist b.neg{color:#ff7a8a}
+.xp-hist span{font:600 13px var(--ui);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.xp-hist small{font:600 11px var(--ui);color:var(--mute);white-space:nowrap}
+@media (max-width:600px){.xp-hist li{grid-template-columns:70px 1fr}.xp-hist small{grid-column:1 / -1}.xp-road-head{gap:10px}.xp-lv.big{width:58px;height:58px}.xp-lv.big b{font-size:24px}}
+@media (prefers-reduced-motion:reduce){.xp-slide,.xp-card,.xp-fill{transition:none}.xp-card.up{animation:none}.xp-path{scroll-behavior:auto}}

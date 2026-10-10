@@ -175,7 +175,7 @@ function renderPlayer(pane) {
   left.push(adminButton('← All players', () => { ADMIN.target = null; ADMIN.draft = null; ADMIN.message = ''; renderAdmin(); if (!ADMIN.playersLoaded) loadPlayers(); }, 'mini ad-backlink'));
   left.push(el('h3', {}, [el('span', { text: p.name || 'Player' }), ...roleBadges({ owner: p.owner, roles: p.roles })]));
   if (t.info) left.push(onlineDot(t.info.online));
-  head.appendChild(el('div', { class: 'ad-player-head' }, [el('div', {}, left), reload]));
+  head.appendChild(el('div', { class: 'ad-player-head' }, [el('div', {}, left), el('div', { class: 'ad-head-side' }, [reload, levelControl(t, owner)])]));
   const sub = el('div', { class: 'ad-subtabs', role: 'tablist', 'aria-label': 'Player sections' });
   [['info', 'Info'], ['boss', 'Boss Fight'], ['chars', 'Characters']].forEach(([id, title]) => sub.appendChild(el('button', { type: 'button', role: 'tab',
     class: 'ad-subtab' + (ADMIN.ptab === id ? ' sel' : ''), 'aria-selected': String(ADMIN.ptab === id), text: title,
@@ -189,6 +189,24 @@ function renderPlayer(pane) {
     if (!canEdit) body.appendChild(el('p', { class: 'ad-message', text: 'This is the owner’s account: every fighter and level is always unlocked, and it can’t be changed here.' }));
     else renderSaveBar(body, t, d);
   }
+}
+/* the player's level (XP): type a number or use − / +, then Save. Admins can't change the owner's account. */
+function levelControl(t, owner) {
+  const p = t.profile, cur = typeof xpLevel === 'function' ? xpLevel(p.xp || 0).level : 1, max = typeof XP_MAX_LEVEL === 'number' ? XP_MAX_LEVEL : 300;
+  if (p.owner && !owner) return el('div', { class: 'ad-level locked', title: 'Only the owner can change the owner’s level.' }, [el('span', { class: 'ad-level-l', text: 'Level' }), el('b', { text: String(cur) })]);
+  const input = el('input', { type: 'number', min: '1', max: String(max), step: '1', value: String(cur), 'aria-label': 'Level for ' + (p.name || 'this player') });
+  const clamp = v => Math.max(1, Math.min(max, Math.floor(+v || 1)));
+  const save = adminButton('Save', async () => {
+    const level = clamp(input.value); input.value = String(level);
+    if (level === cur || ADMIN.busy) return;
+    ADMIN.busy = true; save.disabled = true; adminMessage('Saving level…');
+    try { await adminPost('/api/admin/level', { uid: t.uid, level }); ADMIN.busy = false; adminMessage(''); await openPlayer(t.uid, ADMIN.ptab); toast((p.name || 'Player') + ' is now level ' + level + '.'); }
+    catch (e) { ADMIN.busy = false; save.disabled = false; adminMessage(adminError(e)); }
+  }, 'mini ad-lv-save');
+  save.disabled = true;
+  input.addEventListener('input', () => { save.disabled = clamp(input.value) === cur; });
+  input.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); save.click(); } });
+  return el('div', { class: 'ad-level' }, [el('span', { class: 'ad-level-l', text: 'Level' }), input, save]);
 }
 function infoRow(label, value, cls) { return el('div', { class: 'ad-info-row' }, [el('span', { text: label }), el('b', { class: cls || '', text: value })]); }
 function renderPlayerInfo(body, t, owner) {
