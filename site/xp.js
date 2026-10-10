@@ -11,6 +11,8 @@ const XP = { xp: null, base: null, uid: undefined, matchXp: null, matchAt: 0, la
 /* the rewards along the Sky Road */
 const XP_ROAD = { 5: ['⚔', 'Ranked mode', ''], 50: ['★', 'Professor Sprocket (fighter)', 'coming soon'] };
 [100, 150, 200, 250, 300].forEach(l => { XP_ROAD[l] = ['★', 'New fighter', 'coming soon']; });
+// skins (skins.js) for every fighter
+if (typeof SKINS !== 'undefined') Object.keys(SKINS).forEach(id => { const s = SKINS[id]; if (s.level && !XP_ROAD[s.level]) XP_ROAD[s.level] = ['🎨', s.name + ' skin', '']; });
 
 const xpSigned = () => typeof acctSignedIn === 'function' && acctSignedIn() && ACCT.user && ACCT.profile;
 const xpFmt = n => Math.round(n).toLocaleString();
@@ -23,7 +25,11 @@ function xpAgo(t) {
 async function xpFetch() {
   if (XP.busy || !xpSigned()) return null;
   XP.busy = true;
-  try { const r = await acctApi('/api/xp'); XP.log = r.log || []; xpSet(r.xp || 0); XP.polled = Date.now(); return r; }
+  try {
+    const r = await acctApi('/api/xp'); XP.log = r.log || [];
+    if (ACCT.profile) { if (r.evSkins) ACCT.profile.evSkins = r.evSkins; if (r.evPlays) ACCT.profile.evPlays = r.evPlays; }   // event skins you've kept
+    xpSet(r.xp || 0); XP.polled = Date.now(); return r;
+  }
   catch (e) { return null; }
   finally { XP.busy = false; }
 }
