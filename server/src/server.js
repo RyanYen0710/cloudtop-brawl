@@ -123,6 +123,8 @@ function isTester(u, env) {
 const ADMIN_STORE = '__admin';
 const QUEUE = '__queue';   // the Ranked matchmaking queue
 const BOARD = '__board';   // leaderboard stats, written only by this server (match results + time the game is open)
+const EVBOARD = '__evboard';   // event leaderboards: wins in event matches, one board per event (event-buffs.js)
+const RANKBOARD = '__rankboard';   // the Ranked leaderboard: everyone's rank points
 const REPORT_STATUSES = ['open', 'investigating', 'resolved', 'closed'];
 /* ---------- Ranked (unlocks at level 5) ----------
    Online Ranked: two players from the queue, 1v1, 3 lives, 5 minutes, random stage. CPU Ladder: 10 steps against
@@ -235,6 +237,16 @@ function leaderboard(stats, meUid, orders, ownerView, titles) {
   return out;
 }
 
+/* the event leaderboard: most wins first; on a tie, whoever got there first */
+const evSort = (a, b) => (b.wins | 0) - (a.wins | 0) || (a.at || 0) - (b.at || 0) || String(a.name).localeCompare(String(b.name));
+const rkSort = (a, b) => (b.rp | 0) - (a.rp | 0) || (b.w | 0) - (a.w | 0) || String(a.name).localeCompare(String(b.name));
+/* events that have ended get their prizes once: the top 10 by wins (at least 1 win) get XP (EVENT_PRIZES) */
+async function settleEvents(env) {
+  const occ = typeof evOccurrence === 'function' ? evOccurrence() : null;
+  const r = await acct(env, EVBOARD, 'ev-settle', { cur: occ ? occ.key : '' });
+  for (const x of r.pay || []) await acct(env, x.uid, 'xp-add', { amount: x.prize, why: x.why }).catch(() => {});
+}
+
 export class Accounts {
   constructor(state) { this.state = state; }
   /* board instance: the owner's arrow order for the all-time board (n = 0) or one season */
@@ -297,6 +309,43 @@ export class Accounts {
         next.seen = now; await st.put(key, next);   // at most one write a minute
       }
       return json({ ok: true, played, name: next.name || '' });
+    }
+    /* event leaderboard (EVBOARD instance): one win, at most once a minute per player */
+    if (op === 'ev-win') return st.transaction(async tx => {
+      const k = 'ew:' + d.key + ':' + d.uid, row = (await tx.get(k)) || { uid: d.uid, name: '', wins: 0, at: 0 }, now = Date.now();
+      if (now - (row.at || 0) < EVENT_WIN_GAP) return json({ ok: false, tooSoon: true, wins: row.wins });
+      row.wins = (row.wins | 0) + 1; row.at = now; if (d.name) row.name = String(d.name).slice(0, 16);
+      await tx.put(k, row);
+      const keys = (await tx.get('evkeys')) || [];
+      if (keys.indexOf(d.key) < 0) { keys.push(d.key); await tx.put('evkeys', keys); }
+      return json({ ok: true, wins: row.wins });
+    });
+    if (op === 'ev-board') {
+      const rows = d.key ? [...(await st.list({ prefix: 'ew:' + d.key + ':', limit: 5000 })).values()].sort(evSort) : [];
+      const i = d.uid ? rows.findIndex(x => x.uid === d.uid) : -1;
+      return json({ top: rows.slice(0, 50).map((x, n) => ({ name: x.name || 'Player', wins: x.wins | 0, me: x.uid === d.uid || undefined, prize: EVENT_PRIZES[n] || 0 })),
+        me: i < 0 ? null : { rank: i + 1, wins: rows[i].wins | 0 }, players: rows.length, last: (await st.get('evresult:last')) || null });
+    }
+    /* events that are over (not the one that's on now) get settled once, and their prizes are handed out */
+    if (op === 'ev-settle') return st.transaction(async tx => {
+      const keys = (await tx.get('evkeys')) || [], pay = [], left = [];
+      for (const k of keys) {
+        if (k === d.cur || (await tx.get('settled:' + k))) { if (k === d.cur) left.push(k); continue; }
+        const rows = [...(await tx.list({ prefix: 'ew:' + k + ':', limit: 5000 })).values()].filter(x => (x.wins | 0) > 0).sort(evSort).slice(0, EVENT_PRIZES.length);
+        const id = k.split('-')[0], name = (typeof EVENTS !== 'undefined' && EVENTS[id] && EVENTS[id].name) || id;
+        rows.forEach((x, n) => pay.push({ uid: x.uid, prize: EVENT_PRIZES[n], why: name + ' event #' + (n + 1) }));
+        await tx.put('settled:' + k, Date.now());
+        await tx.put('evresult:last', { key: k, ev: id, name, top: rows.map((x, n) => ({ name: x.name || 'Player', wins: x.wins | 0, prize: EVENT_PRIZES[n] })) });
+      }
+      if (left.length !== keys.length) await tx.put('evkeys', left);   // only write when an event was settled
+      return json({ pay });
+    });
+    /* the Ranked leaderboard (RANKBOARD instance) */
+    if (op === 'rk-set') { await st.put('rk:' + d.uid, { uid: d.uid, name: String(d.name || '').slice(0, 16), rp: d.rp | 0, w: d.w | 0, l: d.l | 0, at: Date.now() }); return json({ ok: true }); }
+    if (op === 'rk-list') {
+      const rows = [...(await st.list({ prefix: 'rk:', limit: 5000 })).values()].sort(rkSort);
+      const i = d.uid ? rows.findIndex(x => x.uid === d.uid) : -1, pub = x => ({ name: x.name || 'Player', rp: x.rp | 0, w: x.w | 0, l: x.l | 0, tier: rankTier(x.rp | 0).name, me: x.uid === d.uid || undefined });
+      return json({ top: rows.slice(0, 50).map(pub), me: i < 0 ? null : Object.assign(pub(rows[i]), { rank: i + 1 }), players: rows.length });
     }
     if (op === 'player-list') {
       const rows = await st.list({ prefix: 'player:', limit: 5000 });
@@ -589,7 +638,7 @@ export class Accounts {
       else if (d.win === false) { p.rp = Math.max(0, before + RANKED_RP.loss); p.rl = (p.rl || 0) + 1; }
       if (d.ladder && d.win === true) { if (step >= LADDER_STEPS) p.clears = (p.clears || 0) + 1; p.ladder = Math.min(LADDER_STEPS, step + 1); }
       await tx.put('profile', p);
-      return json({ rp: p.rp || 0, drp: (p.rp || 0) - before, tier: rankTier(p.rp || 0), ladder: p.ladder || 1, step, clears: p.clears || 0 });
+      return json({ rp: p.rp || 0, drp: (p.rp || 0) - before, tier: rankTier(p.rp || 0), ladder: p.ladder || 1, step, clears: p.clears || 0, rw: p.rw | 0, rl: p.rl | 0, name: p.name || '' });
     }
     if (op === 'beat') {
       const lv = d.level | 0;
@@ -748,7 +797,7 @@ export class Room {
     if (m.cmd === 'ladder') await this.startLadder(c, m); else await this.joinRanked(c, m);
   }
   pickFor(c, ch) { return ch === 'random' ? resolvePick('random') : this.allowedChar(ch, c); }
-  fighterMap() { return this.g.fighters.map(f => [f.slot, f.c.id, f.tid, f.name.slice(0, 16), f.color, f.tag.slice(0, 16), f.team, f.boss ? 1 : 0, f.skin || '']); }
+  fighterMap() { return this.g.fighters.map(f => [f.slot, f.c.id, f.tid, f.name.slice(0, 16), f.color, f.tag.slice(0, 16), f.team, f.boss ? 1 : 0, f.skin || '', f.evb ? 1 : 0]); }
   async startLadder(c, m) {
     if (this.g) return;
     if (!(await hit(this.env, 'uid:' + c.uid, 'ranked'))) { this.rankedErr(c, 'slow-down'); return; }
@@ -779,6 +828,7 @@ export class Room {
       acct(this.env, BOARD, 'stat-add', { uid: run.uid, name: run.name,
         add: { games: 1, wins: win ? 1 : 0, losses: win ? 0 : 1, kos: me.kos | 0, deaths: me.falls | 0 } }).catch(() => {});
       const r = await acct(this.env, run.uid, 'ranked-add', { win, ladder: true });
+      acct(this.env, RANKBOARD, 'rk-set', { uid: run.uid, name: r.name || run.name, rp: r.rp, w: r.rw, l: r.rl }).catch(() => {});
       const x = await acct(this.env, run.uid, 'xp-add', { amount: win ? RANKED_XP.win : RANKED_XP.loss, match: true, won: !!win, why: 'Ranked CPU Ladder step ' + run.level + (win ? ' win' : '') });
       ladderRes = { gid: run.gid, win, step: run.level, next: r.ladder, rp: r.rp, drp: r.drp, tier: r.tier.name, xp: x.amt | 0 };
     } catch (e) { ladderRes = { gid: run.gid, win, step: run.level, error: 1 }; }
@@ -851,6 +901,7 @@ export class Room {
         add: { games: 1, wins: win ? 1 : 0, losses: win === false ? 1 : 0, kos: r.kos | 0, deaths: r.falls | 0 } }).catch(() => {});
       try {
         const rr = await acct(this.env, pl.uid, 'ranked-add', { win });
+        acct(this.env, RANKBOARD, 'rk-set', { uid: pl.uid, name: rr.name || pl.name, rp: rr.rp, w: rr.rw, l: rr.rl }).catch(() => {});
         const x = await acct(this.env, pl.uid, 'xp-add', { amount: win === null ? RANKED_XP.draw : win ? RANKED_XP.win : RANKED_XP.loss, match: true, won: win === true, why: 'Ranked ' + (win === null ? 'draw' : win ? 'win' : 'loss') });
         p[pl.peer] = { win, rp: rr.rp, drp: rr.drp, tier: rr.tier.name, xp: x.amt | 0, left: pl.peer === leaver ? 1 : 0 };
       } catch (e) { p[pl.peer] = { win, error: 1 }; }
@@ -892,6 +943,9 @@ export class Room {
     });
     while (slots.length < 4) slots.push({ type: 'off' });
     const gcfg = { stage: clamp(cfg.stage | 0, 0, STAGES.length - 1), stocks: clamp(cfg.stocks | 0, 1, 9), time: clamp(cfg.time | 0, 2, 15), teams: !!cfg.teams, slots };
+    // event rules (buffed fighters): only during that event
+    const occ = typeof evOccurrence === 'function' ? evOccurrence() : null;
+    if (occ && cfg.evMode === occ.id) { gcfg.evMode = occ.id; this.evKey = occ.key; } else this.evKey = null;
     if (slots.filter(s => s.type !== 'off').length < 2) return;
     this.gid = gid; this.g = makeGame(gcfg); this.ended = false; this.lastSent = -9;
     // who is playing which fighter (for the leaderboard): signed-in players only, counted once per account
@@ -997,6 +1051,9 @@ export class Room {
           add: { games: 1, wins: r.win ? 1 : 0, losses: !r.win && g.winTid !== null ? 1 : 0, kos: r.kos | 0, deaths: r.falls | 0 } }).catch(() => {});
         // XP: +10 for playing, +15 more for a win, +1 per KO
         acct(this.env, uid, 'xp-add', { amount: 10 + (r.win ? 15 : 0) + Math.min(20, r.kos | 0), match: true, won: !!r.win, why: 'Online match' + (r.win ? ' win' : '') }).catch(() => {});
+        // an event match win counts on the event leaderboard if there was a real fight: another player, or only level 7+ CPUs
+        const others = g.fighters.filter(f => f.slot !== h.slot), fair = others.length && others.every(f => f.ctrl.type === 'remote' || (f.ctrl.type === 'cpu' && (f.lvl | 0) >= EVENT_CPU_LVL));
+        if (r.win && g.cfg.evMode && this.evKey && fair) acct(this.env, EVBOARD, 'ev-win', { uid, name: h.name || (pc && pc.pname) || '', key: this.evKey }).catch(() => {});
       });
       this.broadcast({ from: 'srv', d: { res: this.srv.res } });
       clearInterval(this.timer); this.timer = null;
@@ -1033,6 +1090,21 @@ export default {
         if (out.me && out.me.stats && b.cpu) Object.assign(out.me.stats, b.cpu);
         return json(Object.assign(out, { season: b.season, view }), 200, cors);
       }
+      /* the event leaderboard (public): wins in event matches during this event, the buffed fighters and the prizes */
+      if (url.pathname === '/api/event/board' && req.method === 'GET') {
+        let me = null;
+        if (tok) { try { me = (await verifyIdToken(tok, env)).uid; } catch (e) { } }
+        await settleEvents(env).catch(() => {});
+        const occ = typeof evOccurrence === 'function' ? evOccurrence() : null;
+        const b = await acct(env, EVBOARD, 'ev-board', { key: occ ? occ.key : '', uid: me });
+        return json(Object.assign(b, { event: occ ? { id: occ.id, name: EVENTS[occ.id].name, daysLeft: occ.daysLeft, buffed: eventBuffed(occ.id) } : null, prizes: EVENT_PRIZES }), 200, cors);
+      }
+      /* the Ranked leaderboard (public): the top 50 by rank points */
+      if (url.pathname === '/api/ranked/board' && req.method === 'GET') {
+        let me = null;
+        if (tok) { try { me = (await verifyIdToken(tok, env)).uid; } catch (e) { } }
+        return json(await acct(env, RANKBOARD, 'rk-list', { uid: me }), 200, cors);
+      }
       /* the season clock and last season's results (public); signed in, also your titles to claim */
       if (url.pathname === '/api/season' && req.method === 'GET') {
         let me = null;
@@ -1043,6 +1115,7 @@ export default {
       try { u = await verifyIdToken(tok, env); } catch (e) { return json({ error: String(e.message || 'auth') }, 401, cors); }
       if (!(await hit(env, 'uid:' + u.uid, url.pathname === '/api/ranked/queue' ? 'queue' : 'api'))) return json({ error: 'slow-down' }, 429, cors);
       if (url.pathname === '/api/me' && req.method === 'GET') {
+        await settleEvents(env).catch(() => {});   // an event that just ended hands out its prizes
         const p = await acct(env, u.uid, 'get', { name: toUsername(u.name), owner: isOwner(u, env), gift: giftsFor(u, env) });
         if (p && p.name) await acct(env, NAMES, 'claim', { name: p.name, uid: u.uid });   // reserve the name this player already uses
         const roles = p.roles || {};
@@ -1072,10 +1145,20 @@ export default {
         const x = await acct(env, u.uid, 'xp-add', { amount, cpu: true, match: true, won: d.win, why: 'Vs CPU level ' + L + (d.win ? ' win' : '') });
         if (x && x.tooSoon) return json({ error: 'too-soon' }, 429, cors);   // a result less than 45 seconds after the last one isn't saved
         await acct(env, BOARD, 'stat-add', { uid: u.uid, add: { cpuGames: 1, cpuWins: d.win ? 1 : 0, cpuKos: d.kos, cpuDeaths: d.falls } });
+        // Event Vs CPU: a win against a level 7+ CPU during the event counts on the event leaderboard
+        const occ = typeof evOccurrence === 'function' ? evOccurrence() : null;
+        if (d.win && occ && d.event === occ.id && L >= EVENT_CPU_LVL) {
+          const pr = await acct(env, u.uid, 'get', {});
+          await acct(env, EVBOARD, 'ev-win', { uid: u.uid, name: pr.name || '', key: occ.key, cpu: true });
+        }
         return json({ ok: true, xp: x && x.xp != null ? x.xp : undefined }, 200, cors);
       }
       /* Ranked (unlocks at level 5): your rank, and the Online Ranked queue */
-      if (url.pathname === '/api/ranked' && req.method === 'GET') return json(rankedInfo(await acct(env, u.uid, 'get', {})), 200, cors);
+      if (url.pathname === '/api/ranked' && req.method === 'GET') {
+        const p = await acct(env, u.uid, 'get', {});
+        if ((p.rp | 0) > 0 || (p.rw | 0) > 0) await acct(env, RANKBOARD, 'rk-set', { uid: u.uid, name: p.name || '', rp: p.rp | 0, w: p.rw | 0, l: p.rl | 0 });   // players who played Ranked before the leaderboard
+        return json(rankedInfo(p), 200, cors);
+      }
       if (url.pathname === '/api/ranked/queue' && req.method === 'POST') {
         const p = await acct(env, u.uid, 'get', {});
         if (xpLevel(p.xp || 0).level < RANKED_LEVEL) return json({ error: 'level' }, 403, cors);
