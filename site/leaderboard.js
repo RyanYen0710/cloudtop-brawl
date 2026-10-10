@@ -2,12 +2,15 @@
 /* ===== CLOUDTOP BRAWL — Leaderboard =====
    The numbers come from the game server, which counts them itself when an online match or a Boss Fight ends,
    so nobody can fake them from their browser. The list is public: usernames and numbers only, never emails.
-   Vs CPU games run in your own browser, so they are only shown in "Your stats" on this device. */
+   Vs CPU games run in your own browser, so they never rank. Signed in, they're saved to your account ("Your stats");
+   signed out, they're kept on this device.
+   Time online = time the game is open while you're signed in (the game tells the server "still here" every 2 minutes).
+   The owner (and only the owner, checked by the server) gets ↑ ↓ arrows to reorder a section and can tap a number to edit it. */
 
 const LB = { data: null, tab: 'overall', busy: false, err: '' };
 const LB_TABS = [
   ['overall', 'Overall', 'Wins, KOs, Boss Fight level and time online together'],
-  ['online', 'Most online', 'Most time spent playing online'],
+  ['online', 'Most online', 'Most time spent in the game while signed in'],
   ['wins', 'Most wins', 'Online and Boss Fight wins'],
   ['games', 'Most games', 'Online matches and Boss Fights played'],
   ['boss', 'Boss Fight', 'Highest Boss Fight level beaten']
@@ -22,7 +25,7 @@ function lbTime(ms) {
   if (h) return h + 'h ' + (m - h * 60) + 'm';
   return m + 'm';
 }
-const lbRatio = (a, b) => (b ? a / b : a).toFixed(2);
+const lbRatio = (a, b) => { a = +a || 0; b = +b || 0; return (b ? a / b : a).toFixed(2); };
 function lbMain(tab, x) {
   if (tab === 'online') return lbTime(x.onlineMs);
   if (tab === 'wins') return x.wins + (x.wins === 1 ? ' win' : ' wins');
@@ -38,9 +41,13 @@ function lbDetails(tab, x) {
   return [['Games', x.games]];
 }
 function lbCpuStats() { try { return JSON.parse(loadLocal('cb.cpuStats') || 'null') || { games: 0, wins: 0, kos: 0, deaths: 0 }; } catch (e) { return { games: 0, wins: 0, kos: 0, deaths: 0 }; } }
-/* called by app.js when a Vs CPU match ends (this device only) */
+/* called by app.js when a Vs CPU match ends: saved to your account when signed in, otherwise on this device */
 function lbRecordCpu(row) {
   if (!row) return;
+  if (typeof acctSignedIn === 'function' && acctSignedIn() && typeof acctApi === 'function') {
+    acctApi('/api/cpu-result', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ win: !!row.win, kos: Math.min(50, row.kos | 0), falls: Math.min(50, row.falls | 0) }) }).catch(() => {});
+    return;
+  }
   const s = lbCpuStats();
   s.games++; if (row.win) s.wins++; s.kos += row.kos | 0; s.deaths += row.falls | 0;
   saveLocal('cb.cpuStats', JSON.stringify(s));
@@ -68,6 +75,66 @@ async function loadLeaderboard() {
   finally { LB.busy = false; if (G.screen === 'leaderboard') renderLeaderboard(); }
 }
 function lbMedal(rank) { return el('span', { class: 'lb-medal m' + rank, 'aria-label': ['', 'Gold', 'Silver', 'Bronze'][rank] + ' medal, rank ' + rank }, [el('b', { text: String(rank) })]); }
+/* ---- owner tools ---- */
+const lbOwner = () => !!(LB.data && LB.data.owner && typeof acctApi === 'function');
+const lbPost = (path, data) => acctApi(path, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(data) });
+async function lbMove(i, dir) {
+  const list = LB.data.sections[LB.tab] || [], j = i + dir;
+  if (LB.busy || j < 0 || j >= list.length) return;
+  const uids = list.map(x => x.uid);
+  [uids[i], uids[j]] = [uids[j], uids[i]];
+  LB.busy = true; renderLeaderboard();
+  try { await lbPost('/api/admin/board/order', { section: LB.tab, uids }); } catch (e) { toast('Couldn’t move that player. Try again.'); }
+  LB.busy = false; loadLeaderboard();
+}
+async function lbResetOrder() {
+  if (LB.busy || !(await gameConfirm('Put “' + LB_TABS.find(x => x[0] === LB.tab)[1] + '” back in order by the numbers?', 'Yes, reset'))) return;
+  LB.busy = true; renderLeaderboard();
+  try { await lbPost('/api/admin/board/order', { section: LB.tab, reset: true }); } catch (e) { toast('Couldn’t reset the order. Try again.'); }
+  LB.busy = false; loadLeaderboard();
+}
+function lbEdit(x) {
+  const back = el('div', { class: 'gc-back' }), box = el('form', { class: 'gc-box card lb-edit', role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Edit ' + x.name });
+  const num = (label, key, value, max) => {
+    const i = el('input', { type: 'number', min: '0', max: String(max), step: '1', value: String(value), 'aria-label': label }); i.dataset.k = key;
+    return el('label', { class: 'lb-edit-f' }, [el('span', { text: label }), i]);
+  };
+  const h = Math.floor(x.onlineMs / 3600000), m = Math.floor((x.onlineMs % 3600000) / 60000);
+  box.append(el('h3', { text: 'Edit ' + x.name }), el('p', { class: 'muted', text: 'Only you can do this. The change is saved right away and logged.' }),
+    el('div', { class: 'lb-edit-grid' }, [num('Online hours', 'h', h, 876000), num('Online minutes', 'm', m, 59), num('Games', 'games', x.games, 1e7),
+      num('Wins', 'wins', x.wins, 1e7), num('Losses', 'losses', x.losses, 1e7), num('KOs', 'kos', x.kos, 1e7), num('Deaths', 'deaths', x.deaths, 1e7),
+      num('Boss wins', 'bossWins', x.bossWins, 1e7), num('Boss level', 'bestLevel', x.bestLevel, BOSS_LEVELS.length)]));
+  const msg = el('p', { class: 'ad-message', role: 'status' });
+  const cancel = el('button', { type: 'button', class: 'btn', text: 'Cancel' }), save = el('button', { type: 'submit', class: 'btn start', text: 'Save' });
+  box.append(msg, el('div', { class: 'gc-row' }, [cancel, save]));
+  back.appendChild(box); document.body.appendChild(back);
+  const close = () => back.remove();
+  cancel.addEventListener('click', close);
+  back.addEventListener('click', e => { if (e.target === back) close(); });
+  back.addEventListener('keydown', e => { if (e.key === 'Escape') { e.preventDefault(); close(); } e.stopPropagation(); });
+  box.addEventListener('submit', async e => {
+    e.preventDefault();
+    const v = {}; box.querySelectorAll('input').forEach(i => { v[i.dataset.k] = Math.max(0, Math.min(+i.max, Math.floor(+i.value || 0))); });
+    const set = { onlineMs: (v.h * 60 + v.m) * 60000 };
+    ['games', 'wins', 'losses', 'kos', 'deaths', 'bossWins', 'bestLevel'].forEach(k => { set[k] = v[k]; });
+    save.disabled = true; msg.textContent = 'Saving…';
+    try { await lbPost('/api/admin/board', { uid: x.uid, set }); close(); loadLeaderboard(); }
+    catch (err) { msg.textContent = 'Couldn’t save. Check the numbers and try again.'; save.disabled = false; }
+  });
+  setTimeout(() => { const f = box.querySelector('input'); if (f) f.focus(); }, 0);
+}
+function lbArrows(i, n) {
+  const up = el('button', { type: 'button', class: 'lb-arrow', text: '▲', 'aria-label': 'Move up', on: { click: e => { e.stopPropagation(); lbMove(i, -1); } } });
+  const dn = el('button', { type: 'button', class: 'lb-arrow', text: '▼', 'aria-label': 'Move down', on: { click: e => { e.stopPropagation(); lbMove(i, 1); } } });
+  up.disabled = LB.busy || i === 0; dn.disabled = LB.busy || i === n - 1;
+  return el('span', { class: 'lb-arrows' }, [up, dn]);
+}
+/* in owner mode the number is a button that opens the editor */
+function lbValue(cls, x, text) {
+  if (!lbOwner()) return el(cls === 'lb-pval' ? 'div' : 'span', { class: cls, text });
+  return el('button', { type: 'button', class: cls + ' lb-editable', text, title: 'Tap to edit', 'aria-label': 'Edit ' + x.name + ': ' + text, on: { click: () => lbEdit(x) } });
+}
+
 function renderLeaderboard() {
   const s = lbScreen(); s.textContent = '';
   const wrap = el('div', { class: 'wrap lb-wrap' }); s.appendChild(wrap);
@@ -81,6 +148,12 @@ function renderLeaderboard() {
   wrap.appendChild(tabs);
   const tabInfo = LB_TABS.find(x => x[0] === LB.tab);
   wrap.appendChild(el('p', { class: 'lb-sub', text: tabInfo[2] + (LB.tab === 'overall' ? ' · points = 10 per win + 2 per KO + 5 per Boss level + 1 per hour online' : '') }));
+  if (lbOwner()) {
+    const tools = el('div', { class: 'lb-owner' }, [el('span', { class: 'ad-badge ad-badge-owner', text: 'OWNER TOOLS' }),
+      el('span', { text: 'Use ▲ ▼ to move players. Tap a number to edit it.' })]);
+    if (LB.data.custom && LB.data.custom[LB.tab]) { const r = el('button', { type: 'button', class: 'mini', text: 'Reset order', on: { click: lbResetOrder } }); r.disabled = LB.busy; tools.appendChild(r); }
+    wrap.appendChild(tools);
+  }
   if (LB.err) { wrap.appendChild(el('p', { class: 'lb-empty', text: LB.err })); return; }
   if (!LB.data) { wrap.appendChild(el('p', { class: 'lb-empty', text: 'Loading the top players…' })); return; }
   const list = LB.data.sections[LB.tab] || [];
@@ -91,17 +164,19 @@ function renderLeaderboard() {
     const x = list[i]; if (!x) return;
     const rank = i + 1;
     podium.appendChild(el('div', { class: 'lb-step s' + rank + (x.me ? ' me' : '') }, [
-      lbMedal(rank), el('div', { class: 'lb-pname', text: x.name }), el('div', { class: 'lb-pval', text: lbMain(LB.tab, x) }),
+      lbOwner() ? lbArrows(i, list.length) : null,
+      lbMedal(rank), el('div', { class: 'lb-pname', text: x.name }), lbValue('lb-pval', x, lbMain(LB.tab, x)),
       el('div', { class: 'lb-pdet', text: lbDetails(LB.tab, x).map(([k, v]) => k + ' ' + v).join(' · ') }),
       el('div', { class: 'lb-block', 'aria-hidden': 'true', text: String(rank) })]));
   });
   if (list.length) wrap.appendChild(podium);
   if (list.length > 3) {
     const rows = el('ol', { class: 'lb-list', start: '4' }); wrap.appendChild(rows);
-    list.slice(3).forEach((x, i) => rows.appendChild(el('li', { class: 'lb-row' + (x.me ? ' me' : '') }, [
+    list.slice(3).forEach((x, i) => rows.appendChild(el('li', { class: 'lb-row' + (x.me ? ' me' : '') + (lbOwner() ? ' own' : '') }, [
+      lbOwner() ? lbArrows(i + 3, list.length) : null,
       el('span', { class: 'lb-rank', text: String(i + 4) }), el('span', { class: 'lb-name', text: x.name }),
       el('span', { class: 'lb-det' }, lbDetails(LB.tab, x).map(([k, v]) => el('span', {}, [el('small', { text: k }), el('b', { text: String(v) })]))),
-      el('span', { class: 'lb-val', text: lbMain(LB.tab, x) })])));
+      lbValue('lb-val', x, lbMain(LB.tab, x))])));
   }
   // your own numbers
   const me = LB.data.me, cpu = lbCpuStats(), mine = el('div', { class: 'card lb-me' }, [el('div', { class: 'card-h', text: 'Your stats' })]);
@@ -113,7 +188,9 @@ function renderLeaderboard() {
       ['K/D', lbRatio(x.kos, x.deaths)], ['W/L', lbRatio(x.wins, x.losses)], ['Boss level', x.bestLevel], ['Points', x.score]]
       .map(([k, v]) => el('div', {}, [el('small', { text: k }), el('b', { text: String(v) })]))));
   } else mine.appendChild(el('p', { class: 'muted', text: acctSignedIn() ? 'Win an online match or a Boss Fight to get on the leaderboard.' : 'Sign in, then play online or Boss Fight to get on the leaderboard.' }));
-  mine.appendChild(el('p', { class: 'muted lb-cpu', text: 'Vs CPU on this device (not on the leaderboard): ' + cpu.games + ' games · ' + cpu.wins + ' wins · K/D ' + lbRatio(cpu.kos, cpu.deaths) }));
+  const acc = me && me.stats ? { games: me.stats.cpuGames | 0, wins: me.stats.cpuWins | 0, kos: me.stats.cpuKos | 0, deaths: me.stats.cpuDeaths | 0 } : null;
+  const c = acc || cpu;
+  mine.appendChild(el('p', { class: 'muted lb-cpu', text: 'Vs CPU ' + (acc ? 'on your account' : 'on this device') + ' (not on the leaderboard): ' + c.games + ' games · ' + c.wins + ' wins · K/D ' + lbRatio(c.kos, c.deaths) }));
   wrap.appendChild(mine);
 }
 document.getElementById('go-leaderboard').addEventListener('click', showLeaderboard);
