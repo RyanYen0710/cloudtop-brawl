@@ -72,7 +72,7 @@ test('Tester-mode boss runs never count on the leaderboard', async () => {
   assert.deepEqual(f.stats, []);
 });
 
-test('an online match counts for every signed-in player: win/loss, KOs, deaths and time played', async () => {
+test('an online match counts for every signed-in player: win/loss, KOs and deaths', async () => {
   const f = roomSetup();
   const host = f.client('h1', 'uid-1', 'Ryan'), guest = f.client('g1', 'uid-2', 'Jams');
   f.client('g2', null, 'Guest');   // not signed in: never counted
@@ -89,7 +89,7 @@ test('an online match counts for every signed-in player: win/loss, KOs, deaths a
   assert.deepEqual(Object.keys(byUid).sort(), ['uid-1', 'uid-2']);
   assert.equal(byUid['uid-1'].add.wins, 1); assert.equal(byUid['uid-1'].add.kos, 2); assert.equal(byUid['uid-1'].add.deaths, 1);
   assert.equal(byUid['uid-2'].add.losses, 1); assert.equal(byUid['uid-2'].add.wins, 0);
-  assert.ok(byUid['uid-1'].add.onlineMs >= 90000 && byUid['uid-1'].add.onlineMs < 91000);
+  assert.equal(byUid['uid-1'].add.onlineMs, undefined);   // time online comes from the "still here" ping instead
 });
 
 test('one account playing two fighters in the same match is only counted once', async () => {
@@ -136,7 +136,7 @@ function apiSetup() {
     const r = await worker.fetch(new Request('https://w.example.invalid/api/leaderboard', { headers: { origin: 'https://game.example.invalid', ...(id ? { authorization: 'Bearer ' + token(id) } : {}) } }), env);
     return { status: r.status, data: await r.json() };
   };
-  return { add, get };
+  return { add, get, worker, env, objects };
 }
 
 test('the leaderboard is public, sorted, and never shows emails or account ids', async () => {
@@ -172,4 +172,77 @@ test('stats only go up, and one result can never add an absurd amount', async ()
   await f.add('u1', 'Ryan', { onlineMs: 999999999999, wins: 1e9, games: -5 }, 999);
   const s = (await f.get()).data.sections.online[0];
   assert.equal(s.onlineMs, 3600000); assert.equal(s.wins, 1000); assert.equal(s.games, 0); assert.equal(s.bestLevel, 30);
+});
+
+/* ---- the owner can edit the leaderboard; nobody else can ---- */
+function editSetup() {
+  const f = apiSetup();
+  f.post = async (id, path, body) => {
+    const r = await f.worker.fetch(new Request('https://w.example.invalid' + path, { method: 'POST', body: JSON.stringify(body),
+      headers: { origin: 'https://game.example.invalid', 'content-type': 'application/json', authorization: 'Bearer ' + token(id) } }), f.env);
+    return { status: r.status, data: await r.json() };
+  };
+  return f;
+}
+test('only the owner sees account ids on the leaderboard (needed for editing)', async () => {
+  const f = editSetup(); f.env.OWNER_EMAILS = 'boss@example.invalid';
+  await f.add('u1', 'Ryan', { games: 3, wins: 2 });
+  assert.equal((await f.get('u2')).data.sections.wins[0].uid, undefined);
+  assert.equal((await f.get('u2')).data.owner, undefined);
+  const o = (await f.get('boss')).data;
+  assert.equal(o.owner, true); assert.equal(o.sections.wins[0].uid, 'u1');
+});
+test('the owner can set exact numbers; bad values and other players are refused', async () => {
+  const f = editSetup(); f.env.OWNER_EMAILS = 'boss@example.invalid';
+  await f.add('u1', 'Ryan', { games: 3, wins: 2, onlineMs: 60000 });
+  assert.equal((await f.post('u1', '/api/admin/board', { uid: 'u1', set: { wins: 99 } })).status, 403);
+  for (const set of [{ wins: -1 }, { wins: 1.5 }, { bestLevel: 31 }, { name: 'x' }, {}])
+    assert.equal((await f.post('boss', '/api/admin/board', { uid: 'u1', set })).status, 400);
+  assert.equal((await f.post('boss', '/api/admin/board', { uid: 'nobody', set: { wins: 1 } })).status, 404);
+  assert.equal((await f.post('boss', '/api/admin/board', { uid: 'u1', set: { wins: 50, onlineMs: 7200000, bestLevel: 12 } })).status, 200);
+  const s = (await f.get()).data.sections.wins[0];
+  assert.equal(s.wins, 50); assert.equal(s.onlineMs, 7200000); assert.equal(s.bestLevel, 12); assert.equal(s.games, 3);
+});
+test('the owner can move players with the arrows and reset the order', async () => {
+  const f = editSetup(); f.env.OWNER_EMAILS = 'boss@example.invalid';
+  await f.add('u1', 'Ryan', { wins: 9 }); await f.add('u2', 'Jams', { wins: 5 }); await f.add('u3', 'Bob', { wins: 1 });
+  assert.equal((await f.post('u2', '/api/admin/board/order', { section: 'wins', uids: ['u3', 'u1', 'u2'] })).status, 403);
+  assert.equal((await f.post('boss', '/api/admin/board/order', { section: 'nope', uids: ['u1'] })).status, 400);
+  assert.equal((await f.post('boss', '/api/admin/board/order', { section: 'wins', uids: ['u1', 'u1'] })).status, 400);
+  assert.equal((await f.post('boss', '/api/admin/board/order', { section: 'wins', uids: ['u3', 'u1', 'u2'] })).status, 200);
+  let r = (await f.get()).data;
+  assert.deepEqual(r.sections.wins.map(x => x.name), ['Bob', 'Ryan', 'Jams']); assert.equal(r.custom.wins, true);
+  assert.deepEqual(r.sections.games.map(x => x.name), []);   // other sections untouched
+  assert.equal((await f.post('boss', '/api/admin/board/order', { section: 'wins', reset: true })).status, 200);
+  r = (await f.get()).data;
+  assert.deepEqual(r.sections.wins.map(x => x.name), ['Ryan', 'Jams', 'Bob']); assert.equal(r.custom.wins, undefined);
+});
+
+test('time online counts while the game is open (the "still here" ping), up to 3 minutes per ping', async () => {
+  const f = editSetup();
+  const ping = id => f.worker.fetch(new Request('https://w.example.invalid/api/ping', { method: 'POST', body: '{}',
+    headers: { origin: 'https://game.example.invalid', authorization: 'Bearer ' + token(id) } }), f.env);
+  assert.equal((await ping('u9')).status, 200);   // first signal: nothing to count yet
+  assert.deepEqual((await f.get()).data.sections.online, []);
+  const rows = f.objects.get('u:__admin').state.storage.rows, rec = rows.get('player:u9');
+  rec.seen = Date.now() - 120000; rows.set('player:u9', rec);   // the last signal was 2 minutes ago
+  await ping('u9');
+  const t = (await f.get()).data.sections.online[0].onlineMs;
+  assert.ok(t >= 120000 && t < 125000, String(t));
+  rec.seen = Date.now() - 3600000; rows.set('player:u9', rec);   // came back after an hour away: the gap is not counted
+  await ping('u9');
+  assert.ok((await f.get()).data.sections.online[0].onlineMs < 125000);
+});
+
+test('Vs CPU results save to the account but never rank on the leaderboard', async () => {
+  const f = editSetup();
+  for (const bad of [{ win: 'yes', kos: 1, falls: 0 }, { win: true, kos: 99, falls: 0 }, { win: true, kos: 1.5, falls: 0 }])
+    assert.equal((await f.post('u5', '/api/cpu-result', bad)).status, 400);
+  assert.equal((await f.post('u5', '/api/cpu-result', { win: true, kos: 3, falls: 1 })).status, 200);
+  assert.equal((await f.post('u5', '/api/cpu-result', { win: false, kos: 1, falls: 3 })).status, 200);
+  const r = (await f.get('u5')).data;
+  assert.equal(r.me.stats.cpuGames, 2); assert.equal(r.me.stats.cpuWins, 1); assert.equal(r.me.stats.cpuKos, 4); assert.equal(r.me.stats.cpuDeaths, 4);
+  for (const k in r.sections) assert.deepEqual(r.sections[k], [], k + ' must stay empty');
+  assert.equal((await f.get()).data.sections.wins.length, 0);
+  assert.ok(!JSON.stringify((await f.get()).data).includes('cpu'));   // other people never see your CPU numbers
 });
