@@ -183,27 +183,43 @@ test('report pagination returns every report once and validates its cursor', asy
   assert.equal((await f.call('owner1', '/api/admin/reports?cursor=profile')).status, 400);
 });
 
-test('an OP can change only their own account, and only the owner gives roles', async () => {
+test('an OP (Admin panel) sees players and reports and edits other accounts, but never roles or the owner', async () => {
   const f = setup(); for (const id of ['owner1', 'player1', 'player2']) await f.call(id, '/api/me');
-  const own = edit((await f.call('player1', '/api/me')).data);
-  assert.equal((await f.call('player1', '/api/admin/account', own)).status, 403);           // not an OP yet
+  const p2 = (await f.call('player2', '/api/me')).data;
+  assert.equal((await f.call('player1', '/api/admin/players')).status, 403);          // not an OP yet
   assert.equal((await f.call('player2', '/api/admin/roles', { uid: 'player1', op: true, collab: false })).status, 403);
-  const given = await f.call('owner1', '/api/admin/roles', { uid: 'player1', op: true, collab: true });
-  assert.equal(given.status, 200);
+  assert.equal((await f.call('owner1', '/api/admin/roles', { uid: 'player1', op: true, collab: true })).status, 200);
   const me = (await f.call('player1', '/api/me')).data;
   assert.equal(me.op, true); assert.equal(me.collab, true); assert.equal(me.owner, false);
-  // an OP's lookups and saves always go to their own account, whatever uid they send
-  const self = await f.call('player1', '/api/admin/account?uid=player2');
-  assert.equal(self.status, 200); assert.equal(self.data.uid, 'player1'); assert.equal(self.data.info, null);
-  const saved = await f.call('player1', '/api/admin/account', { ...edit(me), uid: 'player2' });
-  assert.equal(saved.status, 200);
-  assert.equal((await f.call('player1', '/api/me')).data.beaten, 10);
-  assert.equal((await f.call('player2', '/api/me')).data.beaten, 0);
-  for (const path of ['/api/admin/players', '/api/admin/reports']) assert.equal((await f.call('player1', path)).status, 403);
-  assert.equal((await f.call('player1', '/api/admin/roles', { uid: 'player1', op: true, collab: true })).status, 403);
+  // the player list and account details: emails yes, roles no
+  const list = (await f.call('player1', '/api/admin/players')).data.players;
+  assert.equal(list.find(x => x.uid === 'player2').email, 'player2@example.invalid');
+  assert.ok(list.every(x => x.roles === undefined && x.owner === undefined), 'admins never see roles');
+  const other = (await f.call('player1', '/api/admin/account?uid=player2')).data;
+  assert.equal(other.uid, 'player2'); assert.equal(other.info.email, 'player2@example.invalid'); assert.equal(other.profile.roles, undefined);
+  const self = (await f.call('player1', '/api/admin/account?uid=player1')).data;
+  assert.equal(self.profile.roles, undefined);
+  // editing another player works and is logged with the admin's name
+  const saved = await f.call('player1', '/api/admin/account', { ...edit(p2), uid: 'player2' });
+  assert.equal(saved.status, 200); assert.equal(saved.data.profile.roles, undefined);
+  assert.equal((await f.call('player2', '/api/me')).data.beaten, 10);
+  assert.equal((await f.call('owner1', '/api/admin/account?uid=player2')).data.history[0].actor.uid, 'player1');
+  // the owner's account can never be changed by an admin
+  const owner = (await f.call('owner1', '/api/me')).data;
+  assert.equal((await f.call('player1', '/api/admin/account', { ...edit(owner), uid: 'owner1', beaten: 0, wins: 0, unlocked: [] })).status, 409);
+  assert.equal((await f.call('owner1', '/api/me')).data.beaten, 30);
+  // bug reports: read, update and delete
+  await f.call('player2', '/api/reports', report());
+  const r = (await f.call('player1', '/api/admin/reports')).data.reports[0];
+  assert.equal((await f.call('player1', '/api/admin/reports', { id: r.id, expectedUpdated: r.updated, status: 'resolved', notes: 'Fixed' })).status, 200);
+  assert.equal((await f.call('player1', '/api/admin/reports/delete', { id: r.id })).status, 200);
+  // never roles or leaderboard edits
+  assert.equal((await f.call('player1', '/api/admin/roles', { uid: 'player2', op: true, collab: true })).status, 403);
+  assert.equal((await f.call('player1', '/api/admin/board', { uid: 'player2', set: { wins: 5 } })).status, 403);
+  assert.equal((await f.call('player1', '/api/admin/board/order', { section: 'wins', reset: true })).status, 403);
   // a collab label alone gives no powers, and removing OP takes the powers away again
   await f.call('owner1', '/api/admin/roles', { uid: 'player1', op: false, collab: true });
-  assert.equal((await f.call('player1', '/api/admin/account?uid=player1')).status, 403);
+  assert.equal((await f.call('player1', '/api/admin/players')).status, 403);
   assert.equal((await f.call('owner1', '/api/admin/roles', { uid: 'owner1', op: true, collab: true })).status, 409);
   assert.equal((await f.call('owner1', '/api/admin/roles', { uid: 'player1', op: 'yes', collab: true })).status, 400);
 });
