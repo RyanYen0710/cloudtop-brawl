@@ -81,6 +81,8 @@ async function acctChanged() {
   if (typeof testerUpdate === 'function') testerUpdate();
   if (G.screen === 'boss' && typeof renderBoss === 'function') renderBoss();
 }
+/* "still playing" ping every 2 minutes while the game is open, so the Owner panel can show who is online */
+setInterval(() => { if (acctSignedIn() && document.visibilityState === 'visible') acctApi('/api/ping', { method: 'POST' }).catch(() => {}); }, 120000);
 function setUnlocked(list) {
   const next = Array.isArray(list) ? list.filter(id => CHAR[id]) : [];
   if (next.join() === MY_UNLOCKED.join()) return;
@@ -99,6 +101,9 @@ function pwRules(pw) {
   ];
 }
 const USERNAME_RE = /^[A-Za-z0-9_]{3,16}$/;
+/* only the owner's account may use a 1-2 letter username (the server checks this too) */
+const nameRule = () => ACCT.profile && ACCT.profile.owner ? /^[A-Za-z0-9_]{1,16}$/ : USERNAME_RE;
+const nameHint = () => ACCT.profile && ACCT.profile.owner ? '1–16 letters, numbers or _ (owner only: 1–2 letters allowed)' : '3–16 letters, numbers or _';
 function acctErrText(e) {
   const c = (e && e.code) || '';
   if (c === 'auth/invalid-credential' || c === 'auth/wrong-password' || c === 'auth/user-not-found' || c === 'auth/invalid-email') return 'Wrong email or password.';
@@ -318,7 +323,7 @@ function renderAcctPane() {
   const un = inp({ id: 'set-uname', maxlength: '16', autocomplete: 'off', spellcheck: 'false', value: ACCT.profile.name || '' });
   un.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); saveUsername(); } });
   box.appendChild(sec('Username', [el('div', { class: 'acct-line' }, [un, btn('Save', saveUsername)]), msg('name'),
-    el('p', { class: 'muted set-note', text: 'Your name in every mode. 3–16 letters, numbers or _ . Every username is unique.' })]));
+    el('p', { class: 'muted set-note', text: 'Your name in every mode. ' + nameHint() + '. Every username is unique.' })]));
   // email
   const kids = [el('p', { class: 'acct-msg', text: 'Signed in as ' + (ACCT.user.email || '—') + (hasG && !hasPw ? ' (Google)' : '') })];
   if (hasPw) {
@@ -348,7 +353,7 @@ async function saveUsername() {
   const inp = document.getElementById('set-uname'); if (!inp || !ACCT.profile) return;
   const name = inp.value.trim();
   if (name === ACCT.profile.name) { acpMsg('name', 'That’s already your username.', 'ok'); return; }
-  if (!/^[A-Za-z0-9_]{3,16}$/.test(name)) { acpMsg('name', 'Use 3–16 letters, numbers or _ (no spaces).', 'err'); return; }
+  if (!nameRule().test(name)) { acpMsg('name', 'Use ' + nameHint() + ' (no spaces).', 'err'); return; }
   acpMsg('name', 'Saving…');
   try {
     const p = await acctApi('/api/name', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ name }) });
@@ -359,7 +364,7 @@ async function saveUsername() {
     renderAcctChip(); inp.blur();
     acpMsg('name', 'Saved! You’re now ' + name + '.', 'ok'); SFX.play('ui');
   } catch (e) {
-    acpMsg('name', { taken: 'Someone already has that username. Try another one.', name: 'Use 3–16 letters, numbers or _ (no spaces).', 'slow-down': 'Too many changes. Wait a minute and try again.' }[e.message] || 'Couldn’t save it. Check your connection and try again.', 'err');
+    acpMsg('name', { taken: 'Someone already has that username. Try another one.', name: 'Use ' + nameHint() + ' (no spaces).', 'slow-down': 'Too many changes. Wait a minute and try again.' }[e.message] || 'Couldn’t save it. Check your connection and try again.', 'err');
   }
 }
 /* Firebase wants a fresh password check before changing email or password */
