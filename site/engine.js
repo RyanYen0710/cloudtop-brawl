@@ -607,6 +607,7 @@ function koF(f, g) {
   if (!g.cfg.endless) f.stocks--;
   f.falls++;
   if (f.lastHit >= 0) { const k = g.fighters.find(o => o.slot === f.lastHit); if (k && k !== f) k.kos++; }
+  f.lastHit = -1; f.lastHitT = 0;   // a KO is credited once; after respawning, a self-destruct doesn't give that player another KO
   f.dead = 75; endAct(f); f.hitstun = 0; f.vx = 0; f.vy = 0; f.frozen = 0; f.flyT = 0; f.zap = 0; f.slow = 0; f.burn = 0;
   g.shake = 20;
 }
