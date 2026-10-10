@@ -58,16 +58,18 @@ const edit = p => ({ uid: 'player1', revision: p.revision || 0, beaten: 10, wins
 const report = () => ({ title: 'Boss jump gets stuck', details: 'The fighter stops moving after jumping near the ledge.',
   steps: 'Choose a fighter, jump into the ledge.', category: 'gameplay', severity: 'medium', context: { screen: 'boss', mode: 'solo', level: 10, browser: 'test browser' } });
 
-test('only the owner gets the Owner tools; testers keep only the Tester button', async () => {
-  const f = setup();
-  for (const id of ['player1', 'admin1']) {
-    assert.equal((await f.call(id, '/api/admin/reports')).status, 403);
-    assert.equal((await f.call(id, '/api/admin/players')).status, 403);
-    assert.equal((await f.call(id, '/api/admin/account?uid=' + id)).status, 403);
-    assert.equal((await f.call(id, '/api/admin/roles', { uid: id, op: true, collab: true })).status, 403);
-  }
+test('only the owner gets the Owner tools; admin emails (TESTER_EMAILS) get the Admin panel; players get nothing', async () => {
+  const f = setup(); await f.call('player1', '/api/me'); await f.call('admin1', '/api/me');
+  assert.equal((await f.call('player1', '/api/admin/reports')).status, 403);
+  assert.equal((await f.call('player1', '/api/admin/players')).status, 403);
+  assert.equal((await f.call('player1', '/api/admin/account?uid=player1')).status, 403);
+  assert.equal((await f.call('admin1', '/api/admin/reports')).status, 200);
+  assert.equal((await f.call('admin1', '/api/admin/players')).status, 200);
+  assert.equal((await f.call('admin1', '/api/admin/account?uid=player1')).status, 200);
+  assert.equal((await f.call('admin1', '/api/admin/reports', undefined, { email_verified: false })).status, 403);
+  for (const id of ['player1', 'admin1']) assert.equal((await f.call(id, '/api/admin/roles', { uid: 'player1', op: true, collab: true })).status, 403);
   assert.equal((await f.call('player1', '/api/me')).data.tester, false);
-  assert.equal((await f.call('admin1', '/api/me')).data.tester, true);   // TESTER_EMAILS still gives the Tester button
+  assert.equal((await f.call('admin1', '/api/me')).data.tester, true);   // TESTER_EMAILS = the Tester button and the Admin panel
   const owner = (await f.call('owner1', '/api/me')).data;
   assert.equal(owner.owner, true); assert.equal(owner.tester, true);
   assert.equal((await f.call('owner1', '/api/admin/reports')).status, 200);
@@ -183,43 +185,58 @@ test('report pagination returns every report once and validates its cursor', asy
   assert.equal((await f.call('owner1', '/api/admin/reports?cursor=profile')).status, 400);
 });
 
-test('an OP (Admin panel) sees players and reports and edits other accounts, but never roles or the owner', async () => {
-  const f = setup(); for (const id of ['owner1', 'player1', 'player2']) await f.call(id, '/api/me');
+test('an admin (Admin panel) sees players and reports and edits other accounts, but never roles or the owner', async () => {
+  const f = setup(); for (const id of ['owner1', 'admin1', 'player2']) await f.call(id, '/api/me');
   const p2 = (await f.call('player2', '/api/me')).data;
-  assert.equal((await f.call('player1', '/api/admin/players')).status, 403);          // not an OP yet
-  assert.equal((await f.call('player2', '/api/admin/roles', { uid: 'player1', op: true, collab: false })).status, 403);
-  assert.equal((await f.call('owner1', '/api/admin/roles', { uid: 'player1', op: true, collab: true })).status, 200);
-  const me = (await f.call('player1', '/api/me')).data;
-  assert.equal(me.op, true); assert.equal(me.collab, true); assert.equal(me.owner, false);
   // the player list and account details: emails yes, roles no
-  const list = (await f.call('player1', '/api/admin/players')).data.players;
+  const list = (await f.call('admin1', '/api/admin/players')).data.players;
   assert.equal(list.find(x => x.uid === 'player2').email, 'player2@example.invalid');
   assert.ok(list.every(x => x.roles === undefined && x.owner === undefined), 'admins never see roles');
-  const other = (await f.call('player1', '/api/admin/account?uid=player2')).data;
+  const other = (await f.call('admin1', '/api/admin/account?uid=player2')).data;
   assert.equal(other.uid, 'player2'); assert.equal(other.info.email, 'player2@example.invalid'); assert.equal(other.profile.roles, undefined);
-  const self = (await f.call('player1', '/api/admin/account?uid=player1')).data;
-  assert.equal(self.profile.roles, undefined);
   // editing another player works and is logged with the admin's name
-  const saved = await f.call('player1', '/api/admin/account', { ...edit(p2), uid: 'player2' });
+  const saved = await f.call('admin1', '/api/admin/account', { ...edit(p2), uid: 'player2' });
   assert.equal(saved.status, 200); assert.equal(saved.data.profile.roles, undefined);
   assert.equal((await f.call('player2', '/api/me')).data.beaten, 10);
-  assert.equal((await f.call('owner1', '/api/admin/account?uid=player2')).data.history[0].actor.uid, 'player1');
+  assert.equal((await f.call('owner1', '/api/admin/account?uid=player2')).data.history[0].actor.uid, 'admin1');
   // the owner's account can never be changed by an admin
   const owner = (await f.call('owner1', '/api/me')).data;
-  assert.equal((await f.call('player1', '/api/admin/account', { ...edit(owner), uid: 'owner1', beaten: 0, wins: 0, unlocked: [] })).status, 409);
+  assert.equal((await f.call('admin1', '/api/admin/account', { ...edit(owner), uid: 'owner1', beaten: 0, wins: 0, unlocked: [] })).status, 409);
   assert.equal((await f.call('owner1', '/api/me')).data.beaten, 30);
   // bug reports: read, update and delete
   await f.call('player2', '/api/reports', report());
-  const r = (await f.call('player1', '/api/admin/reports')).data.reports[0];
-  assert.equal((await f.call('player1', '/api/admin/reports', { id: r.id, expectedUpdated: r.updated, status: 'resolved', notes: 'Fixed' })).status, 200);
-  assert.equal((await f.call('player1', '/api/admin/reports/delete', { id: r.id })).status, 200);
+  const r = (await f.call('admin1', '/api/admin/reports')).data.reports[0];
+  assert.equal((await f.call('admin1', '/api/admin/reports', { id: r.id, expectedUpdated: r.updated, status: 'resolved', notes: 'Fixed' })).status, 200);
+  assert.equal((await f.call('admin1', '/api/admin/reports/delete', { id: r.id })).status, 200);
   // never roles or leaderboard edits
-  assert.equal((await f.call('player1', '/api/admin/roles', { uid: 'player2', op: true, collab: true })).status, 403);
-  assert.equal((await f.call('player1', '/api/admin/board', { uid: 'player2', set: { wins: 5 } })).status, 403);
-  assert.equal((await f.call('player1', '/api/admin/board/order', { section: 'wins', reset: true })).status, 403);
-  // a collab label alone gives no powers, and removing OP takes the powers away again
+  assert.equal((await f.call('admin1', '/api/admin/roles', { uid: 'player2', op: true, collab: true })).status, 403);
+  assert.equal((await f.call('admin1', '/api/admin/board', { uid: 'player2', set: { wins: 5 } })).status, 403);
+  assert.equal((await f.call('admin1', '/api/admin/board/order', { section: 'wins', reset: true })).status, 403);
+});
+
+test('the OP role gives no Admin panel, only changes to your OWN account (Settings > Special)', async () => {
+  const f = setup(); for (const id of ['owner1', 'player1', 'player2']) await f.call(id, '/api/me');
+  const self = p => ({ revision: p.revision || 0, beaten: 12, wins: 3, unlocked: ['hsi'] });
+  assert.equal((await f.call('player1', '/api/op/self', self((await f.call('player1', '/api/me')).data))).status, 403);   // not an OP yet
+  assert.equal((await f.call('owner1', '/api/admin/roles', { uid: 'player1', op: true, collab: false })).status, 200);
+  const me = (await f.call('player1', '/api/me')).data;
+  assert.equal(me.op, true); assert.equal(me.owner, false); assert.equal(me.tester, false);
+  for (const path of ['/api/admin/players', '/api/admin/reports', '/api/admin/account?uid=player2']) assert.equal((await f.call('player1', path)).status, 403);
+  assert.equal((await f.call('player1', '/api/admin/account', { ...edit(me), uid: 'player2' })).status, 403);
+  // their own account: saved, logged, and only theirs (a uid in the body is ignored)
+  const r = await f.call('player1', '/api/op/self', { ...self(me), uid: 'player2' });
+  assert.equal(r.status, 200); assert.equal(r.data.beaten, 12); assert.equal(r.data.wins, 3); assert.ok(r.data.unlocked.includes('hsi'));
+  assert.equal((await f.call('player2', '/api/me')).data.beaten, 0);
+  const log = (await f.call('owner1', '/api/admin/account?uid=player1')).data.history[0];
+  assert.equal(log.actor.uid, 'player1'); assert.match(log.reason, /Special/);
+  // stale revision and bad values are refused
+  assert.equal((await f.call('player1', '/api/op/self', self(me))).status, 409);
+  const now = (await f.call('player1', '/api/me')).data;
+  assert.equal((await f.call('player1', '/api/op/self', { ...self(now), beaten: 99 })).status, 400);
+  assert.equal((await f.call('player1', '/api/op/self', { ...self(now), unlocked: ['not-a-fighter'] })).status, 400);
+  // removing OP takes it away again; a collab label alone gives no powers
   await f.call('owner1', '/api/admin/roles', { uid: 'player1', op: false, collab: true });
-  assert.equal((await f.call('player1', '/api/admin/players')).status, 403);
+  assert.equal((await f.call('player1', '/api/op/self', self(now))).status, 403);
   assert.equal((await f.call('owner1', '/api/admin/roles', { uid: 'owner1', op: true, collab: true })).status, 409);
   assert.equal((await f.call('owner1', '/api/admin/roles', { uid: 'player1', op: 'yes', collab: true })).status, 400);
 });
@@ -246,7 +263,7 @@ test('the Owner panel lists the owner first, then Collab, then OP, then players;
   const ids = list => list.map(x => x.uid);
   assert.deepEqual(ids((await f.call('owner1', '/api/admin/players')).data.players), ['owner1', 'collabber', 'opper', 'plain1']);
   // the Admin panel: no role order (that would give roles away), same as before
-  const adminList = (await f.call('opper', '/api/admin/players')).data.players;
+  const adminList = (await f.call('admin1', '/api/admin/players')).data.players;
   const normal = [...adminList].sort((a, b) => (b.online - a.online) || (b.seen - a.seen) || a.name.localeCompare(b.name));
   assert.deepEqual(ids(adminList), ids(normal));
 });
@@ -262,14 +279,13 @@ test('only the owner may use a 1-2 letter username', async () => {
   assert.equal((await f.call('owner1', '/api/name', { name: 'bad name' })).status, 400);
 });
 
-test('the owner can delete a bug report; others cannot', async () => {
+test('the owner and admins can delete a bug report; players cannot', async () => {
   const f = setup(); await f.call('player1', '/api/me');
   await f.call('player1', '/api/reports', report());
   const r = (await f.call('owner1', '/api/admin/reports')).data.reports[0];
   assert.equal((await f.call('player1', '/api/admin/reports/delete', { id: r.id })).status, 403);
-  assert.equal((await f.call('admin1', '/api/admin/reports/delete', { id: r.id })).status, 403);
   assert.equal((await f.call('owner1', '/api/admin/reports/delete', { id: 'nope' })).status, 400);
-  assert.equal((await f.call('owner1', '/api/admin/reports/delete', { id: r.id })).status, 200);
+  assert.equal((await f.call('admin1', '/api/admin/reports/delete', { id: r.id })).status, 200);
   assert.equal((await f.call('owner1', '/api/admin/reports')).data.reports.length, 0);
   assert.equal((await f.call('owner1', '/api/admin/reports/delete', { id: r.id })).status, 404);
 });

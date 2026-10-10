@@ -1,8 +1,9 @@
 'use strict';
 /* Private panels. The buttons only appear for the right accounts, but every action is checked again by the server:
    Owner panel  - the owner only (OWNER_EMAILS): every player, bug reports, and roles (Owner / OP / Collab / Player).
-   Admin panel  - OPs (a role the owner gives) and the owner: the same player list and bug reports, and can change any
-                  player's progress and fighters (never the owner's). Admins never see roles. Test presets need Tester access.
+   Admin panel  - admins (the private TESTER_EMAILS setting) and the owner: the same player list and bug reports, and can
+                  change any player's progress and fighters (never the owner's). Admins never see roles.
+   OP           - a role the owner gives: changes only their OWN progress and fighters in Settings > Special. No Admin panel.
    Collab       - a label the owner gives; no powers. Player - everyone without OP (green badge). */
 const ADMIN = { uid: null, mode: 'admin', tab: 'players', target: null, ptab: 'info', draft: null, players: [], playersLoaded: false,
   search: '', reports: [], cursor: null, loaded: false, busy: false, message: '', filter: 'all' };
@@ -13,7 +14,8 @@ const ADMIN_ERRORS = {
   'not-found': 'No matching account or report was found.', conflict: 'This changed since you opened it. Reload before saving.',
   'owner-protected': 'The owner account keeps all fighters and levels, and has every role already.',
   invalid: 'Check the fields and enter a reason of at least 5 characters.', 'invalid-report': 'Add a title and a description of the bug.',
-  'slow-down': 'Too many requests. Please wait a minute and try again.', 'verify-email': 'Verify your email before sending a report.'
+  'slow-down': 'Too many requests. Please wait a minute and try again.', 'verify-email': 'Verify your email before sending a report.',
+  'not-op': 'Only OP accounts can change this.'
 };
 function adminError(e) { return ADMIN_ERRORS[e.message] || 'Could not reach the server. Please try again.'; }
 function adminButton(text, fn, cls) { return el('button', { type: 'button', class: cls || 'mini', text, on: { click: fn } }); }
@@ -33,18 +35,20 @@ function adminSection(id) {
   return screen;
 }
 const isOwnerAcct = () => !!(acctSignedIn() && ACCT.profile && ACCT.profile.owner);
-const isOpAcct = () => !!(acctSignedIn() && ACCT.profile && (ACCT.profile.op || ACCT.profile.owner));
+/* the Admin panel: the owner and the admin emails in the private Cloudflare setting (the server checks this again). The OP role does not open it. */
+const isAdminAcct = () => !!(acctSignedIn() && ACCT.profile && (ACCT.profile.tester || ACCT.profile.owner));
 function adminUpdate() {
   const signed = acctSignedIn() && ACCT.profile;
   const vis = (id, on) => { const b = document.getElementById(id); if (b) b.hidden = !on; };
   vis('go-tester', typeof isTesterAcct === 'function' && isTesterAcct());
-  vis('go-admin', isOpAcct()); vis('go-owner', isOwnerAcct());
-  const uid = signed && (isOpAcct() || isOwnerAcct()) ? ACCT.user.uid + (isOwnerAcct() ? ':o' : ':a') : null;
+  vis('go-admin', isAdminAcct()); vis('go-owner', isOwnerAcct());
+  specialUpdate();
+  const uid = signed && (isAdminAcct() || isOwnerAcct()) ? ACCT.user.uid + (isOwnerAcct() ? ':o' : ':a') : null;
   if (uid !== ADMIN.uid) {
     ADMIN.uid = uid; ADMIN.target = null; ADMIN.draft = null; ADMIN.players = []; ADMIN.playersLoaded = false;
     ADMIN.reports = []; ADMIN.cursor = null; ADMIN.loaded = false; ADMIN.busy = false; ADMIN.message = ''; BUG.draft = null;
     ['scr-admin'].forEach(id => { const s = document.getElementById(id); if (s) s.textContent = ''; });
-    if (G.screen === 'admin') { if (uid && (ADMIN.mode === 'owner' ? isOwnerAcct() : isOpAcct())) renderAdmin(); else show('main'); }
+    if (G.screen === 'admin') { if (uid && (ADMIN.mode === 'owner' ? isOwnerAcct() : isAdminAcct())) renderAdmin(); else show('main'); }
   }
 }
 async function adminApi(path, opts) {
@@ -59,7 +63,7 @@ function adminMessage(text) { ADMIN.message = text; const p = document.getElemen
 
 /* ---------- opening the panels ---------- */
 function showAdmin() {
-  adminUpdate(); if (!isOpAcct()) { toast('Admin access is required.'); return; }
+  adminUpdate(); if (!isAdminAcct()) { toast('Admin access is required.'); return; }
   if (typeof setTester === 'function') setTester(false);
   if (ADMIN.mode !== 'admin') { ADMIN.playersLoaded = false; ADMIN.players = []; }
   ADMIN.mode = 'admin'; ADMIN.tab = 'players'; ADMIN.target = null; ADMIN.draft = null; ADMIN.ptab = 'info'; ADMIN.message = '';
@@ -75,10 +79,10 @@ function showOwner() {
 function renderAdmin() {
   const screen = adminSection('admin'); screen.textContent = '';
   const owner = ADMIN.mode === 'owner';
-  if (owner ? !isOwnerAcct() : !isOpAcct()) { show('main'); return; }
+  if (owner ? !isOwnerAcct() : !isAdminAcct()) { show('main'); return; }
   const wrap = el('div', { class: 'wrap ad-wrap' }); screen.appendChild(wrap);
   wrap.appendChild(el('header', { class: 'bar' }, [adminButton('← Back', () => show('main'), 'back'),
-    el('h2', { text: owner ? 'Owner panel' : 'Admin panel' }), el('span', { class: 'ad-badge' + (owner ? ' ad-badge-owner' : ''), text: owner ? 'OWNER ONLY' : (isOwnerAcct() ? 'OWNER' : 'OP') })]));
+    el('h2', { text: owner ? 'Owner panel' : 'Admin panel' }), el('span', { class: 'ad-badge' + (owner ? ' ad-badge-owner' : ''), text: owner ? 'OWNER ONLY' : (isOwnerAcct() ? 'OWNER' : 'ADMIN') })]));
   wrap.appendChild(el('p', { class: 'muted', text: owner
     ? 'Every player, bug reports and roles. Only you can see this panel. Changes are saved and recorded in each account’s activity log.'
     : 'Every player and the bug reports. You can change players’ Boss Fight progress and fighters. Changes are saved and recorded in each account’s activity log.' }));
@@ -246,7 +250,7 @@ function renderRoles(body, t) {
     box.appendChild(el('label', { class: 'ad-role-row' }, [el('span', {}, [el('b', { text: title }), el('small', { text })]), input]));
     return input;
   };
-  const op = mk('op', 'OP', 'Can open the Admin panel and change their OWN progress and fighters. Nothing else.');
+  const op = mk('op', 'OP', 'Can change their OWN Boss Fight level, wins and fighters in Settings > Special. No Admin panel.');
   const collab = mk('collab', 'Collab', 'A label that shows they work on the game with you. Gives no powers.');
   box.appendChild(el('p', { class: 'muted', text: 'Roles only work inside the game. They never give access to Cloudflare, Firebase or GitHub.' }));
   const save = adminButton('Save roles', async () => {
@@ -419,6 +423,70 @@ function renderBugReport() {
     } catch (err) { if (ACCT.user && ACCT.user.uid === uid) { BUG.message = adminError(err); message.textContent = BUG.message; } }
     finally { BUG.busy = false; send.disabled = false; }
   });
+}
+/* ---------- Settings > Special (OP role): change your OWN Boss Fight level, wins and fighters ---------- */
+const SPECIAL = { uid: null, draft: null, busy: false, message: '' };
+const isOpRole = () => !!(acctSignedIn() && ACCT.profile && ACCT.profile.op);
+function specialUpdate() {
+  const tab = document.querySelector('#settings .set-tab[data-tab="special"]');
+  if (tab) tab.hidden = !isOpRole();
+  const uid = isOpRole() ? ACCT.user.uid : null;
+  if (uid !== SPECIAL.uid) { SPECIAL.uid = uid; SPECIAL.draft = null; SPECIAL.message = ''; }
+  if (!uid && typeof SETUI !== 'undefined' && SETUI.tab === 'special' && typeof setTab === 'function') setTab('account');
+  else if (uid && typeof SETUI !== 'undefined' && SETUI.tab === 'special') renderSpecialPane();
+}
+function renderSpecialPane() {
+  const box = document.getElementById('special-pane'); if (!box) return;
+  box.textContent = '';
+  if (!isOpRole()) { box.appendChild(el('p', { class: 'muted', text: 'This tab is for OP accounts.' })); return; }
+  const p = ACCT.profile, total = BOSS_LEVELS.length;
+  const mine = () => new Set((p.unlocked || []).filter(id => CHAR[id] && CHAR[id].locked && !bossUnlocksFor(p.beaten).includes(id)));
+  if (!SPECIAL.draft) SPECIAL.draft = { beaten: p.beaten | 0, wins: p.wins | 0, unlocked: mine() };
+  const d = SPECIAL.draft;
+  box.appendChild(el('p', { class: 'muted set-note', text: 'You have the OP role, so you can change your own Boss Fight progress and fighters. Every change is saved in your account’s activity log.' }));
+  const beaten = el('input', { type: 'number', min: '0', max: String(total), step: '1', value: d.beaten });
+  const wins = el('input', { type: 'number', min: '0', max: '1000000', step: '1', value: d.wins });
+  [beaten, wins].forEach(i => i.addEventListener('keydown', e => e.stopPropagation()));
+  beaten.addEventListener('change', () => { d.beaten = Math.max(0, Math.min(total, +beaten.value | 0)); renderSpecialPane(); });
+  wins.addEventListener('input', () => { d.wins = Math.max(0, Math.min(1000000, +wins.value | 0)); });
+  box.appendChild(el('div', { class: 'ad-row' }, [adminField('Boss Fight levels cleared (of ' + total + ')', beaten), adminField('Boss wins', wins)]));
+  const earned = new Set(bossUnlocksFor(d.beaten));
+  const list = ROSTER.filter(c => c.locked && !c.hidden);
+  box.appendChild(el('p', { class: 'ad-sec', text: 'Locked fighters · tap to unlock or lock' }));
+  const grid = el('div', { class: 'ad-chars' }); box.appendChild(grid);
+  list.forEach(c => {
+    const won = earned.has(c.id), have = won || d.unlocked.has(c.id);
+    const tile = el(won ? 'div' : 'button', { class: 'tile ad-char' + (have ? '' : ' locked') + (won ? '' : ' can'),
+      'aria-label': c.name + (have ? ', unlocked' : ', locked') + (won ? ' (earned in Boss Fight)' : '') });
+    if (!won) { tile.type = 'button'; tile.setAttribute('aria-pressed', String(have)); tile.addEventListener('click', () => {
+      if (d.unlocked.has(c.id)) d.unlocked.delete(c.id); else d.unlocked.add(c.id); SFX.play('ui'); renderSpecialPane(); }); }
+    const cv = el('canvas', { class: 'tile-cv', 'aria-hidden': 'true' });
+    tile.append(cv, el('span', { class: 'tile-name', text: c.name }));
+    if (!have) tile.appendChild(el('span', { class: 'ad-lock', 'aria-hidden': 'true', text: '🔒' }));
+    else if (won) tile.appendChild(el('span', { class: 'ad-char-tag', text: 'Earned' }));
+    grid.appendChild(tile);
+    requestAnimationFrame(() => drawPortrait(cv, c.id));
+  });
+  const before = mine();
+  const changed = d.beaten !== (p.beaten | 0) || d.wins !== (p.wins | 0) || d.unlocked.size !== before.size || [...d.unlocked].some(id => !before.has(id));
+  const save = el('button', { type: 'button', class: 'btn start', text: 'Save changes' }); save.disabled = !changed || SPECIAL.busy;
+  const undo = el('button', { type: 'button', class: 'mini', text: 'Undo changes' }); undo.disabled = !changed || SPECIAL.busy;
+  const msg = el('p', { class: 'acct-msg', role: 'status', 'aria-live': 'polite', text: SPECIAL.message });
+  undo.addEventListener('click', () => { SPECIAL.draft = null; SPECIAL.message = ''; renderSpecialPane(); });
+  save.addEventListener('click', async () => {
+    if (SPECIAL.busy) return;
+    const uid = SPECIAL.uid; SPECIAL.busy = true; save.disabled = true; msg.textContent = 'Saving…';
+    try {
+      await acctApi('/api/op/self', { method: 'POST', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ beaten: d.beaten, wins: d.wins, unlocked: [...d.unlocked], revision: p.revision || 0 }) });
+      if (SPECIAL.uid !== uid) return;
+      SPECIAL.draft = null; SPECIAL.message = 'Saved.';
+      await acctChanged();
+    } catch (e) { SPECIAL.message = adminError(e); if (e.message === 'conflict') { SPECIAL.draft = null; await acctChanged(); } }
+    finally { SPECIAL.busy = false; renderSpecialPane(); }
+  });
+  box.appendChild(el('div', { class: 'ad-actions' }, [save, undo]));
+  box.appendChild(msg);
 }
 document.getElementById('go-admin').addEventListener('click', showAdmin);
 document.getElementById('go-owner').addEventListener('click', showOwner);
