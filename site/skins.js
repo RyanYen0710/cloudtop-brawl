@@ -1,9 +1,11 @@
 'use strict';
 /* ===== CLOUDTOP BRAWL — skins =====
-   A skin recolors a fighter and gives them a little glow and floating bits. Every fighter can wear every skin.
+   A skin is a whole costume (hats, masks, capes, wings, armour: skin-costumes.js) plus new colours, a glow and
+   floating bits. Every fighter can wear every skin.
    - Sky Road skins unlock at a level (Gold at 10, Shadow at 20 ...).
    - Event skins can be worn by anyone during their event, and you keep one forever after playing
      3 matches during that event.
+   - Shop skins are bought with coins (shop-data.js).
    The game server uses this same file to check that nobody wears a skin they haven't unlocked. */
 
 const SKINS = {
@@ -25,21 +27,29 @@ const SKINS = {
   frosty: { name: 'Frosty', event: 'christmas', pal: ['#5a8ac0', '#e8f6ff', '#ffffff'], acc: '#e8364a', aura: '200,235,255', fx: 'snow', fxc: ['#ffffff'] },
   lucky: { name: 'Lucky Red', event: 'cny', pal: ['#5a0608', '#c4161c', '#ffcf3a'], acc: '#ffcf3a', aura: '255,200,60', fx: 'sparkle', fxc: ['#ffcf3a', '#ff6a2a'] },
   blossom: { name: 'Blossom', event: 'spring', pal: ['#a85a7a', '#ffc6d9', '#ffffff'], acc: '#7ad06a', aura: '255,170,210', fx: 'petal', fxc: ['#ffc6d9', '#ffffff'] },
-  beach: { name: 'Beach', event: 'summer', pal: ['#0a5a7a', '#2ec4e8', '#ffe14a'], acc: '#ff5aa0', aura: '80,210,255', fx: 'bubble', fxc: ['rgba(255,255,255,.85)'] }
+  beach: { name: 'Beach', event: 'summer', pal: ['#0a5a7a', '#2ec4e8', '#ffe14a'], acc: '#ff5aa0', aura: '80,210,255', fx: 'bubble', fxc: ['rgba(255,255,255,.85)'] },
+  // shop-only skins (bought with coins: shop-data.js)
+  bubblegum: { name: 'Bubblegum', shop: 1500, pal: ['#a8306a', '#ff8ac4', '#ffe0f0'], acc: '#7ad7ff', aura: '255,140,200', fx: 'bubble', fxc: ['rgba(255,190,225,.9)'] },
+  midnight: { name: 'Midnight', shop: 2000, pal: ['#05060f', '#1a1f4a', '#5a6ab8'], acc: '#e8364a', aura: '90,100,220', fx: 'bat', fxc: ['#0a0a1a'] },
+  lava: { name: 'Lava', shop: 3000, pal: ['#1a0a06', '#4a2a1e', '#ff6a1a'], acc: '#ffcf3a', aura: '255,90,20', fx: 'ember', fxc: ['#ff6a1a', '#ffcf3a'] },
+  arctic: { name: 'Arctic', shop: 3000, pal: ['#3a6a8a', '#cfeaf8', '#ffffff'], acc: '#3da5ff', aura: '180,230,255', fx: 'snow', fxc: ['#ffffff', '#dff4ff'] },
+  circuit: { name: 'Circuit', shop: 4000, pal: ['#04140e', '#1a4a3a', '#46ffb0'], acc: '#46e0ff', aura: '60,255,180', fx: 'sparkle', fxc: ['#46ffb0', '#46e0ff'] },
+  diamond: { name: 'Diamond', shop: 8000, pal: ['#4a7a9a', '#c8f4ff', '#ffffff'], acc: '#ffffff', aura: 'prism', fx: 'star', fxc: ['#ffffff', '#c8f4ff', '#ffd6f4'] }
 };
 const SKIN_IDS = Object.keys(SKINS);
 const EVENT_SKIN = {}; SKIN_IDS.forEach(id => { if (SKINS[id].event) EVENT_SKIN[SKINS[id].event] = id; });
 const EVENT_SKIN_PLAYS = 3;   // matches to play during an event to keep its skin
 
-/* can this player wear this skin? prof = { level, ev: [events whose skin they kept], owner } */
+/* can this player wear this skin? prof = { level, ev: [events whose skin they kept], shop: [skins they bought], owner } */
 function skinAllowed(prof, id, ev) {
   const s = SKINS[id]; if (!s) return false;
   if (prof && prof.owner) return true;
   if (s.level) return !!prof && (prof.level | 0) >= s.level;
   if (s.event) return s.event === ev || !!(prof && Array.isArray(prof.ev) && prof.ev.indexOf(s.event) >= 0);
+  if (s.shop) return !!(prof && Array.isArray(prof.shop) && prof.shop.indexOf(id) >= 0);
   return false;
 }
-function skinProf(p, owner) { return { level: typeof xpLevel === 'function' ? xpLevel((p && p.xp) || 0).level : 1, ev: (p && p.evSkins) || [], owner: !!owner }; }
+function skinProf(p, owner) { return { level: typeof xpLevel === 'function' ? xpLevel((p && p.xp) || 0).level : 1, ev: (p && p.evSkins) || [], shop: (p && p.shopSkins) || [], owner: !!owner }; }
 /* a skin that's allowed, or '' (the fighter's normal look) */
 function cleanSkin(prof, id, ev) { id = String(id || ''); return id && skinAllowed(prof, id, ev) ? id : ''; }
 
