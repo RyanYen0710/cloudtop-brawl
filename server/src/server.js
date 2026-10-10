@@ -16,7 +16,8 @@
    - Roles (checked here on the server, never trusted from the browser):
        owner  = verified email in the private OWNER_EMAILS setting. Sees the Owner panel: every player (with email and
                 online status), bug reports, and gives the in-game roles below. Only the owner may use a 1-2 letter username.
-       op     = in-game role the owner gives from the Owner panel. Can change only their OWN account's progress and fighters.
+       op     = in-game role the owner gives (shown as the Admin panel). Sees every player (email, online status) and bug
+                reports, and can change any player's progress and fighters except the owner's. Never sees or changes roles.
        collab = in-game label the owner gives. It has no powers.
        tester = verified email in the private TESTER_EMAILS setting (owner included). Only the Tester button / test runs.
      In-game roles never give access to Cloudflare, Firebase or GitHub. All account changes are audited server-side. */
@@ -81,6 +82,7 @@ const LIMITS = {
   bossIp: [[60000, 20], [86400000, 1200]],
   auth: [[60000, 60], [86400000, 3000]],
   reports: [[60000, 2], [86400000, 10]],
+  cpu: [[60000, 4], [86400000, 300]],   // Vs CPU results saved to the account (a match takes at least half a minute)
   reportsIp: [[60000, 10], [86400000, 100]]
 };
 async function hit(env, key, kind) {
@@ -113,7 +115,7 @@ function isTester(u, env) {
   return !!(u && u.verified && u.email && list.indexOf(String(u.email).toLowerCase()) >= 0);
 }
 const ADMIN_STORE = '__admin';
-const BOARD = '__board';   // leaderboard stats, written only by this server when a real match ends
+const BOARD = '__board';   // leaderboard stats, written only by this server (match results + time the game is open)
 const REPORT_STATUSES = ['open', 'investigating', 'resolved', 'closed'];
 const newestKey = () => String(9999999999999 - Date.now()).padStart(13, '0') + '-' + crypto.randomUUID();
 const plain = (v, max) => typeof v === 'string' ? v.trim().slice(0, max) : '';
@@ -145,22 +147,31 @@ const toUsername = n => { const v = String(n || '').trim().replace(/\s+/g, '_').
 
 /* score for the Overall section: wins count most, then KOs, Boss Fight level and hours played online */
 const overallScore = x => (x.wins | 0) * 10 + (x.kos | 0) * 2 + (x.bestLevel | 0) * 5 + Math.floor((x.onlineMs || 0) / 3600000);
-function leaderboard(stats, meUid) {
+const BOARD_SECTIONS = ['overall', 'online', 'wins', 'games', 'boss'];
+const BOARD_FIELDS = { onlineMs: 3153600000000, games: 10000000, wins: 10000000, losses: 10000000, kos: 10000000, deaths: 10000000, bossWins: 10000000, bestLevel: 30 };
+/* orders = { section: [uid, ...] } set by the owner with the arrows; those players come first, in that order */
+function leaderboard(stats, meUid, orders, ownerView) {
+  orders = orders || {};
   const pub = x => ({ name: x.name || 'Player', onlineMs: x.onlineMs || 0, games: x.games | 0, wins: x.wins | 0, losses: x.losses | 0,
-    kos: x.kos | 0, deaths: x.deaths | 0, bossWins: x.bossWins | 0, bestLevel: x.bestLevel | 0, score: overallScore(x), me: x.uid === meUid || undefined });
+    kos: x.kos | 0, deaths: x.deaths | 0, bossWins: x.bossWins | 0, bestLevel: x.bestLevel | 0, score: overallScore(x), me: x.uid === meUid || undefined,
+    uid: ownerView ? x.uid : undefined });
   const sections = {
     online: [x => x.onlineMs || 0], wins: [x => x.wins | 0], games: [x => x.games | 0],
     boss: [x => x.bestLevel | 0, x => x.bossWins | 0], overall: [overallScore]
   };
-  const out = { sections: {}, me: null, players: stats.length };
+  const out = { sections: {}, me: null, players: stats.length, owner: ownerView || undefined, custom: {} };
   for (const k in sections) {
-    const keys = sections[k];
-    const list = stats.filter(x => keys[0](x) > 0).sort((a, b) => keys.reduce((r, f) => r || f(b) - f(a), 0) || String(a.name).localeCompare(String(b.name)));
+    const keys = sections[k], order = Array.isArray(orders[k]) ? orders[k] : [];
+    const sorted = stats.filter(x => keys[0](x) > 0).sort((a, b) => keys.reduce((r, f) => r || f(b) - f(a), 0) || String(a.name).localeCompare(String(b.name)));
+    const pinned = order.map(uid => stats.find(x => x.uid === uid)).filter(Boolean);
+    const list = pinned.concat(sorted.filter(x => !order.includes(x.uid)));
+    if (pinned.length) out.custom[k] = true;
     out.sections[k] = list.slice(0, 50).map(pub);
     if (meUid) { const i = list.findIndex(x => x.uid === meUid); if (out.me === null) out.me = {}; out.me[k] = i < 0 ? null : i + 1; }
   }
   const mine = meUid && stats.find(x => x.uid === meUid);
-  if (mine) out.me.stats = pub(mine);
+  // Vs CPU numbers are only for the player's own "Your stats" (the browser runs those games, so they never rank)
+  if (mine) out.me.stats = Object.assign(pub(mine), { cpuGames: mine.cpuGames | 0, cpuWins: mine.cpuWins | 0, cpuKos: mine.cpuKos | 0, cpuDeaths: mine.cpuDeaths | 0 });
   return out;
 }
 
@@ -186,8 +197,13 @@ export class Accounts {
       if (d.roles && typeof d.roles === 'object') next.roles = { op: !!d.roles.op, collab: !!d.roles.collab };
       const changed = next.name !== cur.name || next.email !== cur.email || next.owner !== cur.owner ||
         JSON.stringify(next.roles || {}) !== JSON.stringify(cur.roles || {}) || !cur.seen;
-      if (changed || now - (cur.seen || 0) > 60000) { next.seen = now; await st.put(key, next); }   // at most one write a minute
-      return json({ ok: true });
+      // time online: the gap since the last "still here" signal, if the game stayed open (signals come every 2 minutes)
+      let played = 0;
+      if (changed || now - (cur.seen || 0) > 60000) {
+        if (cur.seen && now - cur.seen <= 180000) played = now - cur.seen;
+        next.seen = now; await st.put(key, next);   // at most one write a minute
+      }
+      return json({ ok: true, played, name: next.name || '' });
     }
     if (op === 'player-list') {
       const rows = await st.list({ prefix: 'player:', limit: 5000 });
@@ -198,7 +214,7 @@ export class Accounts {
     if (op === 'stat-add') {
       const key = 'stat:' + d.uid, cur = (await st.get(key)) || { uid: d.uid, name: '', onlineMs: 0, games: 0, wins: 0, losses: 0, kos: 0, deaths: 0, bossGames: 0, bossWins: 0, bestLevel: 0 };
       const a = d.add || {};
-      ['onlineMs', 'games', 'wins', 'losses', 'kos', 'deaths', 'bossGames', 'bossWins'].forEach(k => { const v = Number(a[k]) || 0; if (v > 0) cur[k] = (cur[k] || 0) + Math.min(v, k === 'onlineMs' ? 3600000 : 1000); });
+      ['onlineMs', 'games', 'wins', 'losses', 'kos', 'deaths', 'bossGames', 'bossWins', 'cpuGames', 'cpuWins', 'cpuKos', 'cpuDeaths'].forEach(k => { const v = Number(a[k]) || 0; if (v > 0) cur[k] = (cur[k] || 0) + Math.min(v, k === 'onlineMs' ? 3600000 : 1000); });
       if (Number.isInteger(d.level) && d.level > (cur.bestLevel || 0)) cur.bestLevel = Math.min(d.level, BOSS_LEVELS.length);
       if (typeof d.name === 'string' && d.name) cur.name = d.name;
       cur.updated = Date.now();
@@ -206,8 +222,25 @@ export class Accounts {
       return json({ ok: true });
     }
     if (op === 'stat-list') {
-      const rows = await st.list({ prefix: 'stat:', limit: 5000 });
-      return json({ stats: [...rows.values()] });
+      const rows = await st.list({ prefix: 'stat:', limit: 5000 }), orders = {};
+      for (const k of BOARD_SECTIONS) { const o = await st.get('order:' + k); if (o) orders[k] = o; }
+      return json({ stats: [...rows.values()], orders });
+    }
+    /* owner edits from the Leaderboard screen: exact numbers, or the order of a section (both logged) */
+    if (op === 'stat-set') {
+      const key = 'stat:' + d.uid, cur = await st.get(key);
+      if (!cur) return json({ error: 'not-found' }, 404);
+      const before = Object.assign({}, cur);
+      for (const k in d.set) cur[k] = d.set[k];
+      cur.updated = Date.now();
+      await st.put(key, cur);
+      await st.put('audit:' + newestKey(), { at: Date.now(), actor: d.actor, uid: d.uid, before, after: cur });
+      return json({ ok: true });
+    }
+    if (op === 'order-set') {
+      if (d.reset) await st.delete('order:' + d.section); else await st.put('order:' + d.section, d.uids);
+      await st.put('audit:' + newestKey(), { at: Date.now(), actor: d.actor, section: d.section, order: d.reset ? 'reset' : d.uids });
+      return json({ ok: true });
     }
     if (op === 'report-delete') {
       const key = 'report:' + d.id;
@@ -557,14 +590,14 @@ export class Room {
       const results = computeResults(g);
       const rows = results.map(r => [r.slot, r.place, r.kos, r.falls, r.win ? 1 : 0]);
       this.srv.res = { gid: this.gid, r: rows };
-      // leaderboard: every signed-in player in this match gets the game, its result and the time played
-      const ms = Math.round(g.frame * TICK), counted = new Set();
+      // leaderboard: every signed-in player in this match gets the game and its result (time online comes from the ping)
+      const counted = new Set();
       (this.humans || []).forEach(h => {
         const pc = this.clients.get(h.peer), uid = h.uid || (pc && pc.uid), r = results.find(x => x.slot === h.slot);
         if (!uid || !r || counted.has(uid)) return;
         counted.add(uid);
         acct(this.env, BOARD, 'stat-add', { uid, name: h.name || (pc && pc.pname) || '',
-          add: { onlineMs: ms, games: 1, wins: r.win ? 1 : 0, losses: !r.win && g.winTid !== null ? 1 : 0, kos: r.kos | 0, deaths: r.falls | 0 } }).catch(() => {});
+          add: { games: 1, wins: r.win ? 1 : 0, losses: !r.win && g.winTid !== null ? 1 : 0, kos: r.kos | 0, deaths: r.falls | 0 } }).catch(() => {});
       });
       this.broadcast({ from: 'srv', d: { res: this.srv.res } });
       clearInterval(this.timer); this.timer = null;
@@ -590,8 +623,10 @@ export default {
       const tok = (req.headers.get('authorization') || '').replace(/^Bearer\s+/i, '');
       /* the leaderboard is public (usernames and numbers only, never emails). Signed-in players also get their own row. */
       if (url.pathname === '/api/leaderboard' && req.method === 'GET') {
-        let me = null; if (tok) { try { me = (await verifyIdToken(tok, env)).uid; } catch (e) { } }
-        return json(leaderboard((await acct(env, BOARD, 'stat-list', {})).stats || [], me), 200, cors);
+        let me = null, ownerView = false;
+        if (tok) { try { const v = await verifyIdToken(tok, env); me = v.uid; ownerView = isOwner(v, env); } catch (e) { } }
+        const b = await acct(env, BOARD, 'stat-list', {});
+        return json(leaderboard(b.stats || [], me, b.orders, ownerView), 200, cors);
       }
       let u;
       try { u = await verifyIdToken(tok, env); } catch (e) { return json({ error: String(e.message || 'auth') }, 401, cors); }
@@ -600,12 +635,23 @@ export default {
         const p = await acct(env, u.uid, 'get', { name: toUsername(u.name), owner: isOwner(u, env), gift: giftsFor(u, env) });
         if (p && p.name) await acct(env, NAMES, 'claim', { name: p.name, uid: u.uid });   // reserve the name this player already uses
         const roles = p.roles || {};
-        await acct(env, ADMIN_STORE, 'player-seen', { uid: u.uid, name: p.name || '', email: u.verified ? u.email : '', owner: isOwner(u, env), roles });
+        const seen = await acct(env, ADMIN_STORE, 'player-seen', { uid: u.uid, name: p.name || '', email: u.verified ? u.email : '', owner: isOwner(u, env), roles });
+        if (seen.played > 0) await acct(env, BOARD, 'stat-add', { uid: u.uid, name: p.name || '', add: { onlineMs: seen.played } });
         return json(Object.assign({}, p, { owner: isOwner(u, env), tester: isTester(u, env), op: !!roles.op, collab: !!roles.collab }), 200, cors);
       }
       /* "I'm still playing" ping (every few minutes while the game is open) -> online status in the Owner panel */
       if (url.pathname === '/api/ping' && req.method === 'POST') {
-        await acct(env, ADMIN_STORE, 'player-seen', { uid: u.uid });
+        const seen = await acct(env, ADMIN_STORE, 'player-seen', { uid: u.uid });
+        if (seen.played > 0) await acct(env, BOARD, 'stat-add', { uid: u.uid, name: seen.name, add: { onlineMs: seen.played } });
+        return json({ ok: true }, 200, cors);
+      }
+      /* a finished Vs CPU match, saved to the player's own stats (never the leaderboard) */
+      if (url.pathname === '/api/cpu-result' && req.method === 'POST') {
+        let d; try { d = await apiBody(req); } catch (e) { return json({ error: 'invalid' }, 400, cors); }
+        if (typeof d.win !== 'boolean' || !Number.isInteger(d.kos) || d.kos < 0 || d.kos > 50 || !Number.isInteger(d.falls) || d.falls < 0 || d.falls > 50)
+          return json({ error: 'invalid' }, 400, cors);
+        if (!(await hit(env, 'uid:' + u.uid, 'cpu'))) return json({ error: 'slow-down' }, 429, cors);
+        await acct(env, BOARD, 'stat-add', { uid: u.uid, add: { cpuGames: 1, cpuWins: d.win ? 1 : 0, cpuKos: d.kos, cpuDeaths: d.falls } });
         return json({ ok: true }, 200, cors);
       }
       if (url.pathname === '/api/reports' && req.method === 'POST') {
@@ -626,38 +672,39 @@ export default {
         return json(result, 201, cors);
       }
       if (url.pathname.startsWith('/api/admin/')) {
-        /* owner: everything here. op: only their own account (GET/POST /api/admin/account). Everyone else: nothing. */
+        /* owner: everything here. op (Admin panel): players, accounts and bug reports, but never roles or leaderboard edits,
+           and never the owner's account. Everyone else: nothing. */
         const owner = isOwner(u, env);
         if (!u.verified) return json({ error: 'not-admin' }, 403, cors);
         if (!owner) {
-          if (url.pathname !== '/api/admin/account') return json({ error: 'not-admin' }, 403, cors);
+          if (url.pathname === '/api/admin/roles' || url.pathname.startsWith('/api/admin/board')) return json({ error: 'not-admin' }, 403, cors);
           const me = await acct(env, u.uid, 'get', {});
           if (!(me.roles && me.roles.op)) return json({ error: 'not-admin' }, 403, cors);
         }
+        const hideRoles = r => { if (!owner && r && r.profile) { r.profile = Object.assign({}, r.profile); delete r.profile.roles; } return r; };
         const respond = r => json(r, r.error ? ({ 'not-found': 404, conflict: 409, 'owner-protected': 409 }[r.error] || 400) : 200, cors);
         const actor = { uid: u.uid, name: toUsername(u.name) };
         if (url.pathname === '/api/admin/account' && req.method === 'GET') {
-          const uid = owner ? await adminTarget(env, { uid: url.searchParams.get('uid'), username: url.searchParams.get('username') }) : u.uid;
+          const uid = await adminTarget(env, { uid: url.searchParams.get('uid'), username: url.searchParams.get('username') });
           if (!uid) return json({ error: 'not-found' }, 404, cors);
           const r = await acct(env, uid, 'admin-get', {});
           if (r.error) return respond(r);
-          const info = owner ? await acct(env, ADMIN_STORE, 'player-get', { uid }) : {};
-          return respond(Object.assign({}, r, { uid, self: uid === u.uid,
-            info: owner ? { email: info.email || '', seen: info.seen || 0, joined: info.joined || r.profile.created || 0,
-              online: !!info.seen && Date.now() - info.seen < ONLINE_MS } : null }));
+          const info = await acct(env, ADMIN_STORE, 'player-get', { uid });
+          return respond(hideRoles(Object.assign({}, r, { uid, self: uid === u.uid,
+            info: { email: info.email || '', seen: info.seen || 0, joined: info.joined || r.profile.created || 0,
+              online: !!info.seen && Date.now() - info.seen < ONLINE_MS } })));
         }
         if (url.pathname === '/api/admin/account' && req.method === 'POST') {
           let d; try { d = await apiBody(req); } catch (e) { return json({ error: 'invalid' }, 400, cors); }
-          const uid = owner ? await adminTarget(env, d) : u.uid, reason = plain(d.reason, 200);
+          const uid = await adminTarget(env, d), reason = plain(d.reason, 200);
           if (!uid || !Number.isInteger(d.beaten) || d.beaten < 0 || d.beaten > BOSS_LEVELS.length ||
               !Number.isInteger(d.wins) || d.wins < 0 || d.wins > 1000000 || !Number.isInteger(d.revision) || d.revision < 0 ||
               !Array.isArray(d.unlocked) || d.unlocked.length > ROSTER.length ||
               !d.unlocked.every(id => typeof id === 'string' && ROSTER.some(c => c.id === id && c.locked && !c.hidden)) || reason.length < 5)
             return json({ error: 'invalid' }, 400, cors);
           return respond(await acct(env, uid, 'admin-save', { beaten: d.beaten, wins: d.wins, unlocked: d.unlocked,
-            revision: d.revision, reason, actor }));
+            revision: d.revision, reason, actor }).then(hideRoles));
         }
-        /* ---- owner only below ---- */
         if (url.pathname === '/api/admin/players' && req.method === 'GET') {
           const [reg, idx] = await Promise.all([acct(env, NAMES, 'name-list', {}), acct(env, ADMIN_STORE, 'player-list', {})]);
           const now = Date.now(), byUid = new Map();
@@ -666,6 +713,7 @@ export default {
             uid: x.uid, name: x.name || (byUid.get(x.uid) || {}).name || '', email: x.email || '', seen: x.seen || 0,
             joined: x.joined || 0, owner: !!x.owner, roles: x.roles || {} })));
           const players = [...byUid.values()].map(x => Object.assign(x, { online: !!x.seen && now - x.seen < ONLINE_MS }))
+            .map(x => owner ? x : Object.assign({}, x, { roles: undefined, owner: undefined }))   // admins never see roles
             .sort((a, b) => (b.online - a.online) || (b.seen - a.seen) || a.name.localeCompare(b.name));
           return json({ players }, 200, cors);
         }
@@ -676,6 +724,26 @@ export default {
           const r = await acct(env, uid, 'roles', { op: d.op, collab: d.collab, actor });
           if (!r.error) await acct(env, ADMIN_STORE, 'player-seen', { uid, roles: r.profile.roles, name: r.profile.name || '' });
           return respond(r);
+        }
+        /* ---- owner only: edit the leaderboard ---- */
+        if (url.pathname === '/api/admin/board' && req.method === 'POST') {
+          let d; try { d = await apiBody(req); } catch (e) { return json({ error: 'invalid' }, 400, cors); }
+          if (typeof d.uid !== 'string' || !/^[A-Za-z0-9_-]{1,128}$/.test(d.uid) || !d.set || typeof d.set !== 'object') return json({ error: 'invalid' }, 400, cors);
+          const set = {};
+          for (const k in d.set) {
+            if (!(k in BOARD_FIELDS) || !Number.isInteger(d.set[k]) || d.set[k] < 0 || d.set[k] > BOARD_FIELDS[k]) return json({ error: 'invalid' }, 400, cors);
+            set[k] = d.set[k];
+          }
+          if (!Object.keys(set).length) return json({ error: 'invalid' }, 400, cors);
+          return respond(await acct(env, BOARD, 'stat-set', { uid: d.uid, set, actor }));
+        }
+        if (url.pathname === '/api/admin/board/order' && req.method === 'POST') {
+          let d; try { d = await apiBody(req); } catch (e) { return json({ error: 'invalid' }, 400, cors); }
+          if (!BOARD_SECTIONS.includes(d.section)) return json({ error: 'invalid' }, 400, cors);
+          if (d.reset === true) return respond(await acct(env, BOARD, 'order-set', { section: d.section, reset: true, actor }));
+          if (!Array.isArray(d.uids) || !d.uids.length || d.uids.length > 50 || new Set(d.uids).size !== d.uids.length ||
+              !d.uids.every(x => typeof x === 'string' && /^[A-Za-z0-9_-]{1,128}$/.test(x))) return json({ error: 'invalid' }, 400, cors);
+          return respond(await acct(env, BOARD, 'order-set', { section: d.section, uids: d.uids, actor }));
         }
         if (url.pathname === '/api/admin/reports/delete' && req.method === 'POST') {
           let d; try { d = await apiBody(req); } catch (e) { return json({ error: 'invalid' }, 400, cors); }

@@ -1,9 +1,10 @@
 'use strict';
 /* Private panels. The buttons only appear for the right accounts, but every action is checked again by the server:
-   Owner panel  - the owner only (OWNER_EMAILS): every player (email, online status), bug reports, roles.
-   Admin panel  - OPs (a role the owner gives) and the owner: change only YOUR OWN account. Test presets need Tester access.
-   Collab       - a label the owner gives; no powers. */
-const ADMIN = { uid: null, mode: 'admin', tab: 'mine', target: null, ptab: 'info', draft: null, players: [], playersLoaded: false,
+   Owner panel  - the owner only (OWNER_EMAILS): every player, bug reports, and roles (Owner / OP / Collab / Player).
+   Admin panel  - OPs (a role the owner gives) and the owner: the same player list and bug reports, and can change any
+                  player's progress and fighters (never the owner's). Admins never see roles. Test presets need Tester access.
+   Collab       - a label the owner gives; no powers. Player - everyone without OP (green badge). */
+const ADMIN = { uid: null, mode: 'admin', tab: 'players', target: null, ptab: 'info', draft: null, players: [], playersLoaded: false,
   search: '', reports: [], cursor: null, loaded: false, busy: false, message: '', filter: 'all' };
 const BUG = { busy: false, message: '', draft: null, context: null };
 const ADMIN_ERRORS = {
@@ -60,13 +61,15 @@ function adminMessage(text) { ADMIN.message = text; const p = document.getElemen
 function showAdmin() {
   adminUpdate(); if (!isOpAcct()) { toast('Admin access is required.'); return; }
   if (typeof setTester === 'function') setTester(false);
-  ADMIN.mode = 'admin'; ADMIN.tab = 'mine'; ADMIN.target = null; ADMIN.draft = null; ADMIN.ptab = 'info'; ADMIN.message = '';
-  adminSection('admin'); show('admin'); renderAdmin(); loadMyAccount();
+  if (ADMIN.mode !== 'admin') { ADMIN.playersLoaded = false; ADMIN.players = []; }
+  ADMIN.mode = 'admin'; ADMIN.tab = 'players'; ADMIN.target = null; ADMIN.draft = null; ADMIN.ptab = 'info'; ADMIN.message = '';
+  adminSection('admin'); show('admin'); renderAdmin(); loadPlayers();
 }
 function showOwner() {
   adminUpdate(); if (!isOwnerAcct()) { toast('Only the owner can open this.'); return; }
   if (typeof setTester === 'function') setTester(false);
-  ADMIN.mode = 'owner'; ADMIN.tab = 'players'; ADMIN.target = null; ADMIN.draft = null; ADMIN.message = '';
+  if (ADMIN.mode !== 'owner') { ADMIN.playersLoaded = false; ADMIN.players = []; }
+  ADMIN.mode = 'owner'; ADMIN.tab = 'players'; ADMIN.target = null; ADMIN.draft = null; ADMIN.ptab = 'info'; ADMIN.message = '';
   adminSection('admin'); show('admin'); renderAdmin(); loadPlayers();
 }
 function renderAdmin() {
@@ -78,9 +81,9 @@ function renderAdmin() {
     el('h2', { text: owner ? 'Owner panel' : 'Admin panel' }), el('span', { class: 'ad-badge' + (owner ? ' ad-badge-owner' : ''), text: owner ? 'OWNER ONLY' : (isOwnerAcct() ? 'OWNER' : 'OP') })]));
   wrap.appendChild(el('p', { class: 'muted', text: owner
     ? 'Every player, bug reports and roles. Only you can see this panel. Changes are saved and recorded in each account’s activity log.'
-    : 'Change your own account’s Boss Fight progress and fighters. Changes are saved and recorded in your activity log.' }));
-  const tabs = owner ? [['players', 'Players'], ['reports', 'Bug reports']]
-    : [['mine', 'My account']].concat(typeof isTesterAcct === 'function' && isTesterAcct() ? [['presets', 'Test presets']] : []);
+    : 'Every player and the bug reports. You can change players’ Boss Fight progress and fighters. Changes are saved and recorded in each account’s activity log.' }));
+  const tabs = [['players', 'Players'], ['reports', 'Bug reports']]
+    .concat(!owner && typeof isTesterAcct === 'function' && isTesterAcct() ? [['presets', 'Test presets']] : []);
   const bar = el('div', { class: 'ad-tabs', role: 'tablist', 'aria-label': owner ? 'Owner tools' : 'Admin tools' });
   tabs.forEach(([id, title]) => bar.appendChild(el('button', { type: 'button', id: 'ad-tab-' + id, role: 'tab', class: 'btn' + (ADMIN.tab === id ? ' sel' : ''),
     'aria-selected': String(ADMIN.tab === id), 'aria-controls': 'ad-pane', text: title, on: { click: () => {
@@ -94,9 +97,8 @@ function renderAdmin() {
   const pane = el('div', { id: 'ad-pane', role: 'tabpanel', 'aria-labelledby': 'ad-tab-' + ADMIN.tab }); wrap.appendChild(pane);
   if (ADMIN.tab === 'presets') renderAdminPresets(pane);
   else if (ADMIN.tab === 'reports') renderAdminReports(pane);
-  else if (ADMIN.tab === 'players') { if (ADMIN.target) renderPlayer(pane); else renderPlayerList(pane); }
   else if (ADMIN.target) renderPlayer(pane);
-  else pane.appendChild(el('p', { class: 'muted', text: 'Loading your account…' }));
+  else renderPlayerList(pane);
 }
 
 /* ---------- test presets (Tester access) ---------- */
@@ -134,12 +136,6 @@ function setTarget(t) {
   ADMIN.target = t;
   ADMIN.draft = t ? { beaten: t.profile.beaten, wins: t.profile.wins || 0, unlocked: new Set(t.profile.unlocked.filter(id => CHAR[id] && CHAR[id].locked)), reason: '' } : null;
 }
-async function loadMyAccount() {
-  if (ADMIN.busy) return; ADMIN.busy = true;
-  try { setTarget(await adminApi('/api/admin/account?uid=' + encodeURIComponent(ACCT.user.uid))); ADMIN.message = ''; }
-  catch (e) { ADMIN.message = adminError(e); }
-  finally { ADMIN.busy = false; if (G.screen === 'admin') renderAdmin(); }
-}
 async function openPlayer(uid, ptab) {
   if (ADMIN.busy) return; ADMIN.busy = true; adminMessage('Opening player…');
   try { setTarget(await adminApi('/api/admin/account?uid=' + encodeURIComponent(uid))); ADMIN.ptab = ptab || 'info'; ADMIN.tab = 'players'; ADMIN.message = ''; }
@@ -154,11 +150,14 @@ async function loadPlayers() {
 }
 
 /* ---------- Owner panel: the player list ---------- */
+/* roles are shown in the Owner panel only (admins never see them). Anyone without OP is a Player (green). */
 function roleBadges(x) {
-  const out = [];
+  if (ADMIN.mode !== 'owner') return [];
+  const out = [], roles = x.roles || {};
   if (x.owner) out.push(el('span', { class: 'ad-role ad-role-owner', text: 'OWNER' }));
-  if (x.roles && x.roles.op) out.push(el('span', { class: 'ad-role ad-role-op', text: 'OP' }));
-  if (x.roles && x.roles.collab) out.push(el('span', { class: 'ad-role ad-role-collab', text: 'COLLAB' }));
+  if (roles.op) out.push(el('span', { class: 'ad-role ad-role-op', text: 'OP' }));
+  if (roles.collab) out.push(el('span', { class: 'ad-role ad-role-collab', text: 'COLLAB' }));
+  if (!x.owner && !roles.op) out.push(el('span', { class: 'ad-role ad-role-player', text: 'PLAYER' }));
   return out;
 }
 const onlineDot = on => el('span', { class: 'ad-dot' + (on ? ' on' : ''), text: on ? 'Online' : 'Offline' });
@@ -199,11 +198,11 @@ function renderPlayer(pane) {
   const t = ADMIN.target, p = t.profile, owner = ADMIN.mode === 'owner', d = ADMIN.draft;
   const canEdit = !p.owner;
   const head = el('div', { class: 'card ad-card' }); pane.appendChild(head);
-  const reload = adminButton('↻ Reload', () => owner ? openPlayer(t.uid, ADMIN.ptab) : loadMyAccount(), 'btn ad-ghost');
+  const reload = adminButton('↻ Reload', () => openPlayer(t.uid, ADMIN.ptab), 'btn ad-ghost');
   const left = [];
-  if (owner) left.push(adminButton('← All players', () => { ADMIN.target = null; ADMIN.draft = null; ADMIN.message = ''; renderAdmin(); if (!ADMIN.playersLoaded) loadPlayers(); }, 'mini ad-backlink'));
+  left.push(adminButton('← All players', () => { ADMIN.target = null; ADMIN.draft = null; ADMIN.message = ''; renderAdmin(); if (!ADMIN.playersLoaded) loadPlayers(); }, 'mini ad-backlink'));
   left.push(el('h3', {}, [el('span', { text: p.name || 'Player' }), ...roleBadges({ owner: p.owner, roles: p.roles })]));
-  if (owner && t.info) left.push(onlineDot(t.info.online));
+  if (t.info) left.push(onlineDot(t.info.online));
   head.appendChild(el('div', { class: 'ad-player-head' }, [el('div', {}, left), reload]));
   const sub = el('div', { class: 'ad-subtabs', role: 'tablist', 'aria-label': 'Player sections' });
   [['info', 'Info'], ['boss', 'Boss Fight'], ['chars', 'Characters']].forEach(([id, title]) => sub.appendChild(el('button', { type: 'button', role: 'tab',
@@ -215,7 +214,7 @@ function renderPlayer(pane) {
   else if (ADMIN.ptab === 'boss') renderPlayerBoss(body, d, canEdit);
   else renderPlayerChars(body, d, canEdit);
   if (ADMIN.ptab !== 'info') {
-    if (!canEdit) body.appendChild(el('p', { class: 'ad-message', text: 'Owner account: every fighter and level is always unlocked, so there’s nothing to change.' }));
+    if (!canEdit) body.appendChild(el('p', { class: 'ad-message', text: 'This is the owner’s account: every fighter and level is always unlocked, and it can’t be changed here.' }));
     else renderSaveBar(body, t, d);
   }
 }
@@ -224,7 +223,7 @@ function renderPlayerInfo(body, t, owner) {
   const p = t.profile, info = t.info || {};
   const grid = el('div', { class: 'ad-info' }); body.appendChild(grid);
   grid.append(infoRow('Username', p.name || '(none yet)'), infoRow('UID', t.uid, 'ad-uid'));
-  if (owner) grid.append(infoRow('Email', info.email || 'Shows after their next sign-in'),
+  if (t.info) grid.append(infoRow('Email', info.email || 'Shows after their next sign-in'),
     infoRow('Status', info.online ? 'Online now' : 'Offline · ' + seenText(info.seen)),
     infoRow('Joined', info.joined ? new Date(info.joined).toLocaleDateString() : '—'));
   grid.append(infoRow('Boss Fight', 'Level ' + p.beaten + ' of ' + BOSS_LEVELS.length + ' · ' + (p.wins || 0) + ' boss wins'),
