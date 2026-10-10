@@ -708,7 +708,7 @@ export class Room {
       { type: 'cpu', char: resolvePick('random'), lvl: step, team: 1, ctrl: { type: 'cpu' }, name: 'CPU', tag: 'CPU' }];
     if (step >= 8) slots.push({ type: 'cpu', char: resolvePick('random'), lvl: step - 2, team: 1, ctrl: { type: 'cpu' }, name: 'CPU', tag: 'CPU' });
     while (slots.length < 4) slots.push({ type: 'off' });
-    const stage = Math.floor(Math.random() * STAGES.length);
+    const stage = pickStage(eventNow());   // during a seasonal event, about half the time one of its maps
     this.gid = (this.gid | 0) + 1;
     this.g = makeGame({ stage, stocks: 3, time: 5, teams: true, slots });
     this.ended = false; this.lastSent = -9; this.last = Date.now();
@@ -754,7 +754,7 @@ export class Room {
     clearTimeout(this.rkTimer);
     const pl = [...this.rk.ready.values()].slice(0, 2);
     const mk = (x, team) => ({ type: 'peer', char: x.ch, lvl: 5, team, ctrl: { type: 'remote', peer: x.c.id }, name: x.name, tag: x.name });
-    const stage = Math.floor(Math.random() * STAGES.length);
+    const stage = pickStage(eventNow());   // during a seasonal event, about half the time one of its maps
     this.gid = (this.gid | 0) + 1;
     this.g = makeGame({ stage, stocks: 3, time: 5, teams: false, slots: [mk(pl[0], 0), mk(pl[1], 1), { type: 'off' }, { type: 'off' }] });
     this.ended = false; this.lastSent = -9; this.last = Date.now();
