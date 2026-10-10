@@ -40,14 +40,23 @@ email in a signed Firebase token; client-supplied roles cannot grant access.
   and its before/after activity record in one transaction. Stale edits return
   409 rather than overwriting newer boss progress or another admin's changes.
   Earned chapter fighters are kept according to the selected progress. Creator
-  accounts cannot be reset or have their automatic unlocks removed.
-- **Admin panel / Bug reports:** verified players submit a title, description, optional
+  accounts cannot be reset or have their automatic unlocks removed. The selected
+  account also shows its last 20 admin changes, which already provides the
+  activity log for player support and unlock repair.
+- **Admin panel / Test presets:** quick-start a Titan Ape vs level 5 or level 10
+  CPU match on a random stage, Training Lab, or the first or final Boss Fight
+  level. The setup screens remain editable before play.
+- **Bug reports:** regular players can open the form from the main menu or the in-match pause menu.
+  Guests can prepare a draft, but sending requires a verified account. The pause-menu link
+  returns to the paused fight after the report screen closes. Verified players submit a title, description, optional
   reproduction steps, category and impact. The server adds their authenticated
   identity and stores reports privately. Only admins can read the inbox, add
   investigation notes, or set open/investigating/resolved/closed status. The
   inbox loads 50 reports at a time, newest first, with older-report pagination.
   A player can send at most two reports per minute and ten per day, with a
-  separate shared-IP limit. Report text is displayed with `textContent`.
+  separate shared-IP limit. The form is visible to regular players and guests;
+  guests can prepare a draft, but sending still requires a verified account.
+  Report text is displayed with `textContent`.
 
 Account progress and unlock edits apply on the player's next sign-in/profile
 refresh or match connection. A fight already in progress keeps its starting

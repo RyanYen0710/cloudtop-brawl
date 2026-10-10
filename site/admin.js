@@ -1,7 +1,7 @@
 'use strict';
 /* Private controls are enabled by /api/me; every privileged action is checked again by the server. */
 const ADMIN = { uid: null, tab: 'accounts', target: null, reports: [], cursor: null, loaded: false, busy: false, message: '', filter: 'all' };
-const BUG = { busy: false, message: '', draft: null, context: null };
+const BUG = { busy: false, message: '', draft: null, context: null, returnScreen: 'main', returnPaused: false };
 const ADMIN_ERRORS = {
   'not-admin': 'This account does not have admin access.', signin: 'Please sign in again.',
   expired: 'Your sign-in expired. Please sign out and back in.', 'bad-token': 'Please sign out and back in.',
@@ -58,7 +58,7 @@ function renderAdmin() {
     el('h2', { text: 'Admin panel' }), el('span', { class: 'ad-badge', text: 'PRIVATE ACCESS' })]));
   wrap.appendChild(el('p', { class: 'muted', text: 'Grant fighters and change saved account progress. Changes here are permanent and recorded in the activity log.' }));
   const tabs = el('div', { class: 'ad-tabs', role: 'tablist', 'aria-label': 'Admin tools' });
-  [['accounts', 'Player accounts'], ['reports', 'Bug reports']].forEach(([id, title]) => {
+  [['accounts', 'Player accounts'], ['presets', 'Test presets'], ['reports', 'Bug reports']].forEach(([id, title]) => {
     tabs.appendChild(el('button', { type: 'button', id: 'ad-tab-' + id, role: 'tab', class: 'btn' + (ADMIN.tab === id ? ' sel' : ''),
       'aria-selected': String(ADMIN.tab === id), 'aria-controls': 'ad-pane', text: title, on: { click: () => {
         ADMIN.tab = id; ADMIN.message = ''; renderAdmin(); if (id === 'reports' && !ADMIN.loaded) loadAdminReports(false);
@@ -67,6 +67,7 @@ function renderAdmin() {
   wrap.append(tabs, el('p', { id: 'ad-msg', role: 'status', 'aria-live': 'polite', class: 'ad-message', text: ADMIN.message }));
   const pane = el('div', { id: 'ad-pane', role: 'tabpanel', 'aria-labelledby': 'ad-tab-' + ADMIN.tab }); wrap.appendChild(pane);
   if (ADMIN.tab === 'accounts') renderAdminAccount(pane);
+  else if (ADMIN.tab === 'presets') renderAdminPresets(pane);
   else renderAdminReports(pane);
 }
 function adminMessage(text) { ADMIN.message = text; const p = document.getElementById('ad-msg'); if (p) p.textContent = text; }
@@ -155,6 +156,37 @@ async function loadAdminReports(more) {
   } catch (e) { adminMessage(adminError(e)); }
   finally { ADMIN.busy = false; }
 }
+function runTestPreset(id) {
+  if (!isTesterAcct()) { toast('Tester access is required for test presets.'); return; }
+  setTester(true);
+  if (id === 'training') { startTrainingSetup(); return; }
+  if (id === 'boss-first' || id === 'boss-last') {
+    BOSS.sel = id === 'boss-last' ? BOSS_LEVELS.length : 1;
+    BOSS.pick = 'random'; BOSS.result = null; showBoss(); return;
+  }
+  G.mode = 'solo'; G.training = false; SETUP.slots = defaultSlots('solo');
+  SETUP.slots[0].char = 'titan'; SETUP.slots[1].char = 'random';
+  SETUP.slots[1].lvl = id === 'cpu-10' ? 10 : 5;
+  SETUP.stage = -1; SETUP.stocks = 3; SETUP.time = 5; SETUP.edit = 0; SETUP.teams = false;
+  showSetup();
+}
+function renderAdminPresets(pane) {
+  pane.appendChild(el('p', { class: 'muted', text: 'Quick-start repeatable checks. These open normal test setup screens; test mode keeps Boss Fight results out of account progress.' }));
+  const grid = el('div', { class: 'ad-presets' }); pane.appendChild(grid);
+  const presets = [
+    ['CPU level 5', 'Titan Ape vs a level 5 CPU on a random stage.', 'cpu-5'],
+    ['CPU level 10', 'Titan Ape vs a level 10 CPU on a random stage.', 'cpu-10'],
+    ['Training dummy', 'Open Training Lab with its standing dummy.', 'training'],
+    ['Boss Fight · first level', 'Open the first Boss Fight level in test mode.', 'boss-first'],
+    ['Boss Fight · final level', 'Open the final Boss Fight level in test mode.', 'boss-last']
+  ];
+  presets.forEach(([title, description, id]) => {
+    const card = el('article', { class: 'card ad-card ad-preset' });
+    card.append(el('h3', { text: title }), el('p', { class: 'muted', text: description }),
+      adminButton('Open preset', () => runTestPreset(id), 'btn'));
+    grid.appendChild(card);
+  });
+}
 function renderAdminReports(pane) {
   const statusOptions = [['open', 'Open'], ['investigating', 'Investigating'], ['resolved', 'Resolved'], ['closed', 'Closed']];
   const filter = adminSelect([['all', 'All statuses'], ...statusOptions], ADMIN.filter);
@@ -193,16 +225,38 @@ function renderAdminReports(pane) {
 }
 function showBugReport() {
   BUG.message = '';
-  BUG.context = { screen: G.screen, mode: G.mode, level: G.mode === 'boss' || G.screen === 'boss' ? BOSS.sel : 0, browser: navigator.userAgent };
+  BUG.returnScreen = G.screen === 'fight' ? 'fight' : 'main';
+  BUG.returnPaused = BUG.returnScreen === 'fight' && G.paused;
+  BUG.context = BUG.draft && BUG.draft.context || { screen: G.screen, mode: G.mode, level: G.mode === 'boss' || G.screen === 'boss' ? BOSS.sel : 0, browser: navigator.userAgent };
   adminSection('bug-report'); show('bug-report'); renderBugReport();
+  if (!ACCT.ready && acctEnabled()) acctLoad().then(() => { if (G.screen === 'bug-report') renderBugReport(); });
+}
+function saveBugDraft() {
+  const screen = document.getElementById('scr-bug-report'); if (!screen) return;
+  const value = name => screen.querySelector(`[aria-label="${name}"]`)?.value || '';
+  const draft = { title: value('Title').trim(), details: value('Description').trim(), steps: value('Steps to reproduce (optional)').trim(),
+    category: value('Category') || 'gameplay', severity: value('Impact') || 'medium', context: BUG.context };
+  if (draft.title || draft.details || draft.steps) BUG.draft = draft;
+}
+function closeBugReport() {
+  saveBugDraft();
+  const back = BUG.returnScreen === 'fight' ? 'fight' : 'main';
+  show(back);
+  if (back === 'fight' && BUG.returnPaused) {
+    G.paused = true;
+    document.getElementById('pause').hidden = false;
+  }
 }
 function renderBugReport() {
   const screen = adminSection('bug-report'); screen.textContent = '';
-  const wrap = el('div', { class: 'wrap ad-wrap' }, [el('header', { class: 'bar' }, [adminButton('← Back', () => show('main'), 'back'), el('h2', { text: 'Report a bug' })])]);
+  const wrap = el('div', { class: 'wrap ad-wrap' }, [el('header', { class: 'bar' }, [adminButton('← Back', closeBugReport, 'back'), el('h2', { text: 'Report a bug' })])]);
   screen.appendChild(wrap);
-  if (!acctSignedIn()) { wrap.append(el('p', { text: 'Sign in with a verified account to send a report.' }), adminButton('Sign in', showLogin, 'btn')); return; }
+  if (!acctEnabled()) { wrap.appendChild(el('p', { class: 'muted', text: 'Bug reports are available on the game website when player accounts are enabled.' })); return; }
+  const canSubmit = ACCT.ready && !ACCT.loadErr && acctSignedIn();
+  if (!ACCT.ready) wrap.appendChild(el('p', { class: 'muted', role: 'status', text: 'Checking your sign-in… You can fill in the report while it loads.' }));
+  else if (ACCT.loadErr) wrap.appendChild(el('p', { class: 'muted', role: 'status', text: 'The sign-in service could not be reached. You can write the report now and sign in when it is available.' }));
   const card = el('form', { class: 'card ad-card' }); wrap.appendChild(card);
-  card.appendChild(el('p', { class: 'muted', text: 'Tell us what happened. Your report goes privately to the game admins. Do not include passwords or other sensitive information.' }));
+  card.appendChild(el('p', { class: 'muted', text: canSubmit ? 'Tell us what happened. Your report goes privately to the game admins. Do not include passwords or other sensitive information.' : 'Tell us what happened. Sign in with a verified account to send it. Your report goes privately to the game admins. Do not include passwords or other sensitive information.' }));
   const title = el('input', { required: '', minlength: '5', maxlength: '100', placeholder: 'Short description of the problem' });
   const details = el('textarea', { required: '', minlength: '10', maxlength: '3000', rows: '5', placeholder: 'What happened? What did you expect?' });
   const steps = el('textarea', { maxlength: '2000', rows: '4', placeholder: 'Which fighter, level, and actions reproduce it?' });
@@ -211,8 +265,12 @@ function renderBugReport() {
   if (BUG.draft) { title.value = BUG.draft.title; details.value = BUG.draft.details; steps.value = BUG.draft.steps; category.value = BUG.draft.category; severity.value = BUG.draft.severity; }
   card.append(adminField('Title', title), el('div', { class: 'ad-row' }, [adminField('Category', category), adminField('Impact', severity)]),
     adminField('Description', details), adminField('Steps to reproduce (optional)', steps));
+  if (!canSubmit) card.appendChild(adminButton('Sign in to send report', () => {
+    saveBugDraft();
+    showLogin();
+  }, 'btn ad-ghost'));
   const message = el('p', { role: 'status', 'aria-live': 'polite', class: 'ad-message', text: BUG.message });
-  const send = el('button', { type: 'submit', class: 'btn start', text: BUG.busy ? 'Sending…' : 'Send bug report' }); send.disabled = BUG.busy;
+  const send = el('button', { type: 'submit', class: 'btn start', text: BUG.busy ? 'Sending…' : canSubmit ? 'Send bug report' : 'Sign in required' }); send.disabled = BUG.busy || !canSubmit;
   card.append(message, send);
   card.addEventListener('submit', async e => {
     e.preventDefault(); if (BUG.busy) return;
@@ -229,4 +287,6 @@ function renderBugReport() {
 }
 document.getElementById('go-admin').addEventListener('click', showAdmin);
 document.getElementById('go-bug-report').addEventListener('click', showBugReport);
+const pauseReportButton = document.getElementById('p-report-bug');
+if (pauseReportButton) pauseReportButton.addEventListener('click', showBugReport);
 adminUpdate();
