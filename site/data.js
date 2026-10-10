@@ -477,7 +477,7 @@ let MY_UNLOCKED = [];
 function isPick(id) { return id === 'random' || (!!CHAR[id] && !CHAR[id].hidden); }
 /* locked fighters (the Boss Fight bosses) can only be picked after unlocking them in Boss Fight */
 function isPickable(id, unlocked) { return id === 'random' || (!!CHAR[id] && !CHAR[id].hidden && (!CHAR[id].locked || !!(unlocked && unlocked.indexOf(id) >= 0))); }
-function resolvePick(id) { if (id !== 'random') return id; const pool = ROSTER.filter(c => !c.legend); return pool[Math.floor(Math.random() * pool.length)].id; }
+function resolvePick(id) { if (id !== 'random') return id; const pool = ROSTER.filter(c => !c.legend && !c.locked); return pool[Math.floor(Math.random() * pool.length)].id; }
 const CHAR = {};
 ROSTER.forEach(c => { CHAR[c.id] = c; });
 /* Legend Yen's own style (key Y): not a fighter you can pick, just his own set of specials, the best in the game */
