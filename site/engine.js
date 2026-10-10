@@ -132,6 +132,8 @@ function stepFighter(f, inp, g) {
   if (!f.ground) tryGrabLedge(f, g);
 
   const B = g.stage.blast;
+  // Professor Sprocket's spring legs: his own jumps stop short of the top (only a hit can launch him out)
+  if (f.c.safeTop && f.hitstun <= 0 && f.y < B.t + 130) { f.y = B.t + 130; if (f.vy < 0) f.vy = 0; }
   if (f.x < B.l || f.x > B.r || f.y > B.b || f.y < B.t) koF(f, g);
 }
 
@@ -170,7 +172,7 @@ function onLand(f, g, vy) {
     if (vy > 7) { f.y -= 1; f.vy = -vy * 0.45; f.ground = null; emit(g, 'land', f.x, f.y, 2); return; }
     f.land = Math.min(10, Math.max(4, f.hitstun)); f.hitstun = 0; // landing never adds stun on top of a light hit
   }
-  f.jumps = f.ph.jumps - 1; f.canFly = true; f.flyT = 0; f.helpless = false; f.ledgeGrabs = 0;
+  f.jumps = f.ph.jumps - 1; f.canFly = true; f.flyT = 0; f.helpless = false; f.ledgeGrabs = 0; f.grappleUsed = false;
   f.airDodged = false; f.sideUsed = false; f.upUsed = false; f.ff = false;
   if (f.act) {
     const k = f.act.m.kind;
@@ -215,7 +217,11 @@ function control(f, inp, g) {
       if (dirX) f.vx += clamp(dirX * ph.air * spd - f.vx, -0.5, 0.5); else f.vx *= 0.97;
       f.pose = f.helpless ? 'helpless' : (f.vy < 0 ? 'jump' : 'fall');
     }
-    if (f.helpless) return;
+    if (f.helpless) {
+      // Professor Sprocket's Grapple Hand still works while falling helpless (once per jump)
+      if (inp.spp && inp.d && (fSpecials(f).down || {}).kind === 'grapple' && !f.grappleUsed) startSpecial(f, inp, dirX, g);
+      return;
+    }
     if (inp.jp && f.jumps > 0 && !(f.flyT > 0)) {
       f.vy = -ph.jumpV * 0.92; f.jumps--; f.ff = false; emit(g, 'jump', f.x, f.y, 1); return;
     }
@@ -261,6 +267,7 @@ function startSpecial(f, inp, dirX, g) {
     let n = 0; for (const p of g.projs) if (p.owner === f && p.key === w) n++;
     if (n >= (m.max || 1)) return;
   }
+  if (m.kind === 'grapple' && air) { if (f.grappleUsed) return; f.grappleUsed = true; }
   if (air && w === 'side') f.sideUsed = true;
   if (w === 'up' && m.kind !== 'fly') f.upUsed = true;
   beginAct(f, 'sp_' + w, m, 'sp');
@@ -342,6 +349,37 @@ function runAct(f, inp, g, dirX) {
         f.pose = m.pose || 'up'; f.pt = 1;
       }
       if (a.t >= S + A) { endAct(f); if (!f.ground && !m.noHelpless) f.helpless = true; }
+      break;
+    }
+    case 'grapple': {
+      // Grapple Hand: in the air, shoot the hand at the nearest ledge in reach and reel in to hang on it;
+      // otherwise (or on the ground) it's a long claw grab that hits
+      a.t++;
+      if (a.t < S) { f.pose = 'charge'; f.pt = 0.4; a.noGrav = !f.ground; if (!f.ground) { f.vy *= 0.5; f.vx *= 0.8; } break; }
+      if (a.t === S) {
+        if (!f.ground) a.grab = grappleTarget(f, g, m.reach || 360);
+        if (a.grab) { const e = a.grab; emit(g, 'grapple', f.x + f.face * f.W * 0.3, f.y - f.H * 0.6, e.x, e.y); a.sx = f.x; a.sy = f.y; }
+      }
+      if (a.grab) {
+        const e = a.grab, k = Math.min(1, (a.t - S) / 16), inward = -e.side, m2 = g.stage.solids[e.si];
+        const tx = e.x - inward * f.W * 0.32, ty = m2.y + f.H * 0.78;
+        f.x = a.sx + (tx - a.sx) * k; f.y = a.sy + (ty - a.sy) * k; f.vx = 0; f.vy = 0; a.noGrav = true;
+        f.pose = 'fly'; f.pt = 1; f.face = inward; f.inv = Math.max(f.inv, 2);
+        if (k >= 1) {
+          endAct(f);
+          if (!g.fighters.some(o => o !== f && o.ledge && o.ledge.si === e.si && o.ledge.side === e.side && !o.dead)) {
+            f.ledge = { si: e.si, side: e.side, t: 0, climb: 0, mode: null }; f.ledgeGrabs++;
+            f.flyT = 0; f.helpless = false; f.upUsed = false; f.sideUsed = false; f.canFly = true; f.airDodged = false; f.ff = false;
+            f.jumps = f.ph.jumps - 1; f.pose = 'ledge'; f.pt = 0;
+            emit(g, 'ledge', f.x, m2.y);
+          }
+        }
+        break;
+      }
+      a.noGrav = false;
+      if (a.t >= S && a.t < S + A) { f.hot = true; hitCheck(f, g, m, a, 1); }
+      ptPose(f, a, S, A, E, 'punch');
+      if (a.t >= S + A + E) endAct(f);
       break;
     }
     case 'fly': {
@@ -629,6 +667,23 @@ function koF(f, g) {
   g.shake = 20;
 }
 
+/* the nearest free ledge corner Professor Sprocket's Grapple Hand can reach (below or around the hand, not inside the stage) */
+function grappleTarget(f, g, reach) {
+  const st = g.stage, hy = f.y - f.H * 0.6;
+  let best = null, bd = 1e9;
+  st.solids.forEach((m, si) => {
+    [-1, 1].forEach(side => {
+      const x = side < 0 ? m.x : m.x + m.w, y = m.y;
+      if (side < 0 ? f.x > m.x + 6 : f.x < m.x + m.w - 6) { if (f.y <= m.y + 4) return; }   // standing above the stage: no grab
+      if (st.solids.some(o => o !== m && Math.abs(o.y - m.y) < 30 && x + side * 20 > o.x && x + side * 20 < o.x + o.w)) return;
+      if (g.fighters.some(o => o !== f && o.ledge && o.ledge.si === si && o.ledge.side === side && !o.dead)) return;
+      const d = Math.hypot(x - f.x, y - hy);
+      if (d <= reach && d < bd && y > hy - reach * 0.8) { bd = d; best = { si, side, x, y }; }
+    });
+  });
+  return best;
+}
+
 /* ===== ledge hanging (like Smash): grab the corners of big bases when you're close ===== */
 function tryGrabLedge(f, g) {
   if (f.ledgeCD > 0 || f.hitstun > 0 || f.frozen > 0 || f.zap > 0 || f.shieldBreak > 0 || f.airDodge > 0 || f.dead > 0 || f.halo > 0) return;
@@ -651,7 +706,7 @@ function tryGrabLedge(f, g) {
     f.y = m.y + f.H * 0.78;
     f.face = -side; f.vx = 0; f.vy = 0;
     endAct(f);
-    f.flyT = 0; f.helpless = false; f.upUsed = false; f.sideUsed = false; f.canFly = true; f.airDodged = false; f.ff = false;
+    f.flyT = 0; f.helpless = false; f.upUsed = false; f.sideUsed = false; f.canFly = true; f.airDodged = false; f.ff = false; f.grappleUsed = false;
     f.jumps = f.ph.jumps - 1;
     if (f.ledgeGrabs <= 2) f.inv = Math.max(f.inv, 50);
     f.pose = 'ledge'; f.pt = 0;
