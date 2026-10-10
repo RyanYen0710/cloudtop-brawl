@@ -68,7 +68,7 @@ async function acctChanged() {
     try {
       let p = await acctApi('/api/me');
       const want = ACCT.pendingName || loadLocal('cb.pname') || '';
-      if (want && !p.name) { try { p = await acctApi('/api/name', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ name: want }) }); } catch (e) { } }
+      if (want && !p.name) { try { p = Object.assign(p, await acctApi('/api/name', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ name: want }) })); } catch (e) { } }
       ACCT.profile = p;
     } catch (e) { ACCT.profile = null; if (e.message === 'slow-down') toast('Too many requests. Wait a minute and try again.'); }
   } else ACCT.profile = null;
@@ -282,6 +282,7 @@ function renderAcctChip() {
   if (!acctEnabled()) { b.hidden = true; return; }
   b.hidden = false;
   b.textContent = acctSignedIn() ? '👤 ' + ((ACCT.profile && ACCT.profile.name) || 'Account') : 'Sign in';
+  if (acctSignedIn() && typeof titleRibbon === 'function') { const badge = titleRibbon(myTitle(), true); if (badge) { badge.classList.add('title-profile'); b.appendChild(badge); } }
 }
 
 /* after the start screen: show sign-in first when accounts are switched on */
@@ -324,6 +325,7 @@ function renderAcctPane() {
   un.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); saveUsername(); } });
   box.appendChild(sec('Username', [el('div', { class: 'acct-line' }, [un, btn('Save', saveUsername)]), msg('name'),
     el('p', { class: 'muted set-note', text: 'Your name in every mode. ' + nameHint() + '. Every username is unique.' })]));
+  if (typeof renderTitles === 'function') renderTitles(box);
   // email
   const kids = [el('p', { class: 'acct-msg', text: 'Signed in as ' + (ACCT.user.email || '—') + (hasG && !hasPw ? ' (Google)' : '') })];
   if (hasPw) {

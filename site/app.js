@@ -35,7 +35,7 @@ function showOnline() { show('online'); renderOnline(); }
 function buildCfg() {
   const slots = SETUP.slots.map((s, i) => {
     const o = Object.assign({}, s, { char: resolvePick(s.char), picked: s.char === 'random' });
-    if (s.type === 'you') { o.ctrl = { type: 'local' }; const nm = G.mode === 'host' ? NET.nick : myName(); o.name = nm || 'You'; o.tag = nm || 'P' + (i + 1); }
+    if (s.type === 'you') { o.ctrl = { type: 'local' }; const nm = G.mode === 'host' ? NET.nick : myName(); o.name = nm || 'You'; o.tag = nm || 'P' + (i + 1); o.title = G.mode === 'solo' ? myTitle() : ''; }
     else if (s.type === 'peer') { o.ctrl = { type: 'remote', peer: s.peer }; o.name = s.nick || 'Friend'; o.tag = s.nick || ('P' + (i + 1)); }
     else if (s.type === 'cpu') { o.ctrl = { type: 'cpu' }; o.name = 'CPU'; o.tag = 'CPU'; }
     return o;
@@ -52,6 +52,7 @@ function startMatch() {
   G.remote = false;
   G.cfg = buildCfg();
   G.game = makeGame(G.cfg);
+  G.game.fighters.forEach(f => { f.title = G.cfg.slots[f.slot].title || ''; });
   G.game.fighters.forEach(f => { if (f.ctrl.type === 'cpu') f.ai = null; });
   FX.length = 0; CAM.init = false;
   G.cfg.slots.forEach((s, i) => { if (s.picked && (s.type === 'you')) toast(`Random picked ${CHAR[s.char].name} for you!`); });
@@ -114,6 +115,7 @@ function handleEvent(e, silent) {
 
 function finishMatch() {
   const rows = computeResults(G.game);
+  rows.forEach(r => { const f = G.game.fighters.find(f => f.slot === r.slot); r.title = f && f.title; });
   if (G.mode === 'host') {
     NET.phase = 'res';
     NET.res = rows.map(r => [r.slot, r.place, r.kos, r.falls, r.win ? 1 : 0]);
@@ -140,6 +142,7 @@ function showResults(rows, canAct) {
   ban.style.setProperty('--wc', win.length ? win[0].color : '#ffb547');
   const tb = document.getElementById('res-rows');
   tb.innerHTML = rows.map(r => `<tr style="--rc:${r.color}"><td class="pl">${r.place}</td><td><canvas class="res-cv" data-char="${esc(r.char)}" aria-hidden="true"></canvas></td><td><b>${esc(r.tag || r.name)}</b><span class="muted">${esc((CHAR[r.char] || {}).name || '')}</span></td><td class="num">${r.kos}</td><td class="num">${r.falls}</td></tr>`).join('');
+  [...tb.rows].forEach((tr, i) => { const badge = titleRibbon(rows[i].title, true); if (badge) tr.cells[2].appendChild(badge); });
   tb.querySelectorAll('.res-cv').forEach(c => requestAnimationFrame(() => drawPortrait(c, c.dataset.char)));
   const host = G.mode !== 'guest';
   document.getElementById('rematch').hidden = !host;

@@ -35,7 +35,7 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
    const GAME_SERVER = 'https://cloudtop-brawl-server.yourname.workers.dev';
    Players can also type an address in the Online screen (it overrides this one on their device). */
 const GAME_SERVER = 'https://cloudtop-brawl-server.ryanbrawl.workers.dev';
-const SRV = { ws: null, code: null, ping: 0, closedByUs: false, reconnecting: false };
+const SRV = { ws: null, code: null, ping: 0, closedByUs: false, reconnecting: false, titles: null };
 function serverUrl() { return String(loadLocal('cb.server') || GAME_SERVER || '').trim().replace(/\/+$/, ''); }
 function serverWsUrl(code, kind) {
   let u = serverUrl();
@@ -51,6 +51,7 @@ function connectServer(code, kind) {
     ws.onopen = () => {
       if (done) return; done = true; clearTimeout(t);
       SRV.ws = ws; SRV.code = code; SRV.closedByUs = false;
+      SRV.titles = null;
       ws.send(JSON.stringify({ d: Object.assign({}, RELAY.mine), full: 1 }));
       if (typeof acctSendAuth === 'function') acctSendAuth(ws);
       res(ws);
@@ -72,6 +73,7 @@ function onServerMsg(raw) {
   if (m.pong) { const rtt = Date.now() - m.pong; SRV.ping = SRV.ping ? Math.round(SRV.ping * 0.6 + rtt * 0.4) : rtt; return; }
   if (m.bye) { RELAY.remote.delete(m.bye); schedPeers(); return; }
   if (!m.from || !m.d) return;
+  if (m.from === 'srv' && Object.prototype.hasOwnProperty.call(m.d, 'titles')) SRV.titles = m.d.titles;
   let r = RELAY.remote.get(m.from);
   if (!r || m.full) { r = { pres: {} }; RELAY.remote.set(m.from, r); }
   r.seen = performance.now();
@@ -551,7 +553,7 @@ function decodeRes(lb) {
   const fm = lb.fm || [];
   return (lb.res || []).map(a => {
     const m = fm.find(x => x[0] === a[0]) || [];
-    return { slot: a[0], place: a[1], kos: a[2], falls: a[3], win: !!a[4], char: m[1] || 'titan', name: m[3] || '', tag: m[5] || '', color: m[4] || '#fff', team: m[6] | 0 };
+    return { slot: a[0], place: a[1], kos: a[2], falls: a[3], win: !!a[4], char: m[1] || 'titan', name: m[3] || '', tag: m[5] || '', color: m[4] || '#fff', team: m[6] | 0, title: lb.sv ? trustedMatchTitle(a[0], lb.gid) : '' };
   });
 }
 

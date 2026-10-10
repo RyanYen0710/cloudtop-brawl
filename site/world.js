@@ -376,6 +376,8 @@ function drawHUD(g, view, vw, vh, hudH, t, atTop) {
     g.fillStyle = '#a39cc9'; g.font = `500 ${small ? 10 : 11}px "Chakra Petch", system-ui, sans-serif`;
     const left = room - tagW - 8;
     if (left > 24) g.fillText(fit(f.c.name, left), tx + tagW + 8, y + 16);
+    const title = G.remote ? trustedMatchTitle(f.slot, NET.gid) : f.title;
+    if (!tiny && h >= 70 && typeof drawPlayerTitle === 'function') drawPlayerTitle(g, title, tx, y + 21, x + cw - tx - 10);
     const d = Math.floor(f.dmg);
     const bump = f.lastBump && t - f.lastBump < 8 ? 1.15 : 1;
     g.font = `${Math.round((tiny ? 21 : small ? 26 : 32) * bump)}px "Dela Gothic One", Impact, sans-serif`;

@@ -9,6 +9,7 @@
 
 const LB = { data: null, tab: 'overall', busy: false, err: '' };
 const LB_TABS = [
+  ['season', 'This season', 'Monthly standings from server-verified online matches and Boss Fights'],
   ['overall', 'Overall', 'Wins, KOs, Boss Fight level and time online together'],
   ['online', 'Most online', 'Most time spent in the game while signed in'],
   ['wins', 'Most wins', 'Online and Boss Fight wins'],
@@ -34,6 +35,7 @@ function lbMain(tab, x) {
   return x.score + ' pts';
 }
 function lbDetails(tab, x) {
+  if (tab === 'season') return [['Wins', x.wins], ['KOs', x.kos], ['Games', x.games]];
   if (tab === 'overall') return [['K/D', lbRatio(x.kos, x.deaths)], ['W/L', lbRatio(x.wins, x.losses)], ['Boss', 'Lv ' + x.bestLevel], ['Online', lbTime(x.onlineMs)]];
   if (tab === 'wins') return [['Losses', x.losses], ['W/L', lbRatio(x.wins, x.losses)]];
   if (tab === 'games') return [['Wins', x.wins], ['Losses', x.losses]];
@@ -131,7 +133,7 @@ function lbArrows(i, n) {
 }
 /* in owner mode the number is a button that opens the editor */
 function lbValue(cls, x, text) {
-  if (!lbOwner()) return el(cls === 'lb-pval' ? 'div' : 'span', { class: cls, text });
+  if (!lbOwner() || LB.tab === 'season') return el(cls === 'lb-pval' ? 'div' : 'span', { class: cls, text });
   return el('button', { type: 'button', class: cls + ' lb-editable', text, title: 'Tap to edit', 'aria-label': 'Edit ' + x.name + ': ' + text, on: { click: () => lbEdit(x) } });
 }
 
@@ -148,7 +150,12 @@ function renderLeaderboard() {
   wrap.appendChild(tabs);
   const tabInfo = LB_TABS.find(x => x[0] === LB.tab);
   wrap.appendChild(el('p', { class: 'lb-sub', text: tabInfo[2] + (LB.tab === 'overall' ? ' · points = 10 per win + 2 per KO + 5 per Boss level + 1 per hour online' : '') }));
-  if (lbOwner()) {
+  if (LB.tab === 'season' && LB.data && LB.data.season) {
+    wrap.appendChild(el('p', { class: 'lb-season-note', text: 'Season ' + LB.data.season.month + ' · Calendar month in UTC · 10 points per win + 2 per KO. Starts with new matches after titles launch. Ties: most wins, then a fixed account order. #1 keeps Season Champion when the month ends.' }));
+    const winners = LB.data.season.winners || [];
+    if (winners.length) wrap.appendChild(el('p', { class: 'lb-season-note', text: 'Previous champions: ' + winners.slice(-3).map(x => x.month + ' — ' + x.name).join(' · ') }));
+  }
+  if (lbOwner() && LB.tab !== 'season') {
     const tools = el('div', { class: 'lb-owner' }, [el('span', { class: 'ad-badge ad-badge-owner', text: 'OWNER TOOLS' }),
       el('span', { text: 'Use ▲ ▼ to move players. Tap a number to edit it.' })]);
     if (LB.data.custom && LB.data.custom[LB.tab]) { const r = el('button', { type: 'button', class: 'mini', text: 'Reset order', on: { click: lbResetOrder } }); r.disabled = LB.busy; tools.appendChild(r); }
@@ -164,8 +171,9 @@ function renderLeaderboard() {
     const x = list[i]; if (!x) return;
     const rank = i + 1;
     podium.appendChild(el('div', { class: 'lb-step s' + rank + (x.me ? ' me' : '') }, [
-      lbOwner() ? lbArrows(i, list.length) : null,
+      lbOwner() && LB.tab !== 'season' ? lbArrows(i, list.length) : null,
       lbMedal(rank), el('div', { class: 'lb-pname', text: x.name }), lbValue('lb-pval', x, lbMain(LB.tab, x)),
+      LB.tab === 'season' ? titleRibbon(rank === 1 ? 'season-leader' : 'top-ten', true) : null,
       el('div', { class: 'lb-pdet', text: lbDetails(LB.tab, x).map(([k, v]) => k + ' ' + v).join(' · ') }),
       el('div', { class: 'lb-block', 'aria-hidden': 'true', text: String(rank) })]));
   });
@@ -173,7 +181,7 @@ function renderLeaderboard() {
   if (list.length > 3) {
     const rows = el('ol', { class: 'lb-list', start: '4' }); wrap.appendChild(rows);
     list.slice(3).forEach((x, i) => rows.appendChild(el('li', { class: 'lb-row' + (x.me ? ' me' : '') + (lbOwner() ? ' own' : '') }, [
-      lbOwner() ? lbArrows(i + 3, list.length) : null,
+      lbOwner() && LB.tab !== 'season' ? lbArrows(i + 3, list.length) : null,
       el('span', { class: 'lb-rank', text: String(i + 4) }), el('span', { class: 'lb-name', text: x.name }),
       el('span', { class: 'lb-det' }, lbDetails(LB.tab, x).map(([k, v]) => el('span', {}, [el('small', { text: k }), el('b', { text: String(v) })]))),
       lbValue('lb-val', x, lbMain(LB.tab, x))])));

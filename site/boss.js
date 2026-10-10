@@ -214,7 +214,13 @@ function onBossSrv(d) {
   }
   if (d.bossRes && d.bossRes.gid === BOSS.gid && G.mode === 'boss') {
     const r = d.bossRes;
-    if (ACCT.profile && !r.error && !r.test) { ACCT.profile.beaten = r.beaten; setUnlocked(r.unlocked); }
+    if (ACCT.profile && !r.error && !r.test) {
+      const before = ACCT.profile.ownedTitles || [];
+      ACCT.profile.beaten = r.beaten; setUnlocked(r.unlocked);
+      const earned = r.earnedTitles || [];
+      earned.filter(id => !before.includes(id)).forEach(id => { const t = playerTitle(id); if (t) toast('Title unlocked: ' + t.name); });
+      acctChanged();
+    }
     if (r.win && r.level < BOSS_LEVELS.length && !r.test) BOSS.sel = r.level + 1;
     BOSS.result = r;
     setTimeout(() => { bossCleanup(); showBoss(); if (r.win) SFX.play('orbget'); }, 600);

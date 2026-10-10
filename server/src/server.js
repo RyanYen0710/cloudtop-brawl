@@ -149,6 +149,19 @@ const toUsername = n => { const v = String(n || '').trim().replace(/\s+/g, '_').
 const overallScore = x => (x.wins | 0) * 10 + (x.kos | 0) * 2 + (x.bestLevel | 0) * 5 + Math.floor((x.onlineMs || 0) / 3600000);
 const BOARD_SECTIONS = ['overall', 'online', 'wins', 'games', 'boss'];
 const BOARD_FIELDS = { onlineMs: 3153600000000, games: 10000000, wins: 10000000, losses: 10000000, kos: 10000000, deaths: 10000000, bossWins: 10000000, bestLevel: 30 };
+const seasonMonth = () => new Date(Date.now()).toISOString().slice(0, 7);
+const seasonScore = x => (x.wins || 0) * 10 + (x.kos || 0) * 2;
+const seasonSort = rows => rows.filter(x => x.games > 0).sort((a, b) => seasonScore(b) - seasonScore(a) || b.wins - a.wins || a.uid.localeCompare(b.uid));
+function titleInfo(p, owner, facts) {
+  const earned = (p.earnedTitles || []).filter(id => ['first-victory', 'legend-slayer', 'boss-master'].includes(id));
+  const ownedTitles = [...new Set(earned.concat(facts || [], owner ? ['owner', 'admin'] : p.roles && p.roles.op ? ['admin'] : [],
+    p.roles && p.roles.collab ? ['collab'] : []))].filter(id => playerTitle(id));
+  return { ownedTitles, equippedTitle: ownedTitles.includes(p.equippedTitle) ? p.equippedTitle : '' };
+}
+async function withTitles(p, u, env) {
+  const facts = await acct(env, BOARD, 'season-view', { uid: u.uid });
+  return Object.assign({}, p, titleInfo(p, isOwner(u, env), facts.titles), { titleSeasons: facts.championships || [] });
+}
 /* orders = { section: [uid, ...] } set by the owner with the arrows; those players come first, in that order */
 function leaderboard(stats, meUid, orders, ownerView) {
   orders = orders || {};
@@ -212,15 +225,50 @@ export class Accounts {
     if (op === 'player-get') return json((await st.get('player:' + d.uid)) || {});
     /* leaderboard stats (board instance). Only the game server adds to these, when an online match or Boss Fight ends. */
     if (op === 'stat-add') {
-      const key = 'stat:' + d.uid, cur = (await st.get(key)) || { uid: d.uid, name: '', onlineMs: 0, games: 0, wins: 0, losses: 0, kos: 0, deaths: 0, bossGames: 0, bossWins: 0, bestLevel: 0 };
+      return st.transaction(async tx => {
+      const key = 'stat:' + d.uid, cur = (await tx.get(key)) || { uid: d.uid, name: '', onlineMs: 0, games: 0, wins: 0, losses: 0, kos: 0, deaths: 0, bossGames: 0, bossWins: 0, bestLevel: 0 };
       const a = d.add || {};
       ['onlineMs', 'games', 'wins', 'losses', 'kos', 'deaths', 'bossGames', 'bossWins', 'cpuGames', 'cpuWins', 'cpuKos', 'cpuDeaths'].forEach(k => { const v = Number(a[k]) || 0; if (v > 0) cur[k] = (cur[k] || 0) + Math.min(v, k === 'onlineMs' ? 3600000 : 1000); });
       if (Number.isInteger(d.level) && d.level > (cur.bestLevel || 0)) cur.bestLevel = Math.min(d.level, BOSS_LEVELS.length);
       if (typeof d.name === 'string' && d.name) cur.name = d.name;
       cur.updated = Date.now();
-      await st.put(key, cur);
+      await tx.put(key, cur);
+      // Separate, immutable standings: owner edits/pins and client CPU results never enter a season.
+      if (a.games > 0) {
+        const month = seasonMonth(), sk = 'season:' + month + ':' + d.uid;
+        const row = (await tx.get(sk)) || { uid: d.uid, name: '', games: 0, wins: 0, kos: 0 };
+        for (const k of ['games', 'wins', 'kos']) row[k] += Math.max(0, Math.min(1000, Number(a[k]) || 0));
+        row.name = cur.name; await tx.put(sk, row); await tx.put('season-month:' + month, { month });
+        const played = (await tx.get('verified-games:' + d.uid)) || 0;
+        await tx.put('verified-games:' + d.uid, played + Math.min(1000, Number(a.games) || 0));
+      }
       return json({ ok: true });
+      });
     }
+    if (op === 'season-view') return st.transaction(async tx => {
+      const month = seasonMonth(), months = await tx.list({ prefix: 'season-month:' });
+      const championships = [], winners = [];
+      for (const { month: past } of months.values()) {
+        if (past >= month) continue;
+        let champion = await tx.get('champion:' + past);
+        if (!champion) {
+          const rows = await tx.list({ prefix: 'season:' + past + ':' });
+          const winner = seasonSort([...rows.values()])[0];
+          champion = { month: past, uid: winner ? winner.uid : '', name: winner ? winner.name : '', score: winner ? seasonScore(winner) : 0 };
+          await tx.put('champion:' + past, champion);
+        }
+        if (champion.uid === d.uid) championships.push(past);
+        if (champion.uid) winners.push({ month: past, name: champion.name, score: champion.score });
+      }
+      const rows = await tx.list({ prefix: 'season:' + month + ':' }), sorted = seasonSort([...rows.values()]);
+      const i = sorted.findIndex(x => x.uid === d.uid), titles = [];
+      if (i === 0) titles.push('season-leader');
+      if (i >= 0 && i < 10) titles.push('top-ten');
+      if (championships.length) titles.push('season-champion');
+      if (((await tx.get('verified-games:' + d.uid)) || 0) >= 25) titles.push('arena-regular');
+      return json({ month, titles, championships, winners: winners.slice(-12), rank: i < 0 ? null : i + 1,
+        rows: sorted.slice(0, 50).map(x => ({ name: x.name || 'Player', games: x.games, wins: x.wins, kos: x.kos, score: seasonScore(x), me: x.uid === d.uid || undefined })) });
+    });
     if (op === 'stat-list') {
       const rows = await st.list({ prefix: 'stat:', limit: 5000 }), orders = {};
       for (const k of BOARD_SECTIONS) { const o = await st.get('order:' + k); if (o) orders[k] = o; }
@@ -334,10 +382,15 @@ export class Accounts {
       if (!(d.owner ? OWNER_NAME_RE : NAME_RE).test(String(d.name || ''))) return json({ error: 'name' }, 400);
       p.name = d.name; p.revision = (p.revision || 0) + 1; await tx.put('profile', p); return json(p);
     }
+    if (op === 'title') {
+      if (d.title !== '' && !titleInfo(p, !!d.owner, d.facts).ownedTitles.includes(d.title)) return json({ error: 'title-locked' }, 403);
+      p.equippedTitle = d.title; p.revision = (p.revision || 0) + 1; await tx.put('profile', p); return json(p);
+    }
     if (op === 'beat') {
       const lv = d.level | 0;
       if (lv >= 1 && lv <= BOSS_LEVELS.length) {
         p.wins = (p.wins || 0) + 1;
+        p.earnedTitles = [...new Set((p.earnedTitles || []).concat('first-victory', lv === 10 ? ['legend-slayer'] : [], lv === 30 ? ['boss-master'] : []))];
         if (lv === p.beaten + 1) p.beaten = lv;
         bossUnlocksFor(p.beaten).forEach(id => { if (p.unlocked.indexOf(id) < 0) p.unlocked.push(id); });
         p.revision = (p.revision || 0) + 1; await tx.put('profile', p);
@@ -377,7 +430,7 @@ export class Room {
     this.code = (url.pathname.split('/').pop() || '').toUpperCase();
     this.boss = req.headers.get('x-cb-mode') === 'boss';
     const id = String(url.searchParams.get('id') || '').replace(/[^a-z0-9]/gi, '').slice(0, 16);
-    if (!id) return new Response('Missing player id', { status: 400 });
+    if (!id || id.toLowerCase() === 'srv') return new Response('Invalid player id', { status: 400 });
     if (this.clients.size >= (this.boss ? 1 : 12) && !this.clients.has(id)) return new Response('Room full', { status: 429 });
     const pair = new WebSocketPair();
     const client = pair[0], ws = pair[1];
@@ -473,6 +526,7 @@ export class Room {
     const fm = this.g.fighters.map(f => [f.slot, f.c.id, f.tid, f.name.slice(0, 16), f.color, f.tag.slice(0, 16), f.team, f.boss ? 1 : 0]);
     this.srv = { boss: { gid: this.gid, lvl: level, st: cfg.stage, sk: cfg.stocks, fm } };
     this.broadcast({ from: 'srv', d: { boss: this.srv.boss } });
+    if (!test) this.refreshMatchTitles(this.g, this.gid);
     this.timer = setInterval(() => this.tick(), 8);
   }
 
@@ -514,7 +568,9 @@ export class Room {
       const pc = this.clients.get(f.ctrl.peer);
       return { slot: f.slot, peer: f.ctrl.peer, uid: pc && pc.uid, name: pc && pc.pname };
     });
-    this.srv = {};
+    this.srv = { titles: { gid, slots: [] } };
+    this.broadcast({ from: 'srv', d: { titles: this.srv.titles } });
+    this.refreshMatchTitles(this.g, this.gid);
     this.last = Date.now();
     this.timer = setInterval(() => this.tick(), 8);
   }
@@ -523,7 +579,20 @@ export class Room {
     if (this.timer) { clearInterval(this.timer); this.timer = null; }
     this.bossRun = null; this.bossPaused = false;
     this.g = null;
-    if (!silent || Object.keys(this.srv).length) { this.srv = {}; this.broadcast({ from: 'srv', d: { gs: null, res: null } }); }
+    if (!silent || Object.keys(this.srv).length) { this.srv = {}; this.broadcast({ from: 'srv', d: { gs: null, res: null, titles: null } }); }
+  }
+
+  async refreshMatchTitles(g, gid) {
+    const slots = await Promise.all(g.fighters.map(async f => {
+      const c = f.ctrl.type === 'remote' && this.clients.get(f.ctrl.peer);
+      if (!c || !c.uid || !(c.authUntil > Date.now())) return [f.slot, ''];
+      try {
+        const p = await acct(this.env, c.uid, 'get', {}), facts = await acct(this.env, BOARD, 'season-view', { uid: c.uid });
+        return [f.slot, titleInfo(p, !!c.owner, facts.titles).equippedTitle];
+      } catch (e) { return [f.slot, '']; }
+    }));
+    if (this.g !== g || this.gid !== gid) return;
+    this.srv.titles = { gid, slots }; this.broadcast({ from: 'srv', d: { titles: this.srv.titles } });
   }
 
   input(f) {
@@ -578,7 +647,7 @@ export class Room {
         level: win ? run.level : 0 }).catch(() => {});
       (win ? acct(this.env, run.uid, 'beat', { level: run.level }) : acct(this.env, run.uid, 'get', {}))
         .then(p => {
-          const bossRes = { gid: run.gid, win, level: run.level, beaten: p.beaten | 0, unlocked: p.unlocked || [] };
+          const bossRes = { gid: run.gid, win, level: run.level, beaten: p.beaten | 0, unlocked: p.unlocked || [], earnedTitles: p.earnedTitles || [] };
           this.srv.bossRes = bossRes;
           this.broadcast({ from: 'srv', d: { bossRes } });
         }).catch(() => this.broadcast({ from: 'srv', d: { bossRes: { gid: run.gid, win, level: run.level, error: 1 } } }));
@@ -626,7 +695,11 @@ export default {
         let me = null, ownerView = false;
         if (tok) { try { const v = await verifyIdToken(tok, env); me = v.uid; ownerView = isOwner(v, env); } catch (e) { } }
         const b = await acct(env, BOARD, 'stat-list', {});
-        return json(leaderboard(b.stats || [], me, b.orders, ownerView), 200, cors);
+        const board = leaderboard(b.stats || [], me, b.orders, ownerView);
+        const season = await acct(env, BOARD, 'season-view', { uid: me });
+        board.season = { month: season.month, rank: season.rank, winners: season.winners }; board.sections.season = season.rows;
+        if (board.me) board.me.season = season.rank;
+        return json(board, 200, cors);
       }
       let u;
       try { u = await verifyIdToken(tok, env); } catch (e) { return json({ error: String(e.message || 'auth') }, 401, cors); }
@@ -637,7 +710,15 @@ export default {
         const roles = p.roles || {};
         const seen = await acct(env, ADMIN_STORE, 'player-seen', { uid: u.uid, name: p.name || '', email: u.verified ? u.email : '', owner: isOwner(u, env), roles });
         if (seen.played > 0) await acct(env, BOARD, 'stat-add', { uid: u.uid, name: p.name || '', add: { onlineMs: seen.played } });
-        return json(Object.assign({}, p, { owner: isOwner(u, env), tester: isTester(u, env), op: !!roles.op, collab: !!roles.collab }), 200, cors);
+        return json(Object.assign(await withTitles(p, u, env), { owner: isOwner(u, env), tester: isTester(u, env), op: !!roles.op, collab: !!roles.collab }), 200, cors);
+      }
+      if (url.pathname === '/api/title' && req.method === 'POST') {
+        let d; try { d = await apiBody(req); } catch (e) { return json({ error: 'invalid' }, 400, cors); }
+        if (typeof d.title !== 'string' || (d.title !== '' && !playerTitle(d.title))) return json({ error: 'title' }, 400, cors);
+        const facts = await acct(env, BOARD, 'season-view', { uid: u.uid });
+        const p = await acct(env, u.uid, 'title', { title: d.title, owner: isOwner(u, env), facts: facts.titles });
+        if (p.error) return json(p, 403, cors);
+        return json(Object.assign(titleInfo(p, isOwner(u, env), facts.titles), { titleSeasons: facts.championships, revision: p.revision }), 200, cors);
       }
       /* "I'm still playing" ping (every few minutes while the game is open) -> online status in the Owner panel */
       if (url.pathname === '/api/ping' && req.method === 'POST') {
