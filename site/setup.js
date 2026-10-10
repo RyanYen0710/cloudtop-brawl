@@ -160,11 +160,13 @@ function renderSetup() {
   });
   box.querySelectorAll('.slot-cv').forEach(cv => requestAnimationFrame(() => drawPortrait(cv, cv.dataset.char)));
 
-  // rules
+  // rules (seasonal event maps only show during their event; one picked earlier goes back to Random once the event ends)
+  const stageShown = i => i === SETUP.stage || typeof stageVisible !== 'function' || stageVisible(i, typeof nowEvent === 'function' ? nowEvent() : null);
+  if (SETUP.stage >= 0 && host && typeof stageVisible === 'function' && !stageVisible(SETUP.stage, typeof nowEvent === 'function' ? nowEvent() : null)) SETUP.stage = -1;
   const r = document.getElementById('rules');
   const dis = host ? '' : 'disabled';
   r.innerHTML = `
-    <div class="rule"><span class="rule-l">Stage</span><div class="seg stages">${STAGES.map((st, i) => `<button type="button" class="stage-chip${i === SETUP.stage ? ' on' : ''}" data-act="stage" data-i="${i}" ${dis} style="--s1:${st.swatch[0]};--s2:${st.swatch[1]};--s3:${st.swatch[2]}"><span class="sw"></span>${esc(st.name)}</button>`).join('')}<button type="button" class="stage-chip${SETUP.stage < 0 ? ' on' : ''}" data-act="stage" data-i="-1" ${dis} style="--s1:#ff6b5b;--s2:#ffb547;--s3:#3da5ff"><span class="sw"></span>Random</button><p class="muted stage-blurb">${SETUP.stage < 0 ? 'A surprise stage every battle.' : esc((STAGES[SETUP.stage] || STAGES[0]).blurb || '')}</p></div></div>
+    <div class="rule"><span class="rule-l">Stage</span><div class="seg stages">${STAGES.map((st, i) => !stageShown(i) ? '' : `<button type="button" class="stage-chip${i === SETUP.stage ? ' on' : ''}${st.event ? ' ev-stage' : ''}" data-act="stage" data-i="${i}" ${dis} style="--s1:${st.swatch[0]};--s2:${st.swatch[1]};--s3:${st.swatch[2]}"><span class="sw"></span>${st.event && typeof EVENTS !== 'undefined' && EVENTS[st.event] ? EVENTS[st.event].icon + ' ' : ''}${esc(st.name)}</button>`).join('')}<button type="button" class="stage-chip${SETUP.stage < 0 ? ' on' : ''}" data-act="stage" data-i="-1" ${dis} style="--s1:#ff6b5b;--s2:#ffb547;--s3:#3da5ff"><span class="sw"></span>Random</button><p class="muted stage-blurb">${SETUP.stage < 0 ? 'A surprise stage every battle.' : esc((STAGES[SETUP.stage] || STAGES[0]).blurb || '')}</p></div></div>
     ${G.training ? '' : `<div class="rule"><span class="rule-l">Stocks</span><div class="seg"><button type="button" class="mini sq" data-act="stock-" ${dis} aria-label="Fewer stocks">−</button><span class="stock-n">${SETUP.stocks}</span><button type="button" class="mini sq" data-act="stock+" ${dis} aria-label="More stocks">+</button><span class="muted">lives each</span></div></div>
     <div class="rule"><span class="rule-l">Time</span><div class="seg"><button type="button" class="mini sq" data-act="time-" ${dis} aria-label="Less time">−</button><span class="stock-n">${SETUP.time}:00</span><button type="button" class="mini sq" data-act="time+" ${dis} aria-label="More time">+</button><span class="muted">minutes (2–15)</span></div></div>
     <div class="rule"><span class="rule-l">Mode</span><div class="seg">
