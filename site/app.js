@@ -44,7 +44,9 @@ function buildCfg() {
     slots.forEach(o => { if (o.type === 'cpu') { o.ctrl = { type: 'dummy', mode: o.dummy || 'stand' }; o.name = 'Dummy'; o.tag = 'DUMMY'; } });
     return { time: 0, endless: true, training: true, stage: SETUP.stage < 0 ? randomStage() : SETUP.stage, stocks: 3, teams: false, slots };
   }
-  return { time: SETUP.time, stage: SETUP.stage < 0 ? randomStage() : SETUP.stage, stocks: SETUP.stocks, teams: SETUP.teams, slots };
+  // event rules (event-mode.js): the event's buffed fighters get stronger, only during that event
+  const evMode = SETUP.evMode && SETUP.evMode === nowEvent() ? SETUP.evMode : undefined;
+  return { time: SETUP.time, stage: SETUP.stage < 0 ? randomStage() : SETUP.stage, stocks: SETUP.stocks, teams: SETUP.teams, slots, evMode };
 }
 /* "Random stage": a normal stage, or during a seasonal event about half the time one of its maps (stages3.js) */
 function nowEvent() { return typeof curEventId === 'function' ? curEventId() : typeof eventNow === 'function' ? eventNow() : null; }
@@ -60,11 +62,11 @@ function startMatch() {
   G.cfg.slots.forEach((s, i) => { if (s.picked && (s.type === 'you')) toast(`Random picked ${CHAR[s.char].name} for you!`); });
   if (G.mode === 'host') {
     NET.gid++; NET.phase = 'fight'; NET.res = null;
-    NET.fm = G.game.fighters.map(f => [f.slot, f.c.id, f.tid, f.name.slice(0, 16), f.color, f.tag.slice(0, 16), f.team, 0, f.skin || '']);
+    NET.fm = G.game.fighters.map(f => [f.slot, f.c.id, f.tid, f.name.slice(0, 16), f.color, f.tag.slice(0, 16), f.team, 0, f.skin || '', f.evb ? 1 : 0]);
     if (NET.useServer && SRV.ws) {
       // the match runs on the game server; this computer just sends buttons and shows the snapshots
       const cfg = {
-        stage: G.cfg.stage, stocks: G.cfg.stocks, time: G.cfg.time, teams: G.cfg.teams,
+        stage: G.cfg.stage, stocks: G.cfg.stocks, time: G.cfg.time, teams: G.cfg.teams, evMode: G.cfg.evMode,
         slots: G.cfg.slots.map(s => s.type === 'you' ? { type: 'remote', peer: RELAY.id, char: s.char, skin: s.skin, team: s.team, name: s.name, tag: s.tag }
           : s.type === 'peer' ? { type: 'remote', peer: s.peer, char: s.char, skin: s.skin, team: s.team, name: s.name, tag: s.tag }
           : s.type === 'cpu' ? { type: 'cpu', char: s.char, lvl: s.lvl, team: s.team } : { type: 'off' })
