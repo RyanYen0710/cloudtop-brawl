@@ -474,7 +474,19 @@ export class Accounts {
       const before = p.xp || 0, floor = xpTotal(xpLevel(before).level);
       p.xp = Math.max(floor, Math.min(XP_CAP, before + add));
       const amt = p.xp - before;
-      if (d.cpu && !amt) await tx.put('profile', p);
+      // a match played during a seasonal event: after 3 of them you keep that event's skin
+      let evGot = false;
+      if (d.match && typeof eventNow === 'function') {
+        const ev = eventNow();
+        if (ev) {
+          const key = ev + new Date().getUTCFullYear();
+          p.evPlays = Object.assign({}, p.evPlays); p.evPlays[key] = (p.evPlays[key] | 0) + 1;
+          const kept = Array.isArray(p.evSkins) ? p.evSkins : [];
+          if (p.evPlays[key] >= EVENT_SKIN_PLAYS && kept.indexOf(ev) < 0) p.evSkins = kept.concat(ev);
+          evGot = true;
+        }
+      }
+      if ((d.cpu || evGot) && !amt) await tx.put('profile', p);
       if (amt) {
         await tx.put('profile', p);
         await tx.put('xplog:' + newestKey(), { at: Date.now(), amt, why: String(d.why || '').slice(0, 60), xp: p.xp });
@@ -487,7 +499,7 @@ export class Accounts {
     }
     if (op === 'xp-get') {
       const log = await tx.list({ prefix: 'xplog:', limit: Math.min(200, d.limit || 100) });
-      return json({ xp: p.xp || 0, log: [...log.values()] });
+      return json({ xp: p.xp || 0, log: [...log.values()], evSkins: p.evSkins || [], evPlays: p.evPlays || {} });
     }
     /* Admin / Owner panel: set someone's level (their XP goes to the start of that level). The owner's account only by the owner. */
     if (op === 'xp-set') {
@@ -619,7 +631,7 @@ export class Room {
     if (m.ping) { this.send(c, { pong: m.ping }); return; }
     if (typeof m.auth === 'string') { this.auth(c, m.auth); return; }
     if (m.cmd === 'boss') { this.startBoss(c, m); return; }
-    if ((m.cmd === 'ranked' && this.mode === 'ranked') || (m.cmd === 'ladder' && this.mode === 'ladder')) { c.want = { cmd: m.cmd, char: String(m.char || 'random').slice(0, 24) }; if (c.uid) this.rankedWant(c); return; }
+    if ((m.cmd === 'ranked' && this.mode === 'ranked') || (m.cmd === 'ladder' && this.mode === 'ladder')) { c.want = { cmd: m.cmd, char: String(m.char || 'random').slice(0, 24), skin: String(m.skin || '').slice(0, 24) }; if (c.uid) this.rankedWant(c); return; }
     if (m.cmd === 'forfeit') { this.forfeit(c); return; }
     if (m.cmd === 'pause') { this.pauseBoss(c, m); return; }
     if (m.d && typeof m.d === 'object' && !Array.isArray(m.d)) {
@@ -641,6 +653,7 @@ export class Room {
       c.owner = isOwner(u, this.env); c.tester = isTester(u, this.env); c.authUntil = u.expires;
       const p = await acct(this.env, u.uid, 'get', { name: toUsername(u.name), owner: c.owner, gift: giftsFor(u, this.env) });
       c.uid = u.uid; c.unlocked = Array.isArray(p.unlocked) ? p.unlocked : []; c.pname = p.name || '';
+      c.skinProf = skinProf(p, c.owner);   // which skins this player may wear
       this.send(c, { acct: { name: p.name, beaten: p.beaten, unlocked: c.unlocked, tester: c.tester } });
       if (c.want) this.rankedWant(c);
     } catch (e) { c.uid = null; c.owner = false; c.tester = false; c.authUntil = 0; c.unlocked = []; this.send(c, { acct: null, err: String(e.message || 'auth') }); }
@@ -668,7 +681,7 @@ export class Room {
     ch = ch === 'random' ? resolvePick('random') : test ? (CHAR[ch] && !CHAR[ch].hidden ? ch : resolvePick('random')) : this.allowedChar(ch, c);
     const cfg = bossConfig(level, ch, {});
     const slots = cfg.slots.map((s, i) => {
-      if (s.type === 'you') return { type: 'peer', char: ch, lvl: 5, team: 0, ctrl: { type: 'remote', peer: c.id }, name: clip(p.name || 'Player'), tag: clip(p.name || 'YOU') };
+      if (s.type === 'you') return { type: 'peer', char: ch, skin: cleanSkin(skinProf(p, c.owner), m.skin, eventNow()), lvl: 5, team: 0, ctrl: { type: 'remote', peer: c.id }, name: clip(p.name || 'Player'), tag: clip(p.name || 'YOU') };
       if (s.type === 'cpu') return Object.assign({}, s, { ctrl: { type: 'cpu' }, name: s.name || 'CPU', tag: s.tag || 'CPU' });
       return { type: 'off' };
     });
@@ -680,7 +693,7 @@ export class Room {
     this.bossPaused = false;
     const mine = this.g.fighters.find(f => f.ctrl.type === 'remote' && f.ctrl.peer === c.id);
     this.bossRun = { uid: c.uid, peer: c.id, level, gid: this.gid, test, slot: mine ? mine.slot : 0, name: c.pname || p.name || '' };
-    const fm = this.g.fighters.map(f => [f.slot, f.c.id, f.tid, f.name.slice(0, 16), f.color, f.tag.slice(0, 16), f.team, f.boss ? 1 : 0]);
+    const fm = this.fighterMap();
     this.srv = { boss: { gid: this.gid, lvl: level, st: cfg.stage, sk: cfg.stocks, fm } };
     this.broadcast({ from: 'srv', d: { boss: this.srv.boss } });
     this.timer = setInterval(() => this.tick(), 8);
@@ -694,7 +707,7 @@ export class Room {
     if (m.cmd === 'ladder') await this.startLadder(c, m); else await this.joinRanked(c, m);
   }
   pickFor(c, ch) { return ch === 'random' ? resolvePick('random') : this.allowedChar(ch, c); }
-  fighterMap() { return this.g.fighters.map(f => [f.slot, f.c.id, f.tid, f.name.slice(0, 16), f.color, f.tag.slice(0, 16), f.team, f.boss ? 1 : 0]); }
+  fighterMap() { return this.g.fighters.map(f => [f.slot, f.c.id, f.tid, f.name.slice(0, 16), f.color, f.tag.slice(0, 16), f.team, f.boss ? 1 : 0, f.skin || '']); }
   async startLadder(c, m) {
     if (this.g) return;
     if (!(await hit(this.env, 'uid:' + c.uid, 'ranked'))) { this.rankedErr(c, 'slow-down'); return; }
@@ -704,7 +717,7 @@ export class Room {
     c.unlocked = p.unlocked || [];
     const step = Math.min(LADDER_STEPS, Math.max(1, p.ladder || 1)), name = clip(p.name || 'Player');
     // step 1 is a level 1 CPU ... step 10 a level 10 CPU; from step 8 on, a second CPU helps it
-    const slots = [{ type: 'peer', char: this.pickFor(c, m.char), lvl: 5, team: 0, ctrl: { type: 'remote', peer: c.id }, name, tag: name },
+    const slots = [{ type: 'peer', char: this.pickFor(c, m.char), skin: cleanSkin(skinProf(p, c.owner), m.skin, eventNow()), lvl: 5, team: 0, ctrl: { type: 'remote', peer: c.id }, name, tag: name },
       { type: 'cpu', char: resolvePick('random'), lvl: step, team: 1, ctrl: { type: 'cpu' }, name: 'CPU', tag: 'CPU' }];
     if (step >= 8) slots.push({ type: 'cpu', char: resolvePick('random'), lvl: step - 2, team: 1, ctrl: { type: 'cpu' }, name: 'CPU', tag: 'CPU' });
     while (slots.length < 4) slots.push({ type: 'off' });
@@ -725,7 +738,7 @@ export class Room {
       acct(this.env, BOARD, 'stat-add', { uid: run.uid, name: run.name,
         add: { games: 1, wins: win ? 1 : 0, losses: win ? 0 : 1, kos: me.kos | 0, deaths: me.falls | 0 } }).catch(() => {});
       const r = await acct(this.env, run.uid, 'ranked-add', { win, ladder: true });
-      const x = await acct(this.env, run.uid, 'xp-add', { amount: win ? RANKED_XP.win : RANKED_XP.loss, why: 'Ranked CPU Ladder step ' + run.level + (win ? ' win' : '') });
+      const x = await acct(this.env, run.uid, 'xp-add', { amount: win ? RANKED_XP.win : RANKED_XP.loss, match: true, why: 'Ranked CPU Ladder step ' + run.level + (win ? ' win' : '') });
       ladderRes = { gid: run.gid, win, step: run.level, next: r.ladder, rp: r.rp, drp: r.drp, tier: r.tier.name, xp: x.amt | 0 };
     } catch (e) { ladderRes = { gid: run.gid, win, step: run.level, error: 1 }; }
     this.srv.ladderRes = ladderRes;
@@ -747,13 +760,13 @@ export class Room {
     if (xpLevel(p.xp || 0).level < RANKED_LEVEL) { this.rankedErr(c, 'level'); return; }
     if (this.g || this.rkDone || this.clients.get(c.id) !== c) return;
     c.unlocked = p.unlocked || [];
-    this.rk.ready.set(c.uid, { c, ch: this.pickFor(c, m.char), name: clip(p.name || 'Player') });
+    this.rk.ready.set(c.uid, { c, ch: this.pickFor(c, m.char), skin: cleanSkin(skinProf(p, c.owner), m.skin, eventNow()), name: clip(p.name || 'Player') });
     if (this.rk.ready.size >= 2) this.startRanked();
   }
   startRanked() {
     clearTimeout(this.rkTimer);
     const pl = [...this.rk.ready.values()].slice(0, 2);
-    const mk = (x, team) => ({ type: 'peer', char: x.ch, lvl: 5, team, ctrl: { type: 'remote', peer: x.c.id }, name: x.name, tag: x.name });
+    const mk = (x, team) => ({ type: 'peer', char: x.ch, skin: x.skin, lvl: 5, team, ctrl: { type: 'remote', peer: x.c.id }, name: x.name, tag: x.name });
     const stage = pickStage(eventNow());   // during a seasonal event, about half the time one of its maps
     this.gid = (this.gid | 0) + 1;
     this.g = makeGame({ stage, stocks: 3, time: 5, teams: false, slots: [mk(pl[0], 0), mk(pl[1], 1), { type: 'off' }, { type: 'off' }] });
@@ -797,7 +810,7 @@ export class Room {
         add: { games: 1, wins: win ? 1 : 0, losses: win === false ? 1 : 0, kos: r.kos | 0, deaths: r.falls | 0 } }).catch(() => {});
       try {
         const rr = await acct(this.env, pl.uid, 'ranked-add', { win });
-        const x = await acct(this.env, pl.uid, 'xp-add', { amount: win === null ? RANKED_XP.draw : win ? RANKED_XP.win : RANKED_XP.loss, why: 'Ranked ' + (win === null ? 'draw' : win ? 'win' : 'loss') });
+        const x = await acct(this.env, pl.uid, 'xp-add', { amount: win === null ? RANKED_XP.draw : win ? RANKED_XP.win : RANKED_XP.loss, match: true, why: 'Ranked ' + (win === null ? 'draw' : win ? 'win' : 'loss') });
         p[pl.peer] = { win, rp: rr.rp, drp: rr.drp, tier: rr.tier.name, xp: x.amt | 0, left: pl.peer === leaver ? 1 : 0 };
       } catch (e) { p[pl.peer] = { win, error: 1 }; }
     }));
@@ -832,7 +845,7 @@ export class Room {
       s = s || {};
       const owner = s.type === 'remote' ? this.clients.get(String(s.peer || '').slice(0, 16)) : hostC;
       const ch = this.allowedChar(s.char, owner), team = s.team ? 1 : 0;
-      if (s.type === 'remote') return { type: 'peer', char: ch, lvl: 5, team, ctrl: { type: 'remote', peer: String(s.peer || '').slice(0, 16) }, name: clip(s.name) || 'Player', tag: clip(s.tag) || 'P' };
+      if (s.type === 'remote') return { type: 'peer', char: ch, skin: cleanSkin(owner && owner.skinProf, s.skin, eventNow()), lvl: 5, team, ctrl: { type: 'remote', peer: String(s.peer || '').slice(0, 16) }, name: clip(s.name) || 'Player', tag: clip(s.tag) || 'P' };
       if (s.type === 'cpu') return { type: 'cpu', char: ch, lvl: clamp(s.lvl | 0, 1, 10), team, ctrl: { type: 'cpu' }, name: 'CPU', tag: 'CPU' };
       return { type: 'off' };
     });
@@ -918,7 +931,7 @@ export class Room {
       if (run.uid) acct(this.env, BOARD, 'stat-add', { uid: run.uid, name: run.name,
         add: { games: 1, bossGames: 1, wins: win ? 1 : 0, losses: win ? 0 : 1, bossWins: win ? 1 : 0, kos: me.kos | 0, deaths: me.falls | 0 },
         level: win ? run.level : 0 }).catch(() => {});
-      if (run.uid) acct(this.env, run.uid, 'xp-add', { amount: win ? 30 + run.level : 5, why: 'Boss Fight level ' + run.level + (win ? ' win' : '') }).catch(() => {});
+      if (run.uid) acct(this.env, run.uid, 'xp-add', { amount: win ? 30 + run.level : 5, match: true, why: 'Boss Fight level ' + run.level + (win ? ' win' : '') }).catch(() => {});
       (win ? acct(this.env, run.uid, 'beat', { level: run.level }) : acct(this.env, run.uid, 'get', {}))
         .then(p => {
           const bossRes = { gid: run.gid, win, level: run.level, beaten: p.beaten | 0, unlocked: p.unlocked || [] };
@@ -942,7 +955,7 @@ export class Room {
         acct(this.env, BOARD, 'stat-add', { uid, name: h.name || (pc && pc.pname) || '',
           add: { games: 1, wins: r.win ? 1 : 0, losses: !r.win && g.winTid !== null ? 1 : 0, kos: r.kos | 0, deaths: r.falls | 0 } }).catch(() => {});
         // XP: +10 for playing, +15 more for a win, +1 per KO
-        acct(this.env, uid, 'xp-add', { amount: 10 + (r.win ? 15 : 0) + Math.min(20, r.kos | 0), why: 'Online match' + (r.win ? ' win' : '') }).catch(() => {});
+        acct(this.env, uid, 'xp-add', { amount: 10 + (r.win ? 15 : 0) + Math.min(20, r.kos | 0), match: true, why: 'Online match' + (r.win ? ' win' : '') }).catch(() => {});
       });
       this.broadcast({ from: 'srv', d: { res: this.srv.res } });
       clearInterval(this.timer); this.timer = null;
@@ -1015,7 +1028,7 @@ export default {
         if (!(await hit(env, 'uid:' + u.uid, 'cpu'))) return json({ error: 'slow-down' }, 429, cors);
         // XP by CPU level L: a win gives 4 x L; a loss gives L, but losing to a level 8, 9 or 10 CPU costs 5, 10 or 15
         const L = d.lvl || 5, amount = d.win ? 4 * L : L >= 8 ? -(L - 7) * 5 : L;
-        const x = await acct(env, u.uid, 'xp-add', { amount, cpu: true, why: 'Vs CPU level ' + L + (d.win ? ' win' : '') });
+        const x = await acct(env, u.uid, 'xp-add', { amount, cpu: true, match: true, why: 'Vs CPU level ' + L + (d.win ? ' win' : '') });
         if (x && x.tooSoon) return json({ error: 'too-soon' }, 429, cors);   // a result less than 45 seconds after the last one isn't saved
         await acct(env, BOARD, 'stat-add', { uid: u.uid, add: { cpuGames: 1, cpuWins: d.win ? 1 : 0, cpuKos: d.kos, cpuDeaths: d.falls } });
         return json({ ok: true, xp: x && x.xp != null ? x.xp : undefined }, 200, cors);
