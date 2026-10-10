@@ -145,6 +145,15 @@ function applyLevelUnlocks(p) {
   levelUnlocksFor(xpLevel(p.xp || 0).level).forEach(id => { if (p.unlocked.indexOf(id) < 0) { p.unlocked.push(id); added = true; } });
   return added;
 }
+/* the Sky Road coin stops (shop-data.js) the player has passed but not been paid for yet. Players who were already
+   past some stops when coins came in get them all the first time. Returns the coins added. */
+function payRoadCoins(p) {
+  const lv = xpLevel(p.xp || 0).level, from = Math.max(1, p.coinLv | 0);
+  if (lv <= from) return 0;
+  const add = coinsForLevels(from, lv);
+  p.coinLv = lv; p.coins = (p.coins | 0) + add;
+  return add;
+}
 const newestKey = () => String(9999999999999 - Date.now()).padStart(13, '0') + '-' + crypto.randomUUID();
 const plain = (v, max) => typeof v === 'string' ? v.trim().slice(0, max) : '';
 async function apiBody(req) {
@@ -493,7 +502,14 @@ export class Accounts {
         }
       }
       if (amt && applyLevelUnlocks(p)) p.revision = (p.revision || 0) + 1;   // e.g. Professor Sprocket at level 50
-      if ((d.cpu || evGot) && !amt) await tx.put('profile', p);
+      // coins: the Sky Road coin stops you just passed, and 20 for a win / 5 for any other match
+      let coinsGot = payRoadCoins(p);
+      if (d.match) {
+        let c = d.won === true ? COINS_WIN : COINS_LOSS;
+        if (d.cpu) { c = Math.min(c, Math.max(0, 200 - (p.cpuDay.coins | 0))); p.cpuDay.coins = (p.cpuDay.coins | 0) + c; }   // Vs CPU (reported by the browser): at most 200 coins a day
+        p.coins = (p.coins | 0) + c; coinsGot += c;
+      }
+      if ((d.cpu || evGot || coinsGot) && !amt) await tx.put('profile', p);
       if (amt) {
         await tx.put('profile', p);
         await tx.put('xplog:' + newestKey(), { at: Date.now(), amt, why: String(d.why || '').slice(0, 60), xp: p.xp });
@@ -502,18 +518,34 @@ export class Accounts {
           for (const k of all.slice(200)) await tx.delete(k);
         }
       }
-      return json({ xp: p.xp, amt });
+      return json({ xp: p.xp, amt, coins: p.coins | 0, coinsGot });
     }
     if (op === 'xp-get') {
       const log = await tx.list({ prefix: 'xplog:', limit: Math.min(200, d.limit || 100) });
-      return json({ xp: p.xp || 0, log: [...log.values()], evSkins: p.evSkins || [], evPlays: p.evPlays || {}, unlocked: p.unlocked || [] });
+      return json({ xp: p.xp || 0, log: [...log.values()], evSkins: p.evSkins || [], evPlays: p.evPlays || {}, unlocked: p.unlocked || [],
+        coins: p.coins | 0, shopSkins: p.shopSkins || [] });
+    }
+    /* the shop: spend coins on a locked fighter or a shop-only skin (prices are in shop-data.js, never from the browser) */
+    if (op === 'buy') {
+      if (!stored) return json({ error: 'not-found' }, 404);
+      const it = shopItem(d.item);
+      if (!it) return json({ error: 'item' }, 400);
+      const skins = Array.isArray(p.shopSkins) ? p.shopSkins : [];
+      const owned = it.kind === 'char' ? p.unlocked.indexOf(it.id) >= 0 : skins.indexOf(it.id) >= 0;
+      if (owned) return json({ error: 'owned' }, 409);
+      if ((p.coins | 0) < it.price) return json({ error: 'coins', coins: p.coins | 0 }, 409);
+      p.coins = (p.coins | 0) - it.price;
+      if (it.kind === 'char') p.unlocked.push(it.id); else p.shopSkins = skins.concat(it.id);
+      p.revision = (p.revision || 0) + 1;
+      await tx.put('profile', p);
+      return json({ ok: true, coins: p.coins, unlocked: p.unlocked, shopSkins: p.shopSkins || [] });
     }
     /* Admin / Owner panel: set someone's level (their XP goes to the start of that level). The owner's account only by the owner. */
     if (op === 'xp-set') {
       if (!stored) return json({ error: 'not-found' }, 404);
       if (p.owner && !d.byOwner) return json({ error: 'owner-protected' }, 409);
       const prevXp = p.xp || 0, before = xpLevel(prevXp).level;
-      p.xp = xpTotal(d.level); p.revision = (p.revision || 0) + 1; applyLevelUnlocks(p);
+      p.xp = xpTotal(d.level); p.revision = (p.revision || 0) + 1; applyLevelUnlocks(p); payRoadCoins(p);
       const same = { beaten: p.beaten, wins: p.wins, unlocked: p.unlocked.slice() };
       await tx.put('audit:' + newestKey(), { at: Date.now(), actor: d.actor, reason: 'Level ' + before + ' → ' + d.level, before: same, after: same });
       await tx.put('xplog:' + newestKey(), { at: Date.now(), amt: p.xp - prevXp, why: 'Level set to ' + d.level + ' by ' + ((d.actor && d.actor.name) || 'an admin'), xp: p.xp, set: true });
@@ -530,6 +562,7 @@ export class Accounts {
       }
       if (Array.isArray(d.gift)) d.gift.forEach(id => { if (id !== 'yen' && CHAR[id] && CHAR[id].locked && p.unlocked.indexOf(id) < 0) { p.unlocked.push(id); dirty = true; } });
       if (applyLevelUnlocks(p)) dirty = true;
+      if (payRoadCoins(p)) dirty = true;   // Sky Road coin stops already passed (e.g. when coins first came in)
       if (!stored || dirty) { p.revision = (p.revision || 0) + 1; await tx.put('profile', p); }
       return json(p);
     }
@@ -746,7 +779,7 @@ export class Room {
       acct(this.env, BOARD, 'stat-add', { uid: run.uid, name: run.name,
         add: { games: 1, wins: win ? 1 : 0, losses: win ? 0 : 1, kos: me.kos | 0, deaths: me.falls | 0 } }).catch(() => {});
       const r = await acct(this.env, run.uid, 'ranked-add', { win, ladder: true });
-      const x = await acct(this.env, run.uid, 'xp-add', { amount: win ? RANKED_XP.win : RANKED_XP.loss, match: true, why: 'Ranked CPU Ladder step ' + run.level + (win ? ' win' : '') });
+      const x = await acct(this.env, run.uid, 'xp-add', { amount: win ? RANKED_XP.win : RANKED_XP.loss, match: true, won: !!win, why: 'Ranked CPU Ladder step ' + run.level + (win ? ' win' : '') });
       ladderRes = { gid: run.gid, win, step: run.level, next: r.ladder, rp: r.rp, drp: r.drp, tier: r.tier.name, xp: x.amt | 0 };
     } catch (e) { ladderRes = { gid: run.gid, win, step: run.level, error: 1 }; }
     this.srv.ladderRes = ladderRes;
@@ -818,7 +851,7 @@ export class Room {
         add: { games: 1, wins: win ? 1 : 0, losses: win === false ? 1 : 0, kos: r.kos | 0, deaths: r.falls | 0 } }).catch(() => {});
       try {
         const rr = await acct(this.env, pl.uid, 'ranked-add', { win });
-        const x = await acct(this.env, pl.uid, 'xp-add', { amount: win === null ? RANKED_XP.draw : win ? RANKED_XP.win : RANKED_XP.loss, match: true, why: 'Ranked ' + (win === null ? 'draw' : win ? 'win' : 'loss') });
+        const x = await acct(this.env, pl.uid, 'xp-add', { amount: win === null ? RANKED_XP.draw : win ? RANKED_XP.win : RANKED_XP.loss, match: true, won: win === true, why: 'Ranked ' + (win === null ? 'draw' : win ? 'win' : 'loss') });
         p[pl.peer] = { win, rp: rr.rp, drp: rr.drp, tier: rr.tier.name, xp: x.amt | 0, left: pl.peer === leaver ? 1 : 0 };
       } catch (e) { p[pl.peer] = { win, error: 1 }; }
     }));
@@ -939,7 +972,7 @@ export class Room {
       if (run.uid) acct(this.env, BOARD, 'stat-add', { uid: run.uid, name: run.name,
         add: { games: 1, bossGames: 1, wins: win ? 1 : 0, losses: win ? 0 : 1, bossWins: win ? 1 : 0, kos: me.kos | 0, deaths: me.falls | 0 },
         level: win ? run.level : 0 }).catch(() => {});
-      if (run.uid) acct(this.env, run.uid, 'xp-add', { amount: win ? 30 + run.level : 5, match: true, why: 'Boss Fight level ' + run.level + (win ? ' win' : '') }).catch(() => {});
+      if (run.uid) acct(this.env, run.uid, 'xp-add', { amount: win ? 30 + run.level : 5, match: true, won: !!win, why: 'Boss Fight level ' + run.level + (win ? ' win' : '') }).catch(() => {});
       (win ? acct(this.env, run.uid, 'beat', { level: run.level }) : acct(this.env, run.uid, 'get', {}))
         .then(p => {
           const bossRes = { gid: run.gid, win, level: run.level, beaten: p.beaten | 0, unlocked: p.unlocked || [] };
@@ -963,7 +996,7 @@ export class Room {
         acct(this.env, BOARD, 'stat-add', { uid, name: h.name || (pc && pc.pname) || '',
           add: { games: 1, wins: r.win ? 1 : 0, losses: !r.win && g.winTid !== null ? 1 : 0, kos: r.kos | 0, deaths: r.falls | 0 } }).catch(() => {});
         // XP: +10 for playing, +15 more for a win, +1 per KO
-        acct(this.env, uid, 'xp-add', { amount: 10 + (r.win ? 15 : 0) + Math.min(20, r.kos | 0), match: true, why: 'Online match' + (r.win ? ' win' : '') }).catch(() => {});
+        acct(this.env, uid, 'xp-add', { amount: 10 + (r.win ? 15 : 0) + Math.min(20, r.kos | 0), match: true, won: !!r.win, why: 'Online match' + (r.win ? ' win' : '') }).catch(() => {});
       });
       this.broadcast({ from: 'srv', d: { res: this.srv.res } });
       clearInterval(this.timer); this.timer = null;
@@ -1036,7 +1069,7 @@ export default {
         if (!(await hit(env, 'uid:' + u.uid, 'cpu'))) return json({ error: 'slow-down' }, 429, cors);
         // XP by CPU level L: a win gives 4 x L; a loss gives L, but losing to a level 8, 9 or 10 CPU costs 5, 10 or 15
         const L = d.lvl || 5, amount = d.win ? 4 * L : L >= 8 ? -(L - 7) * 5 : L;
-        const x = await acct(env, u.uid, 'xp-add', { amount, cpu: true, match: true, why: 'Vs CPU level ' + L + (d.win ? ' win' : '') });
+        const x = await acct(env, u.uid, 'xp-add', { amount, cpu: true, match: true, won: d.win, why: 'Vs CPU level ' + L + (d.win ? ' win' : '') });
         if (x && x.tooSoon) return json({ error: 'too-soon' }, 429, cors);   // a result less than 45 seconds after the last one isn't saved
         await acct(env, BOARD, 'stat-add', { uid: u.uid, add: { cpuGames: 1, cpuWins: d.win ? 1 : 0, cpuKos: d.kos, cpuDeaths: d.falls } });
         return json({ ok: true, xp: x && x.xp != null ? x.xp : undefined }, 200, cors);
@@ -1051,6 +1084,13 @@ export default {
       if (url.pathname === '/api/ranked/leave' && req.method === 'POST') return json(await acct(env, QUEUE, 'mm-leave', { uid: u.uid }), 200, cors);
       /* your XP and the history behind it (the Sky Road) */
       if (url.pathname === '/api/xp' && req.method === 'GET') return json(await acct(env, u.uid, 'xp-get', { limit: 100 }), 200, cors);
+      /* the shop: buy a locked fighter or a shop-only skin with coins */
+      if (url.pathname === '/api/shop/buy' && req.method === 'POST') {
+        let d; try { d = await apiBody(req); } catch (e) { return json({ error: 'invalid' }, 400, cors); }
+        if (typeof d.item !== 'string' || d.item.length > 40 || !shopItem(d.item)) return json({ error: 'item' }, 400, cors);
+        const r = await acct(env, u.uid, 'buy', { item: d.item });
+        return json(r, r.error ? (r.error === 'item' ? 400 : 409) : 200, cors);
+      }
       /* claim a season title you won. The Overall #1 writes their own title (letters, numbers, spaces, up to 20). */
       if (url.pathname === '/api/season/claim' && req.method === 'POST') {
         let d; try { d = await apiBody(req); } catch (e) { return json({ error: 'invalid' }, 400, cors); }
