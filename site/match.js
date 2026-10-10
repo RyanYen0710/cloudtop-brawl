@@ -257,7 +257,7 @@ function makeGame(cfg) {
   active.forEach((s, k) => {
     const tid = cfg.teams ? s.team : s.slot;
     const f = new Fighter({
-      slot: s.slot, charId: s.char, tid, team: s.team, name: s.name || ('P' + (s.slot + 1)),
+      slot: s.slot, charId: s.char, skin: s.skin || '', tid, team: s.team, name: s.name || ('P' + (s.slot + 1)),
       stocks: s.stocks || cfg.stocks, boss: s.boss || null, ctrl: s.ctrl || { type: 'none' }, lvl: s.lvl || 5, sx: spots[k].x, sy: spots[k].y,
       color: cfg.teams ? TEAM_COLORS[s.team] : SLOT_COLORS[s.slot], tag: s.tag || ('P' + (s.slot + 1))
     });
