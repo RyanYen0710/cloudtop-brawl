@@ -16,11 +16,18 @@ Every change goes through a pull request that Ryan approves. Read this whole fil
 6. **Don't break the owner unlock.** The server gives the owner account every locked fighter and every Boss Fight
    level (see `isOwner` and the `d.owner` block in `server/src/server.js`). Future boss/unreleased fighters must
    be `locked: true` so the owner gets them automatically and everyone else has to earn them.
-7. **Tester / admin-only features use the existing tester check.** For anything only testers or the owner
-   should see or use (panels, buttons, test modes), use the server's tester check: `isTester` in
-   `server/src/server.js` (the hidden `TESTER_EMAILS` Cloudflare secret; the owner always counts as a tester).
-   In the browser, check `isTesterAcct()` / `ACCT.profile.tester` (see `site/boss.js`), and have the server
-   check it again for anything that changes data. Never put emails in the code and never make a new email list.
+7. **Roles: use the existing checks, never new email lists.** The server decides every role; the browser only
+   hides buttons. Never put emails in the code and never make a new email list.
+   - **Owner** (Ryan only): `isOwner` in `server/src/server.js` (hidden `OWNER_EMAILS` secret); browser `ACCT.profile.owner`.
+     Only the owner sees the **Owner panel** (every player with email + online status, bug reports, giving roles)
+     and only the owner may use a 1-2 letter username.
+   - **OP**: an in-game role the owner gives in the Owner panel (`profile.roles.op`). OPs open the **Admin panel**
+     and can change only their OWN account. The server forces every OP request to their own uid.
+   - **Collab**: an in-game label the owner gives (`profile.roles.collab`). No powers at all.
+   - **Tester**: `isTester` (hidden `TESTER_EMAILS` secret; owner included); browser `isTesterAcct()`. Only the
+     Tester button, test presets and test boss runs (never saved).
+   In-game roles never give access to Cloudflare, Firebase or GitHub. Anything that changes data must be checked
+   again on the server.
 8. **Legend Yen stays the strongest fighter.** Boss fighters (Master Chuang, Mythic Hsi) are stronger than the
    normal roster but below Legend Yen.
 9. If something is unclear or risky (deleting features, changing accounts, changing how online play works),
