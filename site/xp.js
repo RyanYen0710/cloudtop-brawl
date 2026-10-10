@@ -7,12 +7,18 @@
    - After a match, the XP you got counts up with a ticking sound.
    - During a match, a small "+XP" slides in now and then (only when the server really gave you XP). */
 
-const XP = { xp: null, base: null, uid: undefined, matchXp: null, matchAt: 0, lastScreen: '', lastSlide: 0, log: [], busy: false, polled: 0, pending: 0 };
+const XP = { xp: null, base: null, uid: undefined, matchXp: null, matchAt: 0, matchCoins: null, lastScreen: '', lastSlide: 0, log: [], busy: false, polled: 0, pending: 0 };
 /* the rewards along the Sky Road */
 const XP_ROAD = { 5: ['⚔', 'Ranked mode', ''], 50: ['★', 'Professor Sprocket (fighter)', ''] };
 [100, 150, 200, 250, 300].forEach(l => { XP_ROAD[l] = ['★', 'New fighter', 'coming soon']; });
 // skins (skins.js) for every fighter
 if (typeof SKINS !== 'undefined') Object.keys(SKINS).forEach(id => { const s = SKINS[id]; if (s.level && !XP_ROAD[s.level]) XP_ROAD[s.level] = ['🎨', s.name + ' skin', '']; });
+// coin stops (shop-data.js): on their own, or added to a level that already has a reward
+if (typeof coinStop === 'function') for (let lv = 2; lv <= XP_MAX_LEVEL; lv++) {
+  const c = coinStop(lv); if (!c) continue;
+  if (XP_ROAD[lv]) XP_ROAD[lv] = [XP_ROAD[lv][0], XP_ROAD[lv][1] + ' + ' + c + ' coins', XP_ROAD[lv][2]];
+  else XP_ROAD[lv] = ['🪙', c + ' coins', ''];
+}
 
 const xpSigned = () => typeof acctSignedIn === 'function' && acctSignedIn() && ACCT.user && ACCT.profile;
 const xpFmt = n => Math.round(n).toLocaleString();
@@ -29,6 +35,7 @@ async function xpFetch() {
     const r = await acctApi('/api/xp'); XP.log = r.log || [];
     if (ACCT.profile) { if (r.evSkins) ACCT.profile.evSkins = r.evSkins; if (r.evPlays) ACCT.profile.evPlays = r.evPlays; }   // event skins you've kept
     if (Array.isArray(r.unlocked) && typeof setUnlocked === 'function') { if (ACCT.profile) ACCT.profile.unlocked = r.unlocked; setUnlocked(r.unlocked); }   // e.g. Professor Sprocket at level 50
+    if (ACCT.profile && r.coins != null) { ACCT.profile.coins = r.coins; ACCT.profile.shopSkins = r.shopSkins || []; if (typeof shopRenderIcons === 'function') shopRenderIcons(); }   // coins (shop.js)
     xpSet(r.xp || 0); XP.polled = Date.now(); return r;
   }
   catch (e) { return null; }
@@ -70,13 +77,14 @@ function xpMaybeSlide() {
 
 /* ---------- after a match: the XP you got counts up ---------- */
 async function xpAfterMatch() {
-  const start = XP.matchXp, at = XP.matchAt; XP.matchXp = null;
+  const start = XP.matchXp, at = XP.matchAt, coins0 = XP.matchCoins; XP.matchXp = null;
   if (start == null || !xpSigned()) return;
   await new Promise(r => setTimeout(r, 1400));   // the server saves the result first
   await xpFetch();
-  const gained = (XP.xp || 0) - start;
-  if (!gained) return;
+  const gained = (XP.xp || 0) - start, coinsGot = coins0 != null && ACCT.profile ? (ACCT.profile.coins | 0) - coins0 : 0;
+  if (!gained && !coinsGot) return;
   const why = XP.log.filter(e => e.at >= at - 2000 && !e.set).slice(0, 4).map(e => (e.amt > 0 ? '+' : '') + e.amt + ' · ' + e.why);
+  if (coinsGot > 0) why.push('+' + xpFmt(coinsGot) + ' 🪙 coins');
   xpCountCard(start, XP.xp, why);
 }
 function xpCountCard(from, to, why) {
@@ -133,7 +141,7 @@ function showSkyRoad() {
         road.appendChild(node);
       }
       setTimeout(() => { const h = road.querySelector('.here'); if (h) road.scrollLeft = h.offsetLeft - road.clientWidth / 2; }, 0);
-      box.appendChild(el('p', { class: 'muted xp-how', text: 'How to get XP: +1 a minute signed in · online match +10 (win +15, +1 per KO) · Vs CPU: the higher the CPU level, the more XP (losing to a level 8-10 CPU costs XP) · Boss Fight +5 (win +30 + the level). Ranked gives the most: win +75, lose −20. You never drop a level.' }));
+      box.appendChild(el('p', { class: 'muted xp-how', text: 'How to get XP: +1 a minute signed in · online match +10 (win +15, +1 per KO) · Vs CPU: the higher the CPU level, the more XP (losing to a level 8-10 CPU costs XP) · Boss Fight +5 (win +30 + the level). Ranked gives the most: win +75, lose −20. You never drop a level. Coins: the 🪙 stops on the road, plus 20 for every win and 5 for every other match. Spend them in the Shop.' }));
     } else {
       const list = el('ul', { class: 'xp-hist' }); box.appendChild(list);
       if (!XP.log.length) list.appendChild(el('li', { class: 'muted', text: 'No XP yet. Play a match!' }));
@@ -151,7 +159,7 @@ function xpTick() {
   if (uid !== XP.uid) { XP.uid = uid; XP.xp = null; XP.base = null; XP.log = []; if (uid) { if (ACCT.profile.xp != null) xpSet(ACCT.profile.xp); xpFetch(); } else xpRenderBar(); }
   if (!uid) return;
   const scr = typeof G !== 'undefined' ? G.screen : '';
-  if (scr === 'fight' && XP.lastScreen !== 'fight') { XP.matchXp = XP.xp; XP.matchAt = Date.now(); }
+  if (scr === 'fight' && XP.lastScreen !== 'fight') { XP.matchXp = XP.xp; XP.matchAt = Date.now(); XP.matchCoins = ACCT.profile ? ACCT.profile.coins | 0 : null; }
   if (scr !== 'fight' && XP.lastScreen === 'fight') xpAfterMatch();
   XP.lastScreen = scr;
   if (Date.now() - XP.polled > 60000 && document.visibilityState === 'visible') xpFetch();   // time online adds XP while you play
