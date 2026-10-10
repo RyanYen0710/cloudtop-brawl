@@ -722,6 +722,7 @@ body.tester-on #go-online .tt-off{display:block;font-weight:800;color:#ffd35c}
         <button type="button" role="tab" class="set-tab" data-tab="controls" aria-selected="false">Controls</button>
         <button type="button" role="tab" class="set-tab" data-tab="phone" aria-selected="false">Phone</button>
         <button type="button" role="tab" class="set-tab" data-tab="account" aria-selected="false">Account</button>
+        <button type="button" role="tab" class="set-tab" data-tab="special" aria-selected="false" hidden>Special</button>
       </div>
       <div class="set-pane" data-pane="sound" role="tabpanel">
         <div class="set-row"><label for="set-master">Master volume</label><input type="range" id="set-master" min="0" max="100" step="1"><output id="val-master"></output></div>
@@ -746,6 +747,9 @@ body.tester-on #go-online .tt-off{display:block;font-weight:800;color:#ffd35c}
       </div>
       <div class="set-pane" data-pane="account" role="tabpanel" hidden>
         <div id="acct-pane" class="acct-pane"></div>
+      </div>
+      <div class="set-pane" data-pane="special" role="tabpanel" hidden>
+        <div id="special-pane" class="acct-pane"></div>
       </div>
       <button type="button" id="set-close" class="start">Done</button>
     </div>
@@ -794,9 +798,9 @@ body.tester-on #go-online .tt-off{display:block;font-weight:800;color:#ffd35c}
 <script src="firebase-config.js?v=20261008b"></script>
 <script src="app.js?v=20261009-lb1"></script>
 <script src="account.js?v=20261009-owner1"></script>
-<script src="settings-ui.js?v=20261008g"></script>
+<script src="settings-ui.js?v=20261009-op1"></script>
 <script src="boss.js?v=20261009-owner1"></script>
-<script src="admin.js?v=20261009-sync1"></script>
+<script src="admin.js?v=20261009-op1"></script>
 <script src="leaderboard.js?v=20261009-sync1"></script>
 <script src="gameui.js?v=20261009-gameui2"></script>
 <script src="intro.js?v=20261009-text1"></script>
