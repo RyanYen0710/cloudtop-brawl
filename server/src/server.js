@@ -706,6 +706,8 @@ export default {
             revision: d.revision, reason, actor }).then(hideRoles));
         }
         if (url.pathname === '/api/admin/players' && req.method === 'GET') {
+          /* Owner panel only: the owner first, then Collab, then OP, then everyone else (the Admin panel keeps its normal order) */
+          const roleRank = x => x.owner ? 0 : x.roles && x.roles.collab ? 1 : x.roles && x.roles.op ? 2 : 3;
           const [reg, idx] = await Promise.all([acct(env, NAMES, 'name-list', {}), acct(env, ADMIN_STORE, 'player-list', {})]);
           const now = Date.now(), byUid = new Map();
           (reg.names || []).forEach(n => byUid.set(n.uid, { uid: n.uid, name: n.name, email: '', seen: 0, roles: {} }));
@@ -714,7 +716,7 @@ export default {
             joined: x.joined || 0, owner: !!x.owner, roles: x.roles || {} })));
           const players = [...byUid.values()].map(x => Object.assign(x, { online: !!x.seen && now - x.seen < ONLINE_MS }))
             .map(x => owner ? x : Object.assign({}, x, { roles: undefined, owner: undefined }))   // admins never see roles
-            .sort((a, b) => (b.online - a.online) || (b.seen - a.seen) || a.name.localeCompare(b.name));
+            .sort((a, b) => (owner ? roleRank(a) - roleRank(b) : 0) || (b.online - a.online) || (b.seen - a.seen) || a.name.localeCompare(b.name));
           return json({ players }, 200, cors);
         }
         if (url.pathname === '/api/admin/roles' && req.method === 'POST') {
