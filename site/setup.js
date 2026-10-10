@@ -50,7 +50,7 @@ function buildRoster() {
     b.addEventListener('click', () => pickChar(c.id));
     box.appendChild(b);
   });
-  requestAnimationFrame(() => box.querySelectorAll('.tile').forEach(t => drawPortrait(t.querySelector('canvas'), t.dataset.id)));
+  requestAnimationFrame(() => box.querySelectorAll('.tile').forEach(t => drawPortrait(t.querySelector('canvas'), t.dataset.id, { skin: typeof mySkin === 'function' ? mySkin(t.dataset.id) : '' })));
 }
 
 function pickChar(id) {
@@ -59,6 +59,7 @@ function pickChar(id) {
   if (!canEditSlot(i)) return;
   SETUP.slots[i].char = id;
   if (G.mode === 'guest') netSetChar(id);
+  document.getElementById('statcard').dataset.id = '';
   if (G.mode === 'host') pushLobby();
   saveLocal('cb.char', id);
   // after picking for yourself, move on to the next CPU so setup flows like the console version
@@ -69,9 +70,10 @@ function renderStatCard() {
   const el = document.getElementById('statcard');
   const cur = SETUP.slots[SETUP.edit];
   const id = SETUP.hover || (cur && cur.char) || ROSTER[0].id;
-  if (el.dataset.id === id) return;
+  const skin = typeof mySkin === 'function' ? mySkin(id) : '', cardKey = id + ':' + skin;
+  if (el.dataset.id === cardKey) return;
   if (id === 'random') {
-    el.dataset.id = id;
+    el.dataset.id = cardKey;
     el.innerHTML = `<div class="sc-top"><canvas class="sc-cv" aria-hidden="true"></canvas><div class="sc-head"><div class="sc-eyebrow">Surprise pick</div><h3 class="sc-name">Random</h3><p class="sc-passive">You get a random fighter from the roster when the battle starts, and a new one every rematch. Works for CPUs too.</p></div></div>
       <div class="rand-list">${ROSTER.filter(c => !c.legend).map(c => `<span class="chip">${esc(c.name)}</span>`).join('')}</div>`;
     requestAnimationFrame(() => drawPortrait(el.querySelector('.sc-cv'), 'random'));
@@ -79,7 +81,7 @@ function renderStatCard() {
   }
   const c = CHAR[id];
   if (!c) return;
-  el.dataset.id = id;
+  el.dataset.id = cardKey;
   const bars = STAT_KEYS.map(([k, label, col]) => {
     const v = clamp(c.stats[k] | 0, 0, 10);
     let segs = '';
@@ -106,7 +108,8 @@ function renderStatCard() {
     <div class="stats">${bars}</div>
     <ul class="specials">${specials}</ul>
     <div class="matchups"><div><span class="mu-l good">Strong vs</span>${chip(c.strongVs)}</div><div><span class="mu-l bad">Weak vs</span>${chip(c.weakVs)}</div></div>`;
-  requestAnimationFrame(() => drawPortrait(el.querySelector('.sc-cv'), id, { pose: 'idle' }));
+  if (typeof skinRow === 'function' && cur && cur.char === id && canEditSlot(SETUP.edit)) skinRow(el, id);   // pick a skin for your fighter
+  requestAnimationFrame(() => drawPortrait(el.querySelector('.sc-cv'), id, { pose: 'idle', skin }));
 }
 
 function renderSetup() {
@@ -151,14 +154,14 @@ function renderSetup() {
     d.innerHTML = `
       <div class="slot-top"><span class="slot-p">P${i + 1}</span><span class="slot-who">${esc(slotLabel(s, i))}</span></div>
       ${active ? `<button type="button" class="slot-pick" data-act="edit" data-i="${i}" ${canEditSlot(i) ? '' : 'disabled'}>
-        <canvas class="slot-cv" data-char="${esc(s.char)}" aria-hidden="true"></canvas>
+        <canvas class="slot-cv" data-char="${esc(s.char)}" data-skin="${esc(s.type === 'you' && typeof mySkin === 'function' ? mySkin(s.char) : s.skin || '')}" aria-hidden="true"></canvas>
         <span class="slot-char">${esc(c ? c.name : '?')}</span>
         ${canEditSlot(i) ? `<span class="slot-hint">${i === SETUP.edit ? 'Picking…' : 'Change fighter'}</span>` : ''}
       </button>` : `<div class="slot-empty">${s.type === 'open' ? 'Friends see this lobby in their list and can join this spot.' : 'No fighter in this spot.'}</div>`}
       <div class="slot-actions">${actions}</div>`;
     box.appendChild(d);
   });
-  box.querySelectorAll('.slot-cv').forEach(cv => requestAnimationFrame(() => drawPortrait(cv, cv.dataset.char)));
+  box.querySelectorAll('.slot-cv').forEach(cv => requestAnimationFrame(() => drawPortrait(cv, cv.dataset.char, { skin: cv.dataset.skin })));
 
   // rules (seasonal event maps only show during their event; one picked earlier goes back to Random once the event ends)
   const stageShown = i => i === SETUP.stage || typeof stageVisible !== 'function' || stageVisible(i, typeof nowEvent === 'function' ? nowEvent() : null);
