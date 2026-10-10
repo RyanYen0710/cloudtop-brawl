@@ -26,7 +26,7 @@ function setTester(on) {
   const r = document.getElementById('roster'); if (r) r.textContent = '';   // rebuild the fighter grid
 }
 function testerUpdate() {
-  const b = document.getElementById('go-admin'); if (b) b.hidden = !isTesterAcct();
+  const b = document.getElementById('go-tester'); if (b) b.hidden = !isTesterAcct();
   if (!isTesterAcct()) setTester(false);
   if (typeof adminUpdate === 'function') adminUpdate();
 }

@@ -13,8 +13,13 @@
      unlocked fighters are stored in the Accounts storage, which only this server can change.
    - Requests are rate-limited per player and per IP address (per minute and per day),
      with the counters kept in server-only storage.
-   - Admin powers require a verified email in the existing private TESTER_EMAILS server setting (owner included).
-     Client-supplied roles never grant access. All account changes are audited server-side. */
+   - Roles (checked here on the server, never trusted from the browser):
+       owner  = verified email in the private OWNER_EMAILS setting. Sees the Owner panel: every player (with email and
+                online status), bug reports, and gives the in-game roles below. Only the owner may use a 1-2 letter username.
+       op     = in-game role the owner gives from the Owner panel. Can change only their OWN account's progress and fighters.
+       collab = in-game label the owner gives. It has no powers.
+       tester = verified email in the private TESTER_EMAILS setting (owner included). Only the Tester button / test runs.
+     In-game roles never give access to Cloudflare, Firebase or GitHub. All account changes are audited server-side. */
 
 const TICK = 1000 / 60;
 const clip = (s, n) => String(s == null ? '' : s).replace(/[^\p{L}\p{N} _.\-]/gu, '').slice(0, n || 16);
@@ -93,6 +98,8 @@ async function acct(env, uid, op, data) {
   return r.json();
 }
 const NAME_RE = /^[A-Za-z0-9_]{3,16}$/;
+const OWNER_NAME_RE = /^[A-Za-z0-9_]{1,16}$/;   // only the owner may use a 1-2 letter username
+const ONLINE_MS = 5 * 60 * 1000;                // "online" = the game was open in the last 5 minutes
 const NAMES = '__names';   // the shared username registry
 /* the game owner (set in wrangler.toml, checked here on the server only) gets every locked fighter */
 function isOwner(u, env) {
@@ -118,7 +125,7 @@ async function apiBody(req) {
 }
 async function adminTarget(env, d) {
   if (typeof d.uid === 'string' && /^[A-Za-z0-9_-]{1,128}$/.test(d.uid)) return d.uid;
-  if (typeof d.username === 'string' && NAME_RE.test(d.username)) {
+  if (typeof d.username === 'string' && OWNER_NAME_RE.test(d.username)) {
     const r = await acct(env, NAMES, 'lookup', { name: d.username });
     return r.uid || null;
   }
@@ -142,6 +149,34 @@ export class Accounts {
     let d = {}; try { d = await req.json(); } catch (e) { }
     const st = this.state.storage;
     if (op === 'lookup') return json({ uid: (await st.get('n:' + String(d.name || '').toLowerCase())) || null });
+    /* every claimed username (the registry instance) -> lets the owner list players who have not signed in since this update */
+    if (op === 'name-list') {
+      const rows = await st.list({ prefix: 'n:', limit: 5000 });
+      return json({ names: [...rows.entries()].map(([k, uid]) => ({ name: k.slice(2), uid })) });
+    }
+    /* the player index (admin instance): last seen time, email and roles, for the Owner panel only */
+    if (op === 'player-seen') {
+      const key = 'player:' + d.uid, cur = (await st.get(key)) || { uid: d.uid, joined: Date.now() }, now = Date.now();
+      const next = Object.assign({}, cur);
+      if (typeof d.name === 'string' && d.name) next.name = d.name;
+      if (typeof d.email === 'string' && d.email) next.email = d.email;
+      if (typeof d.owner === 'boolean') next.owner = d.owner;
+      if (d.roles && typeof d.roles === 'object') next.roles = { op: !!d.roles.op, collab: !!d.roles.collab };
+      const changed = next.name !== cur.name || next.email !== cur.email || next.owner !== cur.owner ||
+        JSON.stringify(next.roles || {}) !== JSON.stringify(cur.roles || {}) || !cur.seen;
+      if (changed || now - (cur.seen || 0) > 60000) { next.seen = now; await st.put(key, next); }   // at most one write a minute
+      return json({ ok: true });
+    }
+    if (op === 'player-list') {
+      const rows = await st.list({ prefix: 'player:', limit: 5000 });
+      return json({ players: [...rows.values()] });
+    }
+    if (op === 'player-get') return json((await st.get('player:' + d.uid)) || {});
+    if (op === 'report-delete') {
+      const key = 'report:' + d.id;
+      if (!(await st.get(key))) return json({ error: 'not-found' }, 404);
+      await st.delete(key); return json({ ok: true });
+    }
     if (op === 'report-create') {
       const report = Object.assign({}, d.report, { id: newestKey(), status: 'open', created: Date.now(), updated: Date.now(), notes: '' });
       await st.put('report:' + report.id, report);
@@ -214,8 +249,19 @@ export class Accounts {
       if (!stored || dirty) { p.revision = (p.revision || 0) + 1; await tx.put('profile', p); }
       return json(p);
     }
+    if (op === 'roles') {
+      if (!stored) return json({ error: 'not-found' }, 404);
+      if (p.owner) return json({ error: 'owner-protected' }, 409);
+      const before = { op: !!(p.roles && p.roles.op), collab: !!(p.roles && p.roles.collab) };
+      p.roles = { op: !!d.op, collab: !!d.collab }; p.revision = (p.revision || 0) + 1;
+      await tx.put('audit:' + newestKey(), { at: Date.now(), actor: d.actor, reason: 'Roles: ' + (['op', 'collab'].filter(k => p.roles[k]).join(' + ') || 'none'),
+        before: { beaten: p.beaten, wins: p.wins, unlocked: p.unlocked.slice(), roles: before },
+        after: { beaten: p.beaten, wins: p.wins, unlocked: p.unlocked.slice(), roles: p.roles } });
+      await tx.put('profile', p);
+      return json({ profile: p });
+    }
     if (op === 'name') {
-      if (!NAME_RE.test(String(d.name || ''))) return json({ error: 'name' }, 400);
+      if (!(d.owner ? OWNER_NAME_RE : NAME_RE).test(String(d.name || ''))) return json({ error: 'name' }, 400);
       p.name = d.name; p.revision = (p.revision || 0) + 1; await tx.put('profile', p); return json(p);
     }
     if (op === 'beat') {
@@ -491,7 +537,14 @@ export default {
       if (url.pathname === '/api/me' && req.method === 'GET') {
         const p = await acct(env, u.uid, 'get', { name: toUsername(u.name), owner: isOwner(u, env), gift: giftsFor(u, env) });
         if (p && p.name) await acct(env, NAMES, 'claim', { name: p.name, uid: u.uid });   // reserve the name this player already uses
-        return json(Object.assign({}, p, { owner: isOwner(u, env), tester: isTester(u, env) }), 200, cors);
+        const roles = p.roles || {};
+        await acct(env, ADMIN_STORE, 'player-seen', { uid: u.uid, name: p.name || '', email: u.verified ? u.email : '', owner: isOwner(u, env), roles });
+        return json(Object.assign({}, p, { owner: isOwner(u, env), tester: isTester(u, env), op: !!roles.op, collab: !!roles.collab }), 200, cors);
+      }
+      /* "I'm still playing" ping (every few minutes while the game is open) -> online status in the Owner panel */
+      if (url.pathname === '/api/ping' && req.method === 'POST') {
+        await acct(env, ADMIN_STORE, 'player-seen', { uid: u.uid });
+        return json({ ok: true }, 200, cors);
       }
       if (url.pathname === '/api/reports' && req.method === 'POST') {
         if (!u.verified) return json({ error: 'verify-email' }, 403, cors);
@@ -511,24 +564,61 @@ export default {
         return json(result, 201, cors);
       }
       if (url.pathname.startsWith('/api/admin/')) {
-        if (!isTester(u, env)) return json({ error: 'not-admin' }, 403, cors);
+        /* owner: everything here. op: only their own account (GET/POST /api/admin/account). Everyone else: nothing. */
+        const owner = isOwner(u, env);
+        if (!u.verified) return json({ error: 'not-admin' }, 403, cors);
+        if (!owner) {
+          if (url.pathname !== '/api/admin/account') return json({ error: 'not-admin' }, 403, cors);
+          const me = await acct(env, u.uid, 'get', {});
+          if (!(me.roles && me.roles.op)) return json({ error: 'not-admin' }, 403, cors);
+        }
         const respond = r => json(r, r.error ? ({ 'not-found': 404, conflict: 409, 'owner-protected': 409 }[r.error] || 400) : 200, cors);
+        const actor = { uid: u.uid, name: toUsername(u.name) };
         if (url.pathname === '/api/admin/account' && req.method === 'GET') {
-          const uid = await adminTarget(env, { uid: url.searchParams.get('uid'), username: url.searchParams.get('username') });
+          const uid = owner ? await adminTarget(env, { uid: url.searchParams.get('uid'), username: url.searchParams.get('username') }) : u.uid;
           if (!uid) return json({ error: 'not-found' }, 404, cors);
           const r = await acct(env, uid, 'admin-get', {});
-          return respond(Object.assign({}, r, r.error ? {} : { uid }));
+          if (r.error) return respond(r);
+          const info = owner ? await acct(env, ADMIN_STORE, 'player-get', { uid }) : {};
+          return respond(Object.assign({}, r, { uid, self: uid === u.uid,
+            info: owner ? { email: info.email || '', seen: info.seen || 0, joined: info.joined || r.profile.created || 0,
+              online: !!info.seen && Date.now() - info.seen < ONLINE_MS } : null }));
         }
         if (url.pathname === '/api/admin/account' && req.method === 'POST') {
           let d; try { d = await apiBody(req); } catch (e) { return json({ error: 'invalid' }, 400, cors); }
-          const uid = await adminTarget(env, d), reason = plain(d.reason, 200);
+          const uid = owner ? await adminTarget(env, d) : u.uid, reason = plain(d.reason, 200);
           if (!uid || !Number.isInteger(d.beaten) || d.beaten < 0 || d.beaten > BOSS_LEVELS.length ||
               !Number.isInteger(d.wins) || d.wins < 0 || d.wins > 1000000 || !Number.isInteger(d.revision) || d.revision < 0 ||
               !Array.isArray(d.unlocked) || d.unlocked.length > ROSTER.length ||
               !d.unlocked.every(id => typeof id === 'string' && ROSTER.some(c => c.id === id && c.locked && !c.hidden)) || reason.length < 5)
             return json({ error: 'invalid' }, 400, cors);
           return respond(await acct(env, uid, 'admin-save', { beaten: d.beaten, wins: d.wins, unlocked: d.unlocked,
-            revision: d.revision, reason, actor: { uid: u.uid, name: toUsername(u.name) } }));
+            revision: d.revision, reason, actor }));
+        }
+        /* ---- owner only below ---- */
+        if (url.pathname === '/api/admin/players' && req.method === 'GET') {
+          const [reg, idx] = await Promise.all([acct(env, NAMES, 'name-list', {}), acct(env, ADMIN_STORE, 'player-list', {})]);
+          const now = Date.now(), byUid = new Map();
+          (reg.names || []).forEach(n => byUid.set(n.uid, { uid: n.uid, name: n.name, email: '', seen: 0, roles: {} }));
+          (idx.players || []).forEach(x => byUid.set(x.uid, Object.assign(byUid.get(x.uid) || {}, {
+            uid: x.uid, name: x.name || (byUid.get(x.uid) || {}).name || '', email: x.email || '', seen: x.seen || 0,
+            joined: x.joined || 0, owner: !!x.owner, roles: x.roles || {} })));
+          const players = [...byUid.values()].map(x => Object.assign(x, { online: !!x.seen && now - x.seen < ONLINE_MS }))
+            .sort((a, b) => (b.online - a.online) || (b.seen - a.seen) || a.name.localeCompare(b.name));
+          return json({ players }, 200, cors);
+        }
+        if (url.pathname === '/api/admin/roles' && req.method === 'POST') {
+          let d; try { d = await apiBody(req); } catch (e) { return json({ error: 'invalid' }, 400, cors); }
+          const uid = await adminTarget(env, d);
+          if (!uid || typeof d.op !== 'boolean' || typeof d.collab !== 'boolean') return json({ error: 'invalid' }, 400, cors);
+          const r = await acct(env, uid, 'roles', { op: d.op, collab: d.collab, actor });
+          if (!r.error) await acct(env, ADMIN_STORE, 'player-seen', { uid, roles: r.profile.roles, name: r.profile.name || '' });
+          return respond(r);
+        }
+        if (url.pathname === '/api/admin/reports/delete' && req.method === 'POST') {
+          let d; try { d = await apiBody(req); } catch (e) { return json({ error: 'invalid' }, 400, cors); }
+          if (typeof d.id !== 'string' || !/^\d{13}-[a-f0-9-]{36}$/.test(d.id)) return json({ error: 'invalid' }, 400, cors);
+          return respond(await acct(env, ADMIN_STORE, 'report-delete', { id: d.id }));
         }
         if (url.pathname === '/api/admin/reports' && req.method === 'GET') {
           const cursor = url.searchParams.get('cursor') || '';
@@ -541,19 +631,19 @@ export default {
               !Number.isInteger(d.expectedUpdated) || typeof d.notes !== 'string' || d.notes.length > 1000)
             return json({ error: 'invalid' }, 400, cors);
           return respond(await acct(env, ADMIN_STORE, 'report-update', { id: d.id, status: d.status,
-            expectedUpdated: d.expectedUpdated, notes: d.notes.trim(), actor: { uid: u.uid, name: toUsername(u.name) } }));
+            expectedUpdated: d.expectedUpdated, notes: d.notes.trim(), actor }));
         }
         return json({ error: 'not-found' }, 404, cors);
       }
       if (url.pathname === '/api/name' && req.method === 'POST') {
         let d = {}; try { d = await req.json(); } catch (e) { }
-        const name = String(d.name || '').slice(0, 32);
-        if (!NAME_RE.test(name)) return json({ error: 'name' }, 400, cors);
+        const name = String(d.name || '').slice(0, 32), owner = isOwner(u, env);
+        if (!(owner ? OWNER_NAME_RE : NAME_RE).test(name)) return json({ error: 'name' }, 400, cors);
         const cur = await acct(env, u.uid, 'get', {});
         if (cur.name === name) return json(cur, 200, cors);
         const c = await acct(env, NAMES, 'claim', { name, uid: u.uid });
         if (c.error) return json({ error: 'taken' }, 409, cors);
-        const r = await acct(env, u.uid, 'name', { name });
+        const r = await acct(env, u.uid, 'name', { name, owner });
         if (r.error) { await acct(env, NAMES, 'release', { name, uid: u.uid }); return json(r, 400, cors); }
         if (cur.name && cur.name.toLowerCase() !== name.toLowerCase()) await acct(env, NAMES, 'release', { name: cur.name, uid: u.uid });
         return json(r, 200, cors);

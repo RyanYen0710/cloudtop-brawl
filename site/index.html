@@ -24,7 +24,7 @@
 <link rel="icon" href="icon-96.png" type="image/png" sizes="96x96">
 <link rel="icon" href="icon-192.png" type="image/png" sizes="192x192">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<link rel="stylesheet" href="admin.css?v=20261009-gameui2">
+<link rel="stylesheet" href="admin.css?v=20261009-owner1">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;500;600;700&family=Dela+Gothic+One&display=swap" rel="stylesheet">
@@ -392,6 +392,7 @@ html,body,body *{touch-action:manipulation}   /* no double-tap zoom anywhere (th
 .ht-train{background:linear-gradient(135deg,#3fd47a,#14934a 70%)}
 .ht-boss{background:linear-gradient(135deg,#c26bff,#6a1fc8 70%)}
 .admin-btn{background:#ffd35c;color:#1a1238;font-weight:800}
+.owner-btn{background:linear-gradient(90deg,#ffd35c,#ff8a4c);color:#1a1238;font-weight:800;box-shadow:0 0 0 2px #ffd35c}
 .tester-btn{background:#ffd35c;color:#1a1238;font-weight:800}
 .tester-btn[aria-pressed="true"]{background:#ff8a4c;box-shadow:0 0 0 3px #ffd35c}
 /* ----- game-style controls (instead of the computer's own dropdowns, switches and sliders; see gameui.js) ----- */
@@ -560,7 +561,7 @@ body.tester-on #go-online .tt-off{display:block;font-weight:800;color:#ffd35c}
       </nav>
       <div class="hub-foot">
         <span class="hub-tip" id="hub-tip"></span>
-        <span class="hub-side"><span id="main-count">17 fighters · 8 stages · CPU levels 1–10</span><button type="button" class="mini acct-btn" id="acct-btn" hidden>Sign in</button><button type="button" class="mini tester-btn" id="go-tester" title="Tester mode: every fighter and level, nothing saved. Press again to go back." aria-pressed="false" hidden>Tester</button><button type="button" class="mini admin-btn" id="go-admin" title="Private admin tools" hidden>Admin panel</button><button type="button" class="mini" id="go-bug-report">Report a bug</button><button type="button" class="mini" data-open-settings>Settings</button></span>
+        <span class="hub-side"><span id="main-count">17 fighters · 8 stages · CPU levels 1–10</span><button type="button" class="mini acct-btn" id="acct-btn" hidden>Sign in</button><button type="button" class="mini tester-btn" id="go-tester" title="Tester mode: every fighter and level, nothing saved. Press again to go back." aria-pressed="false" hidden>Tester</button><button type="button" class="mini admin-btn" id="go-admin" title="Change your own account (OP)" hidden>Admin panel</button><button type="button" class="mini owner-btn" id="go-owner" title="Owner only: players, bug reports and roles" hidden>Owner panel</button><button type="button" class="mini" id="go-bug-report">Report a bug</button><button type="button" class="mini" data-open-settings>Settings</button></span>
       </div>
     </div>
   </section>
@@ -786,10 +787,10 @@ body.tester-on #go-online .tt-off{display:block;font-weight:800;color:#ffd35c}
 <script src="net.js?v=20261008-titan1"></script>
 <script src="firebase-config.js?v=20261008b"></script>
 <script src="app.js?v=20261009-tester2"></script>
-<script src="account.js?v=20261009-tester"></script>
+<script src="account.js?v=20261009-owner1"></script>
 <script src="settings-ui.js?v=20261008g"></script>
-<script src="boss.js?v=20261009-tester3"></script>
-<script src="admin.js?v=20261009-gameui2"></script>
+<script src="boss.js?v=20261009-owner1"></script>
+<script src="admin.js?v=20261009-owner1"></script>
 <script src="gameui.js?v=20261009-gameui2"></script>
 <script src="intro.js?v=20261009-text1"></script>
 <script src="menu.js?v=20261008b"></script>

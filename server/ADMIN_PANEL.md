@@ -1,33 +1,27 @@
-# Admin panel setup
+# Owner panel, Admin panel and roles
 
-The main menu has separate **Testing** and **Admin panel** buttons. Testing
-opens practice tools whose results never save; Admin panel opens real account
-unlocks, progress management, and the bug-report inbox. Every privileged route
-uses the existing server `isTester` permission and the browser's `isTesterAcct()`
-check. The hidden `TESTER_EMAILS` setting grants tester access; the existing
-owner always has access. No new role or email list is introduced.
+The main menu shows up to three private buttons. Each one is only a shortcut: the
+server checks the signed-in account again for every request.
 
-## Before merging
+| Button | Who sees it | What it does |
+|---|---|---|
+| **Owner panel** | The owner only (verified email in `OWNER_EMAILS`) | Every player (username, email, online/offline), each player's Info / Boss Fight / Characters, giving the OP and Collab roles, and the bug-report inbox (with delete). |
+| **Admin panel** | OPs and the owner | Your **own** account only: Boss Fight progress and fighters. Testers also get Test presets here. |
+| **Tester** | `TESTER_EMAILS` (owner included) | Tester mode: every fighter and level, nothing saved. |
 
-An authorized Cloudflare maintainer must configure the existing `TESTER_EMAILS`
-secret on `cloudtop-brawl-server` to contain only the two verified accounts
-confirmed by the requester: their account and Ryan’s account. Ryan also keeps
-his existing owner access through `OWNER_EMAILS`. Remove any other tester entries
-and confirm owner membership belongs only to Ryan to limit access to these two
-people. Do not paste real addresses into tracked files or the PR.
+Roles:
+- **OP** - given by the owner. Can change only their own account. The server ignores any other uid an OP sends.
+- **Collab** - given by the owner. A label only; it gives no powers.
+- Roles live in the player's account storage (server-only) and never give access to Cloudflare, Firebase or GitHub.
+- Only the owner may use a 1-2 letter username; everyone else needs 3-16.
 
-```sh
-cd server
-npx --yes wrangler@4 secret put TESTER_EMAILS
-```
+Online status: the game sends a small "still playing" ping every 2 minutes while it is open.
+A player counts as **online** if the game was open in the last 5 minutes. Emails are saved
+only from the signed (verified) Firebase sign-in, so a player's email appears after their
+next sign-in. Players who have not signed in since this update still appear (from the
+username list) without an email.
 
-Both confirmed accounts are configured locally in the Git-ignored `server/.dev.vars`.
-This does not configure the live Worker. No Durable Object migration or extra
-storage binding is required. After Ryan approves and merges, the existing
-workflows deploy the site and server. Sign out and back in on the real site
-and check that **Testing** and **Admin panel** appear. A normal player's menu hides the panel
-and direct requests to `/api/admin/*` return 403. Admin access requires a verified
-email in a signed Firebase token; client-supplied roles cannot grant access.
+## Older notes
 
 ## Tools
 

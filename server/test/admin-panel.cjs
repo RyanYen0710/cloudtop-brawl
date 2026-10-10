@@ -58,21 +58,20 @@ const edit = p => ({ uid: 'player1', revision: p.revision || 0, beaten: 10, wins
 const report = () => ({ title: 'Boss jump gets stuck', details: 'The fighter stops moving after jumping near the ledge.',
   steps: 'Choose a fighter, jump into the ledge.', category: 'gameplay', severity: 'medium', context: { screen: 'boss', mode: 'solo', level: 10, browser: 'test browser' } });
 
-test('admin tools reuse the verified tester allowlist and existing owner permission', async () => {
+test('only the owner gets the Owner tools; testers keep only the Tester button', async () => {
   const f = setup();
-  for (const id of ['player1', 'oldtester']) {
-    assert.equal((await f.call(id, '/api/me')).data.tester, false);
+  for (const id of ['player1', 'admin1']) {
     assert.equal((await f.call(id, '/api/admin/reports')).status, 403);
-    assert.equal((await f.call(id, '/api/admin/account', { tester: true, admin: true, uid: id })).status, 403);
+    assert.equal((await f.call(id, '/api/admin/players')).status, 403);
+    assert.equal((await f.call(id, '/api/admin/account?uid=' + id)).status, 403);
+    assert.equal((await f.call(id, '/api/admin/roles', { uid: id, op: true, collab: true })).status, 403);
   }
-  for (const id of ['admin1', 'owner1']) {
-    assert.equal((await f.call(id, '/api/me')).data.tester, true);
-    assert.equal((await f.call(id, '/api/admin/reports')).status, 200);
-  }
-  assert.equal((await f.call('admin1', '/api/admin/reports', undefined, { email_verified: false })).status, 403);
-  f.env.TESTER_EMAILS = '';
-  assert.equal((await f.call('admin1', '/api/admin/reports')).status, 403);
+  assert.equal((await f.call('player1', '/api/me')).data.tester, false);
+  assert.equal((await f.call('admin1', '/api/me')).data.tester, true);   // TESTER_EMAILS still gives the Tester button
+  const owner = (await f.call('owner1', '/api/me')).data;
+  assert.equal(owner.owner, true); assert.equal(owner.tester, true);
   assert.equal((await f.call('owner1', '/api/admin/reports')).status, 200);
+  assert.equal((await f.call('owner1', '/api/admin/reports', undefined, { email_verified: false })).status, 403);
 });
 
 test('unsigned, expired, wrong-project tokens and disallowed origins cannot use admin routes', async () => {
@@ -82,17 +81,17 @@ test('unsigned, expired, wrong-project tokens and disallowed origins cannot use 
     headers: { origin: 'https://game.example.invalid', authorization: 'Bearer ' + parts.join('.') }
   }), f.env);
   assert.equal(forged.status, 401);
-  assert.equal((await f.call('admin1', '/api/admin/reports', undefined, { exp: 0 })).status, 401);
-  assert.equal((await f.call('admin1', '/api/admin/reports', undefined, { aud: 'other' })).status, 401);
-  assert.equal((await f.call('admin1', '/api/admin/reports', undefined, {}, 'https://evil.example.invalid')).status, 403);
-  assert.equal((await f.call('admin1', '/api/admin/reports', undefined, { firebase: { sign_in_provider: 'anonymous' } })).status, 401);
+  assert.equal((await f.call('owner1', '/api/admin/reports', undefined, { exp: 0 })).status, 401);
+  assert.equal((await f.call('owner1', '/api/admin/reports', undefined, { aud: 'other' })).status, 401);
+  assert.equal((await f.call('owner1', '/api/admin/reports', undefined, {}, 'https://evil.example.invalid')).status, 403);
+  assert.equal((await f.call('owner1', '/api/admin/reports', undefined, { firebase: { sign_in_provider: 'anonymous' } })).status, 401);
 });
 
 test('account lookup and grants save only approved fields, earned bosses, and a durable before/after audit', async () => {
   const f = setup(); const p = (await f.call('player1', '/api/me')).data;
-  const found = await f.call('admin1', '/api/admin/account?username=player1');
+  const found = await f.call('owner1', '/api/admin/account?username=player1');
   assert.equal(found.data.uid, 'player1');
-  const changed = await f.call('admin1', '/api/admin/account', { ...edit(p), owner: true, admin: true, name: 'hacked' });
+  const changed = await f.call('owner1', '/api/admin/account', { ...edit(p), owner: true, admin: true, name: 'hacked' });
   assert.equal(changed.status, 200);
   assert.equal(changed.data.profile.beaten, 10);
   assert.equal(changed.data.profile.wins, 7);
@@ -100,11 +99,11 @@ test('account lookup and grants save only approved fields, earned bosses, and a 
   assert.ok(changed.data.profile.unlocked.includes('yen'));
   const current = (await f.call('player1', '/api/me')).data;
   assert.equal(current.name, 'player1'); assert.equal(current.owner, false); assert.equal(current.tester, false);
-  const detail = (await f.call('admin1', '/api/admin/account?uid=player1')).data;
-  assert.equal(detail.history.length, 1); assert.equal(detail.history[0].actor.uid, 'admin1');
+  const detail = (await f.call('owner1', '/api/admin/account?uid=player1')).data;
+  assert.equal(detail.history.length, 1); assert.equal(detail.history[0].actor.uid, 'owner1');
   assert.equal(detail.history[0].before.beaten, 0); assert.equal(detail.history[0].after.beaten, 10);
   assert.equal(detail.history[0].reason, 'Restore lost progress');
-  const reset = await f.call('admin1', '/api/admin/account', { ...edit(detail.profile), beaten: 0, wins: 0, unlocked: [], reason: 'Reset testing account' });
+  const reset = await f.call('owner1', '/api/admin/account', { ...edit(detail.profile), beaten: 0, wins: 0, unlocked: [], reason: 'Reset testing account' });
   assert.equal(reset.status, 200); assert.deepEqual(reset.data.profile.unlocked, []);
 });
 
@@ -112,45 +111,45 @@ test('invalid edits, unknown accounts and stale revisions leave saved progress u
   const f = setup(); const p = (await f.call('player1', '/api/me')).data;
   for (const data of [{ ...edit(p), beaten: 999 }, { ...edit(p), beaten: 1.5 }, { ...edit(p), wins: -1 },
     { ...edit(p), unlocked: ['not-a-fighter'] }, { ...edit(p), unlocked: ['yenlegend'] }, { ...edit(p), reason: '' }])
-    assert.equal((await f.call('admin1', '/api/admin/account', data)).status, 400);
-  assert.equal((await f.call('admin1', '/api/admin/account?uid=missing')).status, 404);
-  assert.equal((await f.call('admin1', '/api/admin/account', { ...edit(p), uid: 'missing' })).status, 404);
+    assert.equal((await f.call('owner1', '/api/admin/account', data)).status, 400);
+  assert.equal((await f.call('owner1', '/api/admin/account?uid=missing')).status, 404);
+  assert.equal((await f.call('owner1', '/api/admin/account', { ...edit(p), uid: 'missing' })).status, 404);
   assert.equal((await f.call('player1', '/api/me')).data.beaten, 0);
-  await f.call('admin1', '/api/admin/account', edit(p));
-  assert.equal((await f.call('admin1', '/api/admin/account', edit(p))).status, 409);
+  await f.call('owner1', '/api/admin/account', edit(p));
+  assert.equal((await f.call('owner1', '/api/admin/account', edit(p))).status, 409);
   assert.equal((await f.call('player1', '/api/me')).data.beaten, 10);
 });
 
 test('simultaneous admin edits do not overwrite each other and boss results invalidate stale edits', async () => {
   const f = setup(); const p = (await f.call('player1', '/api/me')).data;
-  const [a, b] = await Promise.all([f.call('admin1', '/api/admin/account', edit(p)), f.call('admin1', '/api/admin/account', { ...edit(p), beaten: 20 })]);
+  const [a, b] = await Promise.all([f.call('owner1', '/api/admin/account', edit(p)), f.call('owner1', '/api/admin/account', { ...edit(p), beaten: 20 })]);
   assert.deepEqual([a.status, b.status].sort(), [200, 409]);
-  const now = (await f.call('admin1', '/api/admin/account?uid=player1')).data.profile;
+  const now = (await f.call('owner1', '/api/admin/account?uid=player1')).data.profile;
   await f.env.ACCOUNTS.get('u:player1').fetch('https://acct/beat', { method: 'POST', body: JSON.stringify({ level: now.beaten + 1 }) });
-  assert.equal((await f.call('admin1', '/api/admin/account', edit(now))).status, 409);
+  assert.equal((await f.call('owner1', '/api/admin/account', edit(now))).status, 409);
 });
 
 test('creator auto-unlocks remain protected from admin reset', async () => {
   const f = setup(); const owner = (await f.call('owner1', '/api/me')).data;
   assert.equal(owner.beaten, 30); assert.ok(owner.unlocked.includes('yen'));
-  assert.equal((await f.call('admin1', '/api/admin/account', { ...edit(owner), uid: 'owner1', beaten: 0, wins: 0, unlocked: [] })).status, 409);
+  assert.equal((await f.call('owner1', '/api/admin/account', { ...edit(owner), uid: 'owner1', beaten: 0, wins: 0, unlocked: [] })).status, 409);
   assert.equal((await f.call('owner1', '/api/me')).data.beaten, 30);
 });
 
 test('players submit private reports; admins review, update and detect conflicting edits', async () => {
   const f = setup(); await f.call('player1', '/api/me');
-  const created = await f.call('player1', '/api/reports', { ...report(), uid: 'admin1', status: 'resolved', notes: 'forged' });
+  const created = await f.call('player1', '/api/reports', { ...report(), uid: 'owner1', status: 'resolved', notes: 'forged' });
   assert.equal(created.status, 201);
   assert.equal((await f.call('player1', '/api/admin/reports')).status, 403);
   assert.equal((await f.call('player1', '/api/reports')).status, 404);
-  const inbox = (await f.call('admin1', '/api/admin/reports')).data;
+  const inbox = (await f.call('owner1', '/api/admin/reports')).data;
   assert.equal(inbox.reports.length, 1); const r = inbox.reports[0];
   assert.equal(r.uid, 'player1'); assert.equal(r.status, 'open'); assert.equal(r.notes, '');
   const data = { id: r.id, expectedUpdated: r.updated, status: 'investigating', notes: 'Reproduced on level 10' };
-  assert.equal((await f.call('admin1', '/api/admin/reports', data)).status, 200);
-  assert.equal((await f.call('admin1', '/api/admin/reports', data)).status, 409);
-  const updated = (await f.call('admin1', '/api/admin/reports')).data.reports[0];
-  assert.equal(updated.updatedBy.uid, 'admin1'); assert.equal(updated.status, 'investigating');
+  assert.equal((await f.call('owner1', '/api/admin/reports', data)).status, 200);
+  assert.equal((await f.call('owner1', '/api/admin/reports', data)).status, 409);
+  const updated = (await f.call('owner1', '/api/admin/reports')).data.reports[0];
+  assert.equal(updated.updatedBy.uid, 'owner1'); assert.equal(updated.status, 'investigating');
 });
 
 test('report validation and quotas reject spam without storing it', async () => {
@@ -160,7 +159,7 @@ test('report validation and quotas reject spam without storing it', async () => 
   assert.equal((await f.call('player1', '/api/reports', report())).status, 201);
   assert.equal((await f.call('player1', '/api/reports', report())).status, 201);
   assert.equal((await f.call('player1', '/api/reports', report())).status, 429);
-  assert.equal((await f.call('admin1', '/api/admin/reports')).data.reports.length, 2);
+  assert.equal((await f.call('owner1', '/api/admin/reports')).data.reports.length, 2);
 });
 
 test('report submission fails closed if quota storage is unavailable', async () => {
@@ -169,17 +168,80 @@ test('report submission fails closed if quota storage is unavailable', async () 
     fetch: async (url, opts) => JSON.parse(opts.body).kind === 'reports' ? Promise.reject(new Error('storage unavailable')) : get(name).fetch(url, opts)
   } : get(name);
   assert.equal((await f.call('player1', '/api/reports', report())).status, 429);
-  assert.equal((await f.call('admin1', '/api/admin/reports')).data.reports.length, 0);
+  assert.equal((await f.call('owner1', '/api/admin/reports')).data.reports.length, 0);
 });
 
 test('report pagination returns every report once and validates its cursor', async () => {
   const f = setup();
   const stub = f.env.ACCOUNTS.get('u:__admin');
   for (let i = 0; i < 53; i++) await stub.fetch('https://acct/report-create', { method: 'POST', body: JSON.stringify({ report: { ...report(), title: 'Report ' + i, uid: 'player1' } }) });
-  const first = (await f.call('admin1', '/api/admin/reports')).data;
+  const first = (await f.call('owner1', '/api/admin/reports')).data;
   assert.equal(first.reports.length, 50); assert.ok(first.cursor);
-  const second = (await f.call('admin1', '/api/admin/reports?cursor=' + encodeURIComponent(first.cursor))).data;
+  const second = (await f.call('owner1', '/api/admin/reports?cursor=' + encodeURIComponent(first.cursor))).data;
   assert.equal(second.reports.length, 3); assert.equal(second.cursor, null);
   assert.equal(new Set([...first.reports, ...second.reports].map(r => r.id)).size, 53);
-  assert.equal((await f.call('admin1', '/api/admin/reports?cursor=profile')).status, 400);
+  assert.equal((await f.call('owner1', '/api/admin/reports?cursor=profile')).status, 400);
+});
+
+test('an OP can change only their own account, and only the owner gives roles', async () => {
+  const f = setup(); for (const id of ['owner1', 'player1', 'player2']) await f.call(id, '/api/me');
+  const own = edit((await f.call('player1', '/api/me')).data);
+  assert.equal((await f.call('player1', '/api/admin/account', own)).status, 403);           // not an OP yet
+  assert.equal((await f.call('player2', '/api/admin/roles', { uid: 'player1', op: true, collab: false })).status, 403);
+  const given = await f.call('owner1', '/api/admin/roles', { uid: 'player1', op: true, collab: true });
+  assert.equal(given.status, 200);
+  const me = (await f.call('player1', '/api/me')).data;
+  assert.equal(me.op, true); assert.equal(me.collab, true); assert.equal(me.owner, false);
+  // an OP's lookups and saves always go to their own account, whatever uid they send
+  const self = await f.call('player1', '/api/admin/account?uid=player2');
+  assert.equal(self.status, 200); assert.equal(self.data.uid, 'player1'); assert.equal(self.data.info, null);
+  const saved = await f.call('player1', '/api/admin/account', { ...edit(me), uid: 'player2' });
+  assert.equal(saved.status, 200);
+  assert.equal((await f.call('player1', '/api/me')).data.beaten, 10);
+  assert.equal((await f.call('player2', '/api/me')).data.beaten, 0);
+  for (const path of ['/api/admin/players', '/api/admin/reports']) assert.equal((await f.call('player1', path)).status, 403);
+  assert.equal((await f.call('player1', '/api/admin/roles', { uid: 'player1', op: true, collab: true })).status, 403);
+  // a collab label alone gives no powers, and removing OP takes the powers away again
+  await f.call('owner1', '/api/admin/roles', { uid: 'player1', op: false, collab: true });
+  assert.equal((await f.call('player1', '/api/admin/account?uid=player1')).status, 403);
+  assert.equal((await f.call('owner1', '/api/admin/roles', { uid: 'owner1', op: true, collab: true })).status, 409);
+  assert.equal((await f.call('owner1', '/api/admin/roles', { uid: 'player1', op: 'yes', collab: true })).status, 400);
+});
+
+test('the owner sees every player with email and online status; nobody else does', async () => {
+  const f = setup(); await f.call('player1', '/api/me'); await f.call('player2', '/api/me');
+  const list = (await f.call('owner1', '/api/admin/players')).data.players;
+  const p1 = list.find(x => x.uid === 'player1');
+  assert.equal(p1.email, 'player1@example.invalid'); assert.equal(p1.online, true); assert.equal(p1.name, 'player1');
+  const detail = (await f.call('owner1', '/api/admin/account?uid=player2')).data;
+  assert.equal(detail.info.email, 'player2@example.invalid'); assert.equal(detail.info.online, true);
+  // players who only exist in the username list (not signed in since this update) still appear, without an email
+  await f.env.ACCOUNTS.get('u:__names').fetch('https://acct/claim', { method: 'POST', body: JSON.stringify({ name: 'oldplayer', uid: 'old1' }) });
+  const old = (await f.call('owner1', '/api/admin/players')).data.players.find(x => x.uid === 'old1');
+  assert.equal(old.name, 'oldplayer'); assert.equal(old.email, ''); assert.equal(old.online, false);
+  assert.equal((await f.call('player1', '/api/ping', {})).status, 200);
+  assert.equal((await f.call('player1', '/api/admin/players')).status, 403);
+});
+
+test('only the owner may use a 1-2 letter username', async () => {
+  const f = setup(); await f.call('owner1', '/api/me'); await f.call('player1', '/api/me');
+  await f.call('owner1', '/api/admin/roles', { uid: 'player1', op: true, collab: false });
+  assert.equal((await f.call('player1', '/api/name', { name: 'R' })).status, 400);
+  assert.equal((await f.call('player1', '/api/name', { name: 'Ry' })).status, 400);
+  assert.equal((await f.call('owner1', '/api/name', { name: 'R' })).status, 200);
+  assert.equal((await f.call('owner1', '/api/me')).data.name, 'R');
+  assert.equal((await f.call('player1', '/api/name', { name: 'r' })).status, 400);
+  assert.equal((await f.call('owner1', '/api/name', { name: 'bad name' })).status, 400);
+});
+
+test('the owner can delete a bug report; others cannot', async () => {
+  const f = setup(); await f.call('player1', '/api/me');
+  await f.call('player1', '/api/reports', report());
+  const r = (await f.call('owner1', '/api/admin/reports')).data.reports[0];
+  assert.equal((await f.call('player1', '/api/admin/reports/delete', { id: r.id })).status, 403);
+  assert.equal((await f.call('admin1', '/api/admin/reports/delete', { id: r.id })).status, 403);
+  assert.equal((await f.call('owner1', '/api/admin/reports/delete', { id: 'nope' })).status, 400);
+  assert.equal((await f.call('owner1', '/api/admin/reports/delete', { id: r.id })).status, 200);
+  assert.equal((await f.call('owner1', '/api/admin/reports')).data.reports.length, 0);
+  assert.equal((await f.call('owner1', '/api/admin/reports/delete', { id: r.id })).status, 404);
 });
