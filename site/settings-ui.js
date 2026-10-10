@@ -9,6 +9,7 @@ function setTab(id) {
   document.querySelectorAll('#settings .set-pane').forEach(p => { p.hidden = p.dataset.pane !== id; });
   if (id === 'controls') renderKeybinds();
   if (id === 'account' && typeof renderAcctPane === 'function') renderAcctPane();
+  if (id === 'special' && typeof renderSpecialPane === 'function') renderSpecialPane();
 }
 document.querySelectorAll('#settings .set-tab').forEach(b => b.addEventListener('click', () => { SFX.play('ui'); setTab(b.dataset.tab); }));
 document.querySelectorAll('[data-open-settings]').forEach(b => b.addEventListener('click', () => setTab(SETUI.tab)));
