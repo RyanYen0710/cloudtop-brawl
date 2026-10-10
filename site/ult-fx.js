@@ -194,15 +194,7 @@ function drawUltStyle(g, view, t) {
         }
         break;
       }
-      case 'photo': {
-        if (k < FIN) {
-          const r = 80 - Math.min(1, k / 20) * 20; g.strokeStyle = '#ffd84a'; g.lineWidth = 4;
-          for (const [sx, sy] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) { g.beginPath(); g.moveTo(cx + sx * r, cy + sy * (r - 22)); g.lineTo(cx + sx * r, cy + sy * r); g.lineTo(cx + sx * (r - 22), cy + sy * r); g.stroke(); }
-          for (let i = 0; i < hits; i++) { const at = ufxHitAt(i, hits), p = (k - at) / 6; if (p < 0 || p > 1) continue; g.globalAlpha = 1 - p; g.fillStyle = '#ffffff'; g.beginPath(); g.arc(cx + (ufxSeed(i) - 0.5) * 120, cy - 60, 30 + p * 40, 0, Math.PI * 2); g.fill(); }
-          g.globalAlpha = 1;
-        }
-        break;
-      }
+      case 'photo': break;   // Master Chuang's polaroid is drawn in ult-remake.js
       case 'court': {
         for (let i = 0; i < hits; i++) {
           const at = ufxHitAt(i, hits), p = (k - (at - 12)) / 16; if (p < 0 || p > 1) continue;
