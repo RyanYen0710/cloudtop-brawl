@@ -42,10 +42,13 @@ function buildCfg() {
   });
   if (G.training) {
     slots.forEach(o => { if (o.type === 'cpu') { o.ctrl = { type: 'dummy', mode: o.dummy || 'stand' }; o.name = 'Dummy'; o.tag = 'DUMMY'; } });
-    return { time: 0, endless: true, training: true, stage: SETUP.stage < 0 ? Math.floor(Math.random() * STAGES.length) : SETUP.stage, stocks: 3, teams: false, slots };
+    return { time: 0, endless: true, training: true, stage: SETUP.stage < 0 ? randomStage() : SETUP.stage, stocks: 3, teams: false, slots };
   }
-  return { time: SETUP.time, stage: SETUP.stage < 0 ? Math.floor(Math.random() * STAGES.length) : SETUP.stage, stocks: SETUP.stocks, teams: SETUP.teams, slots };
+  return { time: SETUP.time, stage: SETUP.stage < 0 ? randomStage() : SETUP.stage, stocks: SETUP.stocks, teams: SETUP.teams, slots };
 }
+/* "Random stage": a normal stage, or during a seasonal event about half the time one of its maps (stages3.js) */
+function nowEvent() { return typeof curEventId === 'function' ? curEventId() : typeof eventNow === 'function' ? eventNow() : null; }
+function randomStage() { return typeof pickStage === 'function' ? pickStage(nowEvent()) : Math.floor(Math.random() * STAGES.length); }
 
 function startMatch() {
   if (G.mode === 'guest') return;
@@ -234,7 +237,7 @@ window.addEventListener('keydown', e => {
 /* ---------- attract-mode battle behind the menus ---------- */
 function newAttract() {
   const ids = ROSTER.map(c => c.id).sort(() => Math.random() - 0.5);
-  const cfg = { stage: Math.floor(Math.random() * STAGES.length), stocks: 99, teams: false, endless: true,
+  const cfg = { stage: randomStage(), stocks: 99, teams: false, endless: true,
     slots: [0, 1, 2, 3].map(i => ({ type: 'cpu', char: ids[i % ids.length], lvl: 6, team: 0, ctrl: { type: 'cpu' }, name: 'CPU', tag: '' })) };
   G.attract = makeGame(cfg);
 }
@@ -309,7 +312,7 @@ function draw() {
 }
 
 /* ---------- boot ---------- */
-{ const mc = document.getElementById('main-count'); if (mc) mc.textContent = ROSTER.length + ' fighters · ' + STAGES.length + ' stages · CPU levels 1–10'; }
+{ const mc = document.getElementById('main-count'); if (mc) mc.textContent = ROSTER.length + ' fighters · ' + STAGES.filter(s => !s.event).length + ' stages · CPU levels 1–10'; }
 setupTouch();
 show('main');
 initRoom();
