@@ -1,4 +1,3 @@
-
 'use strict';
 // Real Worker routes, signed Firebase-shaped JWTs, and isolated Durable Object storage. No live accounts.
 const assert = require('node:assert/strict');
