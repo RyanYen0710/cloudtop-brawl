@@ -9,7 +9,7 @@
 
 const XP = { xp: null, base: null, uid: undefined, matchXp: null, matchAt: 0, lastScreen: '', lastSlide: 0, log: [], busy: false, polled: 0, pending: 0 };
 /* the rewards along the Sky Road */
-const XP_ROAD = { 5: ['⚔', 'Ranked mode', 'coming soon'], 50: ['★', 'Professor Sprocket (fighter)', 'coming soon'] };
+const XP_ROAD = { 5: ['⚔', 'Ranked mode', ''], 50: ['★', 'Professor Sprocket (fighter)', 'coming soon'] };
 [100, 150, 200, 250, 300].forEach(l => { XP_ROAD[l] = ['★', 'New fighter', 'coming soon']; });
 
 const xpSigned = () => typeof acctSignedIn === 'function' && acctSignedIn() && ACCT.user && ACCT.profile;
@@ -126,7 +126,7 @@ function showSkyRoad() {
         road.appendChild(node);
       }
       setTimeout(() => { const h = road.querySelector('.here'); if (h) road.scrollLeft = h.offsetLeft - road.clientWidth / 2; }, 0);
-      box.appendChild(el('p', { class: 'muted xp-how', text: 'How to get XP: +1 a minute signed in · online match +10 (win +15, +1 per KO) · Vs CPU: the higher the CPU level, the more XP (losing to a level 8-10 CPU costs XP) · Boss Fight +5 (win +30 + the level). You never drop a level. Ranked (coming soon) gives the most.' }));
+      box.appendChild(el('p', { class: 'muted xp-how', text: 'How to get XP: +1 a minute signed in · online match +10 (win +15, +1 per KO) · Vs CPU: the higher the CPU level, the more XP (losing to a level 8-10 CPU costs XP) · Boss Fight +5 (win +30 + the level). Ranked gives the most: win +75, lose −20. You never drop a level.' }));
     } else {
       const list = el('ul', { class: 'xp-hist' }); box.appendChild(list);
       if (!XP.log.length) list.appendChild(el('li', { class: 'muted', text: 'No XP yet. Play a match!' }));
