@@ -9,7 +9,7 @@
 
 const XP = { xp: null, base: null, uid: undefined, matchXp: null, matchAt: 0, lastScreen: '', lastSlide: 0, log: [], busy: false, polled: 0, pending: 0 };
 /* the rewards along the Sky Road */
-const XP_ROAD = { 5: ['⚔', 'Ranked mode', ''], 50: ['★', 'Professor Sprocket (fighter)', 'coming soon'] };
+const XP_ROAD = { 5: ['⚔', 'Ranked mode', ''], 50: ['★', 'Professor Sprocket (fighter)', ''] };
 [100, 150, 200, 250, 300].forEach(l => { XP_ROAD[l] = ['★', 'New fighter', 'coming soon']; });
 // skins (skins.js) for every fighter
 if (typeof SKINS !== 'undefined') Object.keys(SKINS).forEach(id => { const s = SKINS[id]; if (s.level && !XP_ROAD[s.level]) XP_ROAD[s.level] = ['🎨', s.name + ' skin', '']; });
@@ -28,6 +28,7 @@ async function xpFetch() {
   try {
     const r = await acctApi('/api/xp'); XP.log = r.log || [];
     if (ACCT.profile) { if (r.evSkins) ACCT.profile.evSkins = r.evSkins; if (r.evPlays) ACCT.profile.evPlays = r.evPlays; }   // event skins you've kept
+    if (Array.isArray(r.unlocked) && typeof setUnlocked === 'function') { if (ACCT.profile) ACCT.profile.unlocked = r.unlocked; setUnlocked(r.unlocked); }   // e.g. Professor Sprocket at level 50
     xpSet(r.xp || 0); XP.polled = Date.now(); return r;
   }
   catch (e) { return null; }
