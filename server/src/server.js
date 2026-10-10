@@ -16,10 +16,12 @@
    - Roles (checked here on the server, never trusted from the browser):
        owner  = verified email in the private OWNER_EMAILS setting. Sees the Owner panel: every player (with email and
                 online status), bug reports, and gives the in-game roles below. Only the owner may use a 1-2 letter username.
-       op     = in-game role the owner gives (shown as the Admin panel). Sees every player (email, online status) and bug
-                reports, and can change any player's progress and fighters except the owner's. Never sees or changes roles.
+       admin  = verified email in the private TESTER_EMAILS setting (owner included). The Tester button and the Admin
+                panel: every player (email, online status) and bug reports, and can change any player's progress and
+                fighters except the owner's. Never sees or changes roles.
+       op     = in-game role the owner gives. Can change only their OWN Boss Fight level, wins and fighters
+                (Settings > Special). No Admin panel.
        collab = in-game label the owner gives. It has no powers.
-       tester = verified email in the private TESTER_EMAILS setting (owner included). Only the Tester button / test runs.
      In-game roles never give access to Cloudflare, Firebase or GitHub. All account changes are audited server-side. */
 
 const TICK = 1000 / 60;
@@ -83,6 +85,7 @@ const LIMITS = {
   auth: [[60000, 60], [86400000, 3000]],
   reports: [[60000, 2], [86400000, 10]],
   cpu: [[60000, 4], [86400000, 300]],   // Vs CPU results saved to the account (a match takes at least half a minute)
+  opSelf: [[60000, 6], [86400000, 100]],   // OP changes to their own account (Settings > Special)
   reportsIp: [[60000, 10], [86400000, 100]]
 };
 async function hit(env, key, kind) {
@@ -654,6 +657,24 @@ export default {
         await acct(env, BOARD, 'stat-add', { uid: u.uid, add: { cpuGames: 1, cpuWins: d.win ? 1 : 0, cpuKos: d.kos, cpuDeaths: d.falls } });
         return json({ ok: true }, 200, cors);
       }
+      /* OP role: change your OWN Boss Fight level, wins and unlocked fighters (Settings > Special). Never anyone else's. */
+      if (url.pathname === '/api/op/self' && req.method === 'POST') {
+        let d; try { d = await apiBody(req); } catch (e) { return json({ error: 'invalid' }, 400, cors); }
+        if (!u.verified) return json({ error: 'not-op' }, 403, cors);
+        const me = await acct(env, u.uid, 'get', {});
+        if (!(me.roles && me.roles.op)) return json({ error: 'not-op' }, 403, cors);
+        if (!Number.isInteger(d.beaten) || d.beaten < 0 || d.beaten > BOSS_LEVELS.length ||
+            !Number.isInteger(d.wins) || d.wins < 0 || d.wins > 1000000 || !Number.isInteger(d.revision) || d.revision < 0 ||
+            !Array.isArray(d.unlocked) || d.unlocked.length > ROSTER.length ||
+            !d.unlocked.every(id => typeof id === 'string' && ROSTER.some(c => c.id === id && c.locked && !c.hidden)))
+          return json({ error: 'invalid' }, 400, cors);
+        if (!(await hit(env, 'uid:' + u.uid, 'opSelf'))) return json({ error: 'slow-down' }, 429, cors);
+        const r = await acct(env, u.uid, 'admin-save', { beaten: d.beaten, wins: d.wins, unlocked: d.unlocked, revision: d.revision,
+          reason: 'Changed in Settings > Special (OP)', actor: { uid: u.uid, name: toUsername(u.name) } });
+        if (r.error) return json({ error: r.error }, r.error === 'conflict' ? 409 : 400, cors);
+        const p = r.profile;
+        return json({ beaten: p.beaten, wins: p.wins, unlocked: p.unlocked, revision: p.revision }, 200, cors);
+      }
       if (url.pathname === '/api/reports' && req.method === 'POST') {
         if (!u.verified) return json({ error: 'verify-email' }, 403, cors);
         let d; try { d = await apiBody(req); } catch (e) { return json({ error: 'invalid-report' }, 400, cors); }
@@ -672,15 +693,11 @@ export default {
         return json(result, 201, cors);
       }
       if (url.pathname.startsWith('/api/admin/')) {
-        /* owner: everything here. op (Admin panel): players, accounts and bug reports, but never roles or leaderboard edits,
-           and never the owner's account. Everyone else: nothing. */
+        /* owner: everything here. admin (an email in the private TESTER_EMAILS setting): players, accounts and bug reports,
+           but never roles or leaderboard edits, and never the owner's account. The OP role gives none of this. Everyone else: nothing. */
         const owner = isOwner(u, env);
-        if (!u.verified) return json({ error: 'not-admin' }, 403, cors);
-        if (!owner) {
-          if (url.pathname === '/api/admin/roles' || url.pathname.startsWith('/api/admin/board')) return json({ error: 'not-admin' }, 403, cors);
-          const me = await acct(env, u.uid, 'get', {});
-          if (!(me.roles && me.roles.op)) return json({ error: 'not-admin' }, 403, cors);
-        }
+        if (!u.verified || !isTester(u, env)) return json({ error: 'not-admin' }, 403, cors);
+        if (!owner && (url.pathname === '/api/admin/roles' || url.pathname.startsWith('/api/admin/board'))) return json({ error: 'not-admin' }, 403, cors);
         const hideRoles = r => { if (!owner && r && r.profile) { r.profile = Object.assign({}, r.profile); delete r.profile.roles; } return r; };
         const respond = r => json(r, r.error ? ({ 'not-found': 404, conflict: 409, 'owner-protected': 409 }[r.error] || 400) : 200, cors);
         const actor = { uid: u.uid, name: toUsername(u.name) };
