@@ -5,7 +5,7 @@
    (hidden), so every existing "change" listener and .value keeps working exactly as before.
    Checkboxes and sliders are restyled in CSS (index.html, "game-style controls"). */
 
-const GUI = { open: null };
+const GUI = { open: null, nextId: 0 };
 const SELECT_VALUE = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value');
 
 function guiClose() {
@@ -24,16 +24,21 @@ function gameSelect(sel) {
   sel.dataset.gui = '1';
   const btn = document.createElement('button');
   btn.type = 'button'; btn.className = 'gs-btn';
+  btn.id = 'game-select-' + (++GUI.nextId);
   btn.setAttribute('aria-haspopup', 'listbox'); btn.setAttribute('aria-expanded', 'false');
   const txt = document.createElement('span'); txt.className = 'gs-txt';
   const chev = document.createElement('span'); chev.className = 'gs-chev'; chev.setAttribute('aria-hidden', 'true'); chev.textContent = '▾';
   btn.append(txt, chev);
-  sel.classList.add('gs-native'); sel.tabIndex = -1; sel.setAttribute('aria-hidden', 'true');
-  sel.parentNode.insertBefore(btn, sel);   // the button comes first, so a wrapping <label> points at it
+  const labels = [...sel.labels];
+  sel.classList.add('gs-native'); sel.hidden = true; sel.tabIndex = -1; sel.setAttribute('aria-hidden', 'true');
+  sel.parentNode.insertBefore(btn, sel);
+  // Explicit labels must activate our button, never the hidden system selector.
+  labels.forEach(label => { label.htmlFor = btn.id; });
   const refresh = () => {
     txt.textContent = guiLabel(sel);
     btn.disabled = sel.disabled;
-    const name = sel.getAttribute('aria-label') || (sel.id && document.querySelector('label[for="' + sel.id + '"]') || {}).textContent;
+    const name = sel.getAttribute('aria-label') || labels.map(label => [...label.childNodes]
+      .filter(node => node !== btn && node !== sel).map(node => node.textContent).join(' ')).join(' ');
     if (name) btn.setAttribute('aria-label', name.trim() + ': ' + guiLabel(sel));
   };
   // code that sets sel.value directly (no event) still updates the button
@@ -48,6 +53,8 @@ function gameSelect(sel) {
     guiClose();
     const list = document.createElement('div');
     list.className = 'gs-list'; list.setAttribute('role', 'listbox');
+    list.id = btn.id + '-list'; btn.setAttribute('aria-controls', list.id);
+    list.setAttribute('aria-label', sel.getAttribute('aria-label') || labels.map(label => label.textContent.trim()).join(' ') || 'Choose an option');
     [...sel.options].forEach((o, i) => {
       const it = document.createElement('button');
       it.type = 'button'; it.className = 'gs-opt' + (i === sel.selectedIndex ? ' sel' : '');
@@ -60,16 +67,21 @@ function gameSelect(sel) {
       const items = [...list.querySelectorAll('.gs-opt:not([disabled])')], at = items.indexOf(document.activeElement);
       if (e.key === 'ArrowDown') { e.preventDefault(); (items[at + 1] || items[0]).focus(); }
       else if (e.key === 'ArrowUp') { e.preventDefault(); (items[at - 1] || items[items.length - 1]).focus(); }
-      else if (e.key === 'Escape' || e.key === 'Tab') { e.preventDefault(); guiClose(); btn.focus(); }
+      else if (e.key === 'Escape') { e.preventDefault(); guiClose(); btn.focus(); }
+      else if (e.key === 'Tab') { guiClose(); btn.focus(); }   // allow normal forward/backward tab navigation
+      else if (e.key === 'Home' || e.key === 'End') { e.preventDefault(); (e.key === 'Home' ? items[0] : items[items.length - 1])?.focus(); }
       e.stopPropagation();   // keep the game's own keys (pause, menus) out of the list
     });
     document.body.appendChild(list);
     // place it under the button (or above, if there's no room below)
-    const r = btn.getBoundingClientRect(), h = Math.min(list.scrollHeight, 300);
+    const r = btn.getBoundingClientRect();
+    const width = Math.min(Math.max(r.width, 180), window.innerWidth - 16);
+    list.style.width = width + 'px';
+    const h = Math.min(list.scrollHeight, 300, window.innerHeight - 16);
+    list.style.maxHeight = h + 'px';
     const below = window.innerHeight - r.bottom - 8;
-    list.style.left = Math.max(8, Math.min(r.left, window.innerWidth - Math.max(r.width, 180) - 8)) + 'px';
-    list.style.minWidth = r.width + 'px';
-    list.style.top = (below >= h || below >= r.top ? r.bottom + 4 : r.top - h - 4) + 'px';
+    list.style.left = Math.max(8, Math.min(r.left, window.innerWidth - width - 8)) + 'px';
+    list.style.top = Math.max(8, Math.min(below >= h || below >= r.top ? r.bottom + 4 : r.top - h - 4, window.innerHeight - h - 8)) + 'px';
     GUI.open = { list, btn };
     btn.setAttribute('aria-expanded', 'true');
     const cur = list.querySelector('.gs-opt.sel') || list.querySelector('.gs-opt'); if (cur) { cur.focus(); cur.scrollIntoView({ block: 'nearest' }); }
@@ -78,7 +90,8 @@ function gameSelect(sel) {
   btn.addEventListener('keydown', e => {
     if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); e.stopPropagation(); open(); }
   });
-  new MutationObserver(refresh).observe(sel, { childList: true, attributes: true, attributeFilter: ['disabled'] });
+  new MutationObserver(() => { if (GUI.open?.btn === btn) guiClose(); refresh(); }).observe(sel,
+    { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ['disabled', 'selected', 'label', 'aria-label'] });
   refresh();
 }
 
@@ -107,16 +120,23 @@ function guiEnhance(root) {
 /* a game-style "are you sure?" box (instead of the browser's own pop-up). Resolves true/false. */
 function gameConfirm(text, okText) {
   return new Promise(resolve => {
+    guiClose();
+    const previous = document.activeElement;
     const back = document.createElement('div'); back.className = 'gc-back';
     const box = document.createElement('div'); box.className = 'gc-box card'; box.setAttribute('role', 'alertdialog'); box.setAttribute('aria-modal', 'true');
     const msg = document.createElement('p'); msg.className = 'gc-msg'; msg.textContent = text;   // textContent: never treated as HTML
+    msg.id = 'game-confirm-' + (++GUI.nextId); box.setAttribute('aria-labelledby', msg.id);
     const row = document.createElement('div'); row.className = 'gc-row';
     const no = document.createElement('button'); no.type = 'button'; no.className = 'btn'; no.textContent = 'Cancel';
     const yes = document.createElement('button'); yes.type = 'button'; yes.className = 'btn start'; yes.textContent = okText || 'Yes, save';
     row.append(no, yes); box.append(msg, row); back.appendChild(box); document.body.appendChild(back);
-    const done = v => { back.remove(); resolve(v); };
+    const done = v => { back.remove(); if (previous?.isConnected) previous.focus(); resolve(v); };
     no.addEventListener('click', () => done(false)); yes.addEventListener('click', () => done(true));
-    back.addEventListener('keydown', e => { if (e.key === 'Escape') { e.preventDefault(); done(false); } e.stopPropagation(); });
+    back.addEventListener('keydown', e => {
+      if (e.key === 'Escape') { e.preventDefault(); done(false); }
+      else if (e.key === 'Tab') { e.preventDefault(); (document.activeElement === yes ? no : yes).focus(); }
+      e.stopPropagation();
+    });
     back.addEventListener('click', e => { if (e.target === back) done(false); });
     yes.focus();
   });
@@ -126,4 +146,7 @@ document.addEventListener('pointerdown', e => { if (GUI.open && !GUI.open.list.c
 window.addEventListener('resize', guiClose);
 document.addEventListener('scroll', e => { if (GUI.open && !GUI.open.list.contains(e.target)) guiClose(); }, true);
 guiEnhance(document.body);
-new MutationObserver(ms => ms.forEach(m => m.addedNodes.forEach(n => { if (n.nodeType === 1) guiEnhance(n); }))).observe(document.body, { childList: true, subtree: true });
+new MutationObserver(ms => {
+  if (GUI.open && (!GUI.open.btn.isConnected || GUI.open.btn.closest('[hidden]'))) guiClose();
+  ms.forEach(m => m.addedNodes.forEach(n => { if (n.nodeType === 1 && n.isConnected) guiEnhance(n); }));
+}).observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['hidden'] });

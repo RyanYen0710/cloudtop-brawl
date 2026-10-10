@@ -58,7 +58,7 @@ function renderAdmin() {
     el('h2', { text: 'Admin panel' }), el('span', { class: 'ad-badge', text: 'PRIVATE ACCESS' })]));
   wrap.appendChild(el('p', { class: 'muted', text: 'Grant fighters and change saved account progress. Changes here are permanent and recorded in the activity log.' }));
   const tabs = el('div', { class: 'ad-tabs', role: 'tablist', 'aria-label': 'Admin tools' });
-  [['accounts', 'Player accounts'], ['reports', 'Bug reports']].forEach(([id, title]) => {
+  [['accounts', 'Player accounts'], ['presets', 'Test presets'], ['reports', 'Bug reports']].forEach(([id, title]) => {
     tabs.appendChild(el('button', { type: 'button', id: 'ad-tab-' + id, role: 'tab', class: 'btn' + (ADMIN.tab === id ? ' sel' : ''),
       'aria-selected': String(ADMIN.tab === id), 'aria-controls': 'ad-pane', text: title, on: { click: () => {
         ADMIN.tab = id; ADMIN.message = ''; renderAdmin(); if (id === 'reports' && !ADMIN.loaded) loadAdminReports(false);
@@ -67,7 +67,39 @@ function renderAdmin() {
   wrap.append(tabs, el('p', { id: 'ad-msg', role: 'status', 'aria-live': 'polite', class: 'ad-message', text: ADMIN.message }));
   const pane = el('div', { id: 'ad-pane', role: 'tabpanel', 'aria-labelledby': 'ad-tab-' + ADMIN.tab }); wrap.appendChild(pane);
   if (ADMIN.tab === 'accounts') renderAdminAccount(pane);
+  else if (ADMIN.tab === 'presets') renderAdminPresets(pane);
   else renderAdminReports(pane);
+}
+function runTestPreset(id) {
+  if (!isTesterAcct()) { toast('Tester access is required for test presets.'); return; }
+  setTester(true);
+  if (id === 'training') { startTrainingSetup(); return; }
+  if (id === 'boss-first' || id === 'boss-last') {
+    BOSS.sel = id === 'boss-last' ? BOSS_LEVELS.length : 1;
+    BOSS.pick = 'random'; BOSS.result = null; showBoss(); return;
+  }
+  G.mode = 'solo'; G.training = false; SETUP.slots = defaultSlots('solo');
+  SETUP.slots[0].char = 'titan'; SETUP.slots[1].char = 'random';
+  SETUP.slots[1].lvl = id === 'cpu-10' ? 10 : 5;
+  SETUP.stage = -1; SETUP.stocks = 3; SETUP.time = 5; SETUP.edit = 0; SETUP.teams = false;
+  showSetup();
+}
+function renderAdminPresets(pane) {
+  pane.appendChild(el('p', { class: 'muted', text: 'Open a test setup, choose fighters using the game tiles, then start. Boss test results never save to account progress.' }));
+  const grid = el('div', { class: 'ad-presets' }); pane.appendChild(grid);
+  const presets = [
+    ['CPU level 5', 'Titan Ape vs a level 5 CPU on a random stage.', 'cpu-5'],
+    ['CPU level 10', 'Titan Ape vs a level 10 CPU on a random stage.', 'cpu-10'],
+    ['Training dummy', 'Open Training Lab with its standing dummy.', 'training'],
+    ['Boss Fight · first level', 'Open the first Boss Fight level in test mode.', 'boss-first'],
+    ['Boss Fight · final level', 'Open the final Boss Fight level in test mode.', 'boss-last']
+  ];
+  presets.forEach(([title, description, id]) => {
+    const card = el('article', { class: 'card ad-card ad-preset' });
+    card.append(el('h3', { text: title }), el('p', { class: 'muted', text: description }),
+      adminButton('Open preset', () => runTestPreset(id), 'btn'));
+    grid.appendChild(card);
+  });
 }
 function adminMessage(text) { ADMIN.message = text; const p = document.getElementById('ad-msg'); if (p) p.textContent = text; }
 function renderAdminAccount(pane) {
@@ -111,12 +143,23 @@ function renderAdminAccount(pane) {
     const reason = el('input', { required: '', minlength: '5', maxlength: '200', placeholder: 'Why are you changing this account?' });
     edit.append(el('h4', { class: 'ad-sec', text: 'Progress' }), el('div', { class: 'ad-row' }, [adminField('Levels cleared', beaten), adminField('Boss wins', wins)]));
     const grants = el('div', { class: 'ad-grants' });
-    ROSTER.filter(c => c.locked).forEach(c => {
-      const check = el('input', { type: 'checkbox', value: c.id }); check.checked = p.unlocked.includes(c.id);
-      grants.appendChild(el('label', {}, [check, el('span', { text: c.name })]));
+    const syncGrants = () => grants.querySelectorAll('button').forEach(tile => {
+      const on = tile.nextElementSibling.checked;
+      tile.classList.toggle('sel', on); tile.setAttribute('aria-pressed', String(on));
+      tile.querySelector('.ad-grant-state').textContent = on ? 'Selected' : 'Not selected';
     });
+    ROSTER.filter(c => c.locked).forEach(c => {
+      const check = el('input', { type: 'checkbox', value: c.id, hidden: '', tabindex: '-1', 'aria-hidden': 'true' }); check.checked = p.unlocked.includes(c.id);
+      const tile = adminButton('', () => { check.checked = !check.checked; syncGrants(); SFX.play('ui'); }, 'tile ad-grant');
+      tile.setAttribute('aria-label', 'Grant ' + c.name);
+      const portrait = el('canvas', { class: 'tile-cv', 'aria-hidden': 'true' });
+      tile.append(portrait, el('span', { class: 'tile-name', text: c.name }), el('span', { class: 'ad-grant-state' }));
+      grants.append(tile, check);
+      requestAnimationFrame(() => drawPortrait(portrait, c.id));
+    });
+    syncGrants();
     edit.append(el('h4', { class: 'ad-sec', text: 'Fighter grants' }), grants, el('p', { class: 'muted', text: 'Normal fighters are always available. Bosses earned by the selected progress stay unlocked.' }));
-    const checks = value => grants.querySelectorAll('input').forEach(c => { c.checked = value; });
+    const checks = value => { grants.querySelectorAll('input').forEach(c => { c.checked = value; }); syncGrants(); };
     edit.appendChild(el('div', { class: 'ad-actions' }, [adminButton('Grant every locked fighter', () => checks(true)),
       adminButton('Clear selected grants', () => checks(false)), adminButton('Stage progress reset', () => { beaten.value = '0'; wins.value = '0'; checks(false); })]));
     const save = el('button', { type: 'submit', class: 'btn start', text: 'Review and save changes' });

@@ -41,6 +41,10 @@ email in a signed Firebase token; client-supplied roles cannot grant access.
   409 rather than overwriting newer boss progress or another admin's changes.
   Earned chapter fighters are kept according to the selected progress. Creator
   accounts cannot be reset or have their automatic unlocks removed.
+- **Admin panel / Test presets:** open a Titan Ape vs level 5 or level 10 CPU
+  setup on a random stage, Training Lab, or the first/final Boss Fight level.
+  Choose fighters using the game's portrait tiles before starting. These use
+  the existing tester permission and Boss test results never save to progress.
 - **Admin panel / Bug reports:** verified players submit a title, description, optional
   reproduction steps, category and impact. The server adds their authenticated
   identity and stores reports privately. Only admins can read the inbox, add

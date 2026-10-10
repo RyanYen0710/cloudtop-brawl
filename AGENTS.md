@@ -25,6 +25,10 @@ Every change goes through a pull request that Ryan approves. Read this whole fil
    normal roster but below Legend Yen.
 9. If something is unclear or risky (deleting features, changing accounts, changing how online play works),
    stop and ask in the pull request instead of guessing.
+10. **Use the game's UI, not the operating system's UI.** Keep menus, admin/testing tools, fighter pickers,
+    and confirmations in the game's fonts, colors, buttons and portrait tiles. Reuse `site/gameui.js`
+    for dropdowns, number controls and confirmations; never expose native select popups or use browser
+    `alert`, `confirm` or `prompt` for game actions. Check dynamically created menus and keyboard/touch input too.
 
 ## Project layout
 ```
