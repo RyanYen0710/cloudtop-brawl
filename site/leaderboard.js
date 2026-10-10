@@ -49,7 +49,7 @@ function lbRecordCpu(row) {
     // the XP depends on the strongest CPU you faced (level 1 to 10)
     const cpus = ((typeof G !== 'undefined' && G.cfg && G.cfg.slots) || []).filter(s => s.type === 'cpu');
     const lvl = Math.max(1, Math.min(10, cpus.reduce((m, s) => Math.max(m, s.lvl | 0), 0) || 5));
-    acctApi('/api/cpu-result', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ win: !!row.win, kos: Math.min(50, row.kos | 0), falls: Math.min(50, row.falls | 0), lvl }) }).catch(() => {});
+    acctApi('/api/cpu-result', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ win: !!row.win, kos: Math.min(50, row.kos | 0), falls: Math.min(50, row.falls | 0), lvl, event: typeof eventMatchId === 'function' ? eventMatchId(G.cfg) : undefined }) }).catch(() => {});
     return;
   }
   const s = lbCpuStats();
