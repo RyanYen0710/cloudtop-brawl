@@ -1,0 +1,13 @@
+/* ===== skins: the row on the fighter card ===== */
+.skins{margin-top:10px;padding-top:10px;border-top:1px solid var(--line)}
+.skin-h{display:flex;justify-content:space-between;align-items:baseline;font:700 12px var(--ui);letter-spacing:.14em;text-transform:uppercase;color:var(--gold);margin-bottom:6px}
+.skin-h .muted{letter-spacing:0;text-transform:none}
+.skin-row{display:flex;flex-wrap:wrap;gap:6px}
+.skin-sw{display:flex;flex-direction:column;align-items:center;gap:3px;width:58px;padding:5px 2px;border-radius:8px;background:#221d4a;border:2px solid var(--line2);color:var(--ink)}
+.skin-sw:hover:not(.locked),.skin-sw:focus-visible{border-color:var(--gold)}
+.skin-sw.on{border-color:var(--gold);box-shadow:0 0 0 2px rgba(255,181,71,.3)}
+.skin-dot{display:grid;place-items:center;width:28px;height:28px;border-radius:50%;background:var(--sw);border:2px solid rgba(255,255,255,.35);font-size:12px}
+.skin-sw small{font:700 10px var(--ui);line-height:1.1;text-align:center;max-width:54px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.skin-sw.locked{opacity:.5}
+.skin-sw.locked .skin-dot{filter:grayscale(.7)}
+.skin-note{margin:8px 0 0;font:600 12px var(--ui);color:#fff3c4}
