@@ -1,13 +1,14 @@
 'use strict';
 /* ===== CLOUDTOP BRAWL — picking skins =====
-   In character select, the card for your fighter shows a row of skins. Pick one and that fighter wears it
-   in every mode (online players see it too). Locked skins say how to unlock them. */
+   In character select, the card for your fighter (or any fighter you own that you point at) shows a row of skins,
+   each one a little picture of that fighter wearing it. Pick one and that fighter wears it in every mode (online
+   players see it too). Locked skins are gray and say how to unlock them. The Inventory (shop.js) can equip them too. */
 
 const SKINSEL = (() => { try { return JSON.parse(loadLocal('cb.skins') || '{}') || {}; } catch (e) { return {}; } })();
 function myProf() {
   const p = (typeof ACCT !== 'undefined' && ACCT.profile) || {};
   const xp = typeof XP !== 'undefined' && XP.xp != null ? XP.xp : p.xp || 0;
-  return skinProf({ xp, evSkins: p.evSkins }, !!p.owner);
+  return skinProf({ xp, evSkins: p.evSkins, shopSkins: p.shopSkins }, !!p.owner);
 }
 function mySkinEvent() { return typeof nowEvent === 'function' ? nowEvent() : typeof eventNow === 'function' ? eventNow() : null; }
 /* the skin you picked for this fighter, if you can still wear it */
@@ -20,6 +21,7 @@ function setMySkin(charId, id) {
 }
 function skinLockText(s) {
   if (s.level) return 'Unlocks at level ' + s.level + ' on the Sky Road';
+  if (s.shop) return 'In the shop for ' + s.shop.toLocaleString() + ' coins';
   const e = typeof EVENTS !== 'undefined' && EVENTS[s.event];
   return 'Comes back during the ' + (e ? e.name : s.event) + ' event';
 }
@@ -29,22 +31,25 @@ function skinRow(card, charId) {
   const prof = myProf(), ev = mySkinEvent(), cur = mySkin(charId);
   const row = el('div', { class: 'skin-row', role: 'radiogroup', 'aria-label': 'Skin for ' + CHAR[charId].name });
   const pick = id => { SFX.play('ui'); setMySkin(charId, id); card.dataset.id = ''; if (typeof renderSetup === 'function') renderSetup(); else renderStatCard(); const t = document.querySelector('#roster .tile[data-id="' + charId + '"] canvas'); if (t) drawPortrait(t, charId, { skin: mySkin(charId) }); };
-  const sw = (id, name, bg, ok, title) => {
+  const sw = (id, name, ok, title) => {
     const on = (id || '') === cur;
-    const b = el('button', { type: 'button', role: 'radio', 'aria-checked': String(on), class: 'skin-sw' + (on ? ' on' : '') + (ok ? '' : ' locked'), title, 'aria-label': name + (ok ? '' : ' (locked: ' + title + ')'), style: '--sw:' + bg });
-    b.appendChild(el('span', { class: 'skin-dot', 'aria-hidden': 'true', text: ok ? '' : '🔒' }));
+    const b = el('button', { type: 'button', role: 'radio', 'aria-checked': String(on), class: 'skin-sw' + (on ? ' on' : '') + (ok ? '' : ' locked'), title, 'aria-label': name + (ok ? '' : ' (locked: ' + title + ')') });
+    const cv = el('canvas', { class: 'skin-cv', 'aria-hidden': 'true' });
+    b.appendChild(cv);
+    if (!ok) b.appendChild(el('span', { class: 'skin-lock', 'aria-hidden': 'true', text: '🔒' }));
     b.appendChild(el('small', { text: name }));
     if (ok) b.addEventListener('click', () => pick(id)); else b.addEventListener('click', () => toast(name + ': ' + title));
     row.appendChild(b);
+    requestAnimationFrame(() => drawPortrait(cv, charId, { skin: id }));   // the whole fighter wearing it
   };
-  sw('', 'Classic', 'linear-gradient(135deg,' + CHAR[charId].look.body + ',' + CHAR[charId].look.accent + ')', true, 'The normal look');
-  // the event skin first while its event is on, then the Sky Road skins, then other event skins you've kept
+  sw('', 'Classic', true, 'The normal look');
+  // the event skin first while its event is on, then the Sky Road skins, then other event skins and shop skins you own
   const order = SKIN_IDS.slice().sort((a, b) => (SKINS[b].event === ev) - (SKINS[a].event === ev));
   order.forEach(id => {
     const s = SKINS[id], ok = skinAllowed(prof, id, ev);
     if (s.event && !ok && s.event !== ev) return;   // other events' skins only show once you've kept them
-    const bg = s.prism ? 'conic-gradient(#ff6b6b,#ffd35c,#6fe39a,#46e0ff,#c8a8ff,#ff6b6b)' : 'linear-gradient(135deg,' + s.pal[0] + ',' + s.pal[1] + ' 55%,' + s.pal[2] + ')';
-    sw(id, s.name, bg, ok, ok ? s.name + ' skin' + (s.event ? ' (' + ((typeof EVENTS !== 'undefined' && EVENTS[s.event]) ? EVENTS[s.event].name : s.event) + ')' : '') : skinLockText(s));
+    if (s.shop && !ok) return;   // shop skins show once you've bought them
+    sw(id, s.name, ok, ok ? s.name + ' skin' + (s.event ? ' (' + ((typeof EVENTS !== 'undefined' && EVENTS[s.event]) ? EVENTS[s.event].name : s.event) + ')' : '') : skinLockText(s));
   });
   const box = el('div', { class: 'skins' }, [el('div', { class: 'skin-h' }, [el('span', { text: 'Skin' }), el('span', { class: 'muted', text: cur ? SKINS[cur].name : 'Classic' })]), row]);
   // the event skin: wear it during the event, keep it after 3 matches
