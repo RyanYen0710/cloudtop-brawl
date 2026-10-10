@@ -411,6 +411,38 @@ export class Accounts {
       await tx.put('profile', p);
       return json({ profile: p });
     }
+    /* XP (the Sky Road): only the server adds it. You never drop below the start of your current level. */
+    if (op === 'xp-add') {
+      if (!stored) return json({ error: 'not-found' }, 404);
+      const before = p.xp || 0, floor = xpTotal(xpLevel(before).level);
+      p.xp = Math.max(floor, Math.min(XP_CAP, before + (d.amount | 0)));
+      const amt = p.xp - before;
+      if (amt) {
+        await tx.put('profile', p);
+        await tx.put('xplog:' + newestKey(), { at: Date.now(), amt, why: String(d.why || '').slice(0, 60), xp: p.xp });
+        if (Math.random() < 0.05) {   // keep the newest 200 entries of the XP history
+          const all = [...(await tx.list({ prefix: 'xplog:', limit: 400 })).keys()];
+          for (const k of all.slice(200)) await tx.delete(k);
+        }
+      }
+      return json({ xp: p.xp, amt });
+    }
+    if (op === 'xp-get') {
+      const log = await tx.list({ prefix: 'xplog:', limit: Math.min(200, d.limit || 100) });
+      return json({ xp: p.xp || 0, log: [...log.values()] });
+    }
+    /* Admin / Owner panel: set someone's level (their XP goes to the start of that level). The owner's account only by the owner. */
+    if (op === 'xp-set') {
+      if (!stored) return json({ error: 'not-found' }, 404);
+      if (p.owner && !d.byOwner) return json({ error: 'owner-protected' }, 409);
+      const prevXp = p.xp || 0, before = xpLevel(prevXp).level;
+      p.xp = xpTotal(d.level); p.revision = (p.revision || 0) + 1;
+      const same = { beaten: p.beaten, wins: p.wins, unlocked: p.unlocked.slice() };
+      await tx.put('audit:' + newestKey(), { at: Date.now(), actor: d.actor, reason: 'Level ' + before + ' → ' + d.level, before: same, after: same });
+      await tx.put('xplog:' + newestKey(), { at: Date.now(), amt: p.xp - prevXp, why: 'Level set to ' + d.level + ' by ' + ((d.actor && d.actor.name) || 'an admin'), xp: p.xp, set: true });
+      await tx.put('profile', p);
+      return json({ profile: p });
+    }
     if (op === 'get') {
       let dirty = false;
       if (!p.name && d.name && NAME_RE.test(d.name)) { p.name = d.name; dirty = true; }
@@ -680,6 +712,7 @@ export class Room {
       if (run.uid) acct(this.env, BOARD, 'stat-add', { uid: run.uid, name: run.name,
         add: { games: 1, bossGames: 1, wins: win ? 1 : 0, losses: win ? 0 : 1, bossWins: win ? 1 : 0, kos: me.kos | 0, deaths: me.falls | 0 },
         level: win ? run.level : 0 }).catch(() => {});
+      if (run.uid) acct(this.env, run.uid, 'xp-add', { amount: win ? 30 + run.level : 5, why: 'Boss Fight level ' + run.level + (win ? ' win' : '') }).catch(() => {});
       (win ? acct(this.env, run.uid, 'beat', { level: run.level }) : acct(this.env, run.uid, 'get', {}))
         .then(p => {
           const bossRes = { gid: run.gid, win, level: run.level, beaten: p.beaten | 0, unlocked: p.unlocked || [] };
@@ -702,6 +735,8 @@ export class Room {
         counted.add(uid);
         acct(this.env, BOARD, 'stat-add', { uid, name: h.name || (pc && pc.pname) || '',
           add: { games: 1, wins: r.win ? 1 : 0, losses: !r.win && g.winTid !== null ? 1 : 0, kos: r.kos | 0, deaths: r.falls | 0 } }).catch(() => {});
+        // XP: +10 for playing, +15 more for a win, +1 per KO
+        acct(this.env, uid, 'xp-add', { amount: 10 + (r.win ? 15 : 0) + Math.min(20, r.kos | 0), why: 'Online match' + (r.win ? ' win' : '') }).catch(() => {});
       });
       this.broadcast({ from: 'srv', d: { res: this.srv.res } });
       clearInterval(this.timer); this.timer = null;
@@ -753,23 +788,33 @@ export default {
         const roles = p.roles || {};
         const seen = await acct(env, ADMIN_STORE, 'player-seen', { uid: u.uid, name: p.name || '', email: u.verified ? u.email : '', owner: isOwner(u, env), roles });
         if (seen.played > 0) await acct(env, BOARD, 'stat-add', { uid: u.uid, name: p.name || '', add: { onlineMs: seen.played } });
+        const mins = Math.round(seen.played / 60000);   // XP: +1 per minute signed in
+        if (mins > 0) { const x = await acct(env, u.uid, 'xp-add', { amount: mins, why: 'Time online' }); if (x && x.xp != null) p.xp = x.xp; }
         return json(Object.assign({}, p, { owner: isOwner(u, env), tester: isTester(u, env), op: !!roles.op, collab: !!roles.collab }), 200, cors);
       }
       /* "I'm still playing" ping (every few minutes while the game is open) -> online status in the Owner panel */
       if (url.pathname === '/api/ping' && req.method === 'POST') {
         const seen = await acct(env, ADMIN_STORE, 'player-seen', { uid: u.uid });
         if (seen.played > 0) await acct(env, BOARD, 'stat-add', { uid: u.uid, name: seen.name, add: { onlineMs: seen.played } });
-        return json({ ok: true }, 200, cors);
+        const mins = Math.round(seen.played / 60000);   // XP: +1 per minute signed in
+        const x = mins > 0 ? await acct(env, u.uid, 'xp-add', { amount: mins, why: 'Time online' }) : null;
+        return json({ ok: true, xp: x && x.xp != null ? x.xp : undefined }, 200, cors);
       }
       /* a finished Vs CPU match, saved to the player's own stats (never the leaderboard) */
       if (url.pathname === '/api/cpu-result' && req.method === 'POST') {
         let d; try { d = await apiBody(req); } catch (e) { return json({ error: 'invalid' }, 400, cors); }
-        if (typeof d.win !== 'boolean' || !Number.isInteger(d.kos) || d.kos < 0 || d.kos > 50 || !Number.isInteger(d.falls) || d.falls < 0 || d.falls > 50)
+        if (typeof d.win !== 'boolean' || !Number.isInteger(d.kos) || d.kos < 0 || d.kos > 50 || !Number.isInteger(d.falls) || d.falls < 0 || d.falls > 50 ||
+            (d.lvl !== undefined && !(Number.isInteger(d.lvl) && d.lvl >= 1 && d.lvl <= 10)))
           return json({ error: 'invalid' }, 400, cors);
         if (!(await hit(env, 'uid:' + u.uid, 'cpu'))) return json({ error: 'slow-down' }, 429, cors);
         await acct(env, BOARD, 'stat-add', { uid: u.uid, add: { cpuGames: 1, cpuWins: d.win ? 1 : 0, cpuKos: d.kos, cpuDeaths: d.falls } });
-        return json({ ok: true }, 200, cors);
+        // XP by CPU level L: a win gives 4 x L; a loss gives L, but losing to a level 8, 9 or 10 CPU costs 5, 10 or 15
+        const L = d.lvl || 5, amount = d.win ? 4 * L : L >= 8 ? -(L - 7) * 5 : L;
+        const x = await acct(env, u.uid, 'xp-add', { amount, why: 'Vs CPU level ' + L + (d.win ? ' win' : '') });
+        return json({ ok: true, xp: x && x.xp != null ? x.xp : undefined }, 200, cors);
       }
+      /* your XP and the history behind it (the Sky Road) */
+      if (url.pathname === '/api/xp' && req.method === 'GET') return json(await acct(env, u.uid, 'xp-get', { limit: 100 }), 200, cors);
       /* claim a season title you won. The Overall #1 writes their own title (letters, numbers, spaces, up to 20). */
       if (url.pathname === '/api/season/claim' && req.method === 'POST') {
         let d; try { d = await apiBody(req); } catch (e) { return json({ error: 'invalid' }, 400, cors); }
@@ -858,6 +903,13 @@ export default {
             .map(x => owner ? x : Object.assign({}, x, { roles: undefined, owner: undefined }))   // admins never see roles
             .sort((a, b) => (owner ? roleRank(a) - roleRank(b) : 0) || (b.online - a.online) || (b.seen - a.seen) || a.name.localeCompare(b.name));
           return json({ players }, 200, cors);
+        }
+        /* Admin and Owner panels: set a player's level (Sky Road). Admins can't change the owner. */
+        if (url.pathname === '/api/admin/level' && req.method === 'POST') {
+          let d; try { d = await apiBody(req); } catch (e) { return json({ error: 'invalid' }, 400, cors); }
+          const uid = await adminTarget(env, d);
+          if (!uid || !Number.isInteger(d.level) || d.level < 1 || d.level > XP_MAX_LEVEL) return json({ error: 'invalid' }, 400, cors);
+          return respond(await acct(env, uid, 'xp-set', { level: d.level, byOwner: owner, actor }).then(hideRoles));
         }
         if (url.pathname === '/api/admin/roles' && req.method === 'POST') {
           let d; try { d = await apiBody(req); } catch (e) { return json({ error: 'invalid' }, 400, cors); }
