@@ -592,7 +592,7 @@ function guestView() {
     NET.vfGid = lb.gid;
     NET.vf = lb.fm.map(m => {
       const c = CHAR[m[1]] || ROSTER[0], ph = physFor(c), bs = m[7] ? BOSS_SIZE : 1;
-      return { isBoss: !!m[7], slot: m[0], c, ph, W: ph.W * bs, H: ph.H * bs, tid: m[2], name: m[3], color: m[4], tag: m[5], skin: typeof SKINS !== 'undefined' && SKINS[m[8]] ? m[8] : '', x: 800, y: 400, face: 1, pose: 'idle', pt: 0, dmg: 0, stocks: lb.sk, anim: 0 };
+      return { isBoss: !!m[7], slot: m[0], c, ph, W: ph.W * bs, H: ph.H * bs, tid: m[2], name: m[3], color: m[4], tag: m[5], skin: typeof SKINS !== 'undefined' && SKINS[m[8]] ? m[8] : '', evb: !!m[9], x: 800, y: 400, face: 1, pose: 'idle', pt: 0, dmg: 0, stocks: lb.sk, anim: 0 };
     });
   }
   if (s) {
