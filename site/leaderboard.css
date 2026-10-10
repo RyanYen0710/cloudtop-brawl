@@ -113,3 +113,45 @@
 .lb-edit-f{display:flex;flex-direction:column;gap:6px;font:700 12px var(--ui)}
 .lb-edit-f input{width:100%;box-sizing:border-box;padding:8px;border:1px solid #6b6090;border-radius:8px;background:#211b39;color:#fff;font:inherit}
 @media (max-width:600px){.lb-row.own{grid-template-columns:auto 30px minmax(0,1fr) auto}.lb-row.own .lb-det{grid-column:2/5}}
+/* seasons: This season / All time, titles next to names */
+.lb-views{display:flex;gap:6px;flex-wrap:wrap}
+.lb-view{font:700 13px var(--ui);color:#d8d0ff;background:rgba(255,255,255,.06);border:2px solid #4a4185;border-radius:999px;padding:5px 14px;cursor:pointer}
+.lb-view.on{color:#120d24;background:#ffd35c;border-color:#fff3c4}
+.lb-view:focus-visible{outline:2px solid #fff;outline-offset:2px}
+.lb-season-line{margin:0;font:700 13px var(--ui);color:#9fd8ff}
+.lb-title-tag{display:inline-block;margin-left:6px;padding:1px 7px;border-radius:999px;background:linear-gradient(90deg,#ffd35c,#ff9f43);color:#2a1600;font:800 11px var(--ui);font-style:normal;letter-spacing:.02em;vertical-align:middle;white-space:nowrap}
+.lb-pname .lb-title-tag{display:table;margin:3px auto 0}
+.lb-edit-title{margin:-4px 0 10px}
+/* the season chip next to BRAWL, and the Claim button with its red dot */
+.season-chip{display:inline-flex;flex-direction:column;gap:2px;margin:0 0 6px;padding:5px 12px;border-radius:12px;background:rgba(20,14,48,.75);border:2px solid #ffd35c;box-shadow:0 3px 0 rgba(0,0,0,.35);white-space:nowrap}
+.season-chip b{font:400 15px var(--disp);color:#ffd35c;letter-spacing:.06em}
+.season-chip span{font:700 12px var(--ui);color:#fff;font-variant-numeric:tabular-nums}
+.season-chip.break{border-color:#9fd8ff}
+.season-chip.break b{color:#9fd8ff}
+.claim-btn{position:relative}
+.claim-btn.has-dot::after{content:"";position:absolute;top:-4px;right:-4px;width:11px;height:11px;border-radius:50%;background:#ff3b4e;border:2px solid #120d24;box-shadow:0 0 0 2px rgba(255,59,78,.35);animation:claimPulse 1.6s ease-in-out infinite}
+@keyframes claimPulse{50%{box-shadow:0 0 0 5px rgba(255,59,78,0)}}
+@media (prefers-reduced-motion:reduce){.claim-btn.has-dot::after{animation:none}}
+.season-box{width:min(620px,100%);max-height:88vh;overflow:auto}
+.season-box h3{margin:0 0 4px}
+.season-results{display:grid;grid-template-columns:repeat(auto-fill,minmax(175px,1fr));gap:10px;margin:12px 0}
+.season-res{background:rgba(255,255,255,.05);border:2px solid #4a4185;border-radius:12px;padding:10px}
+.season-res-h{display:flex;flex-direction:column;gap:2px;margin-bottom:6px}
+.season-res-h b{font:800 14px var(--ui)}
+.season-res-h em{font:700 12px var(--ui);font-style:normal;color:#ffd35c}
+.season-res ol{list-style:none;margin:0;padding:0;display:grid;gap:5px}
+.season-res li{display:flex;align-items:center;gap:7px;font:700 13px var(--ui);overflow-wrap:anywhere}
+.season-res li.win{color:#ffd35c}
+.season-rank{display:inline-grid;place-items:center;width:22px;height:22px;flex:none;border-radius:50%;font:800 12px var(--ui);color:#2a1600;background:#ffd35c}
+.season-rank.r2{background:#d9dde8}.season-rank.r3{background:#d98c4a}
+.season-mine{border-top:2px solid #4a4185;padding-top:10px}
+.season-mine h4{margin:0 0 8px}
+.season-now{margin:0 0 8px;font:700 13px var(--ui)}
+.season-award{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;padding:10px;border-radius:10px;background:rgba(255,255,255,.04);margin-bottom:8px}
+.season-award.new{border:2px solid #ff3b4e}
+.season-award small{display:block;color:var(--dim);font:700 12px var(--ui)}
+.season-award b{font:800 16px var(--ui);color:#ffd35c}
+.season-own{display:flex;gap:8px;flex:1 1 220px}
+.season-own input{flex:1;min-width:0;padding:8px;border:1px solid #6b6090;border-radius:8px;background:#211b39;color:#fff;font:700 14px var(--ui)}
+.season-ok{font:800 13px var(--ui);color:#6cf08a}
+@media (max-width:600px){.hub-top{flex-wrap:wrap;row-gap:2px}.season-chip{padding:3px 9px;margin-bottom:4px}.season-chip b{font-size:13px}.season-chip span{font-size:11px}}
