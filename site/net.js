@@ -330,7 +330,7 @@ async function joinByCode(raw) {
     RELAY.id = Math.random().toString(36).slice(2, 10);
     RELAY.code = code;
     const ch0 = isPickable(loadLocal('cb.char'), MY_UNLOCKED) ? loadLocal('cb.char') : 'tseng';
-    RELAY.mine = { nick: NET.nick, join: code, char: ch0, ib: 0, ic: IN.counters.slice() };
+    RELAY.mine = { nick: NET.nick, join: code, char: ch0, skin: typeof mySkin === 'function' ? mySkin(ch0) : '', ib: 0, ic: IN.counters.slice() };
     NET.room = relayRoom; NET.me = RELAY.id;
     try { await connectServer(code); }
     catch (e) { NET.room = null; renderOnline(); toast('Couldn\u2019t reach the game server. Check the server address on this screen, or clear it to use the public relays.'); return; }
@@ -351,7 +351,7 @@ async function joinByCode(raw) {
   RELAY.id = Math.random().toString(36).slice(2, 10);
   RELAY.code = code;
   const ch = isPickable(loadLocal('cb.char'), MY_UNLOCKED) ? loadLocal('cb.char') : 'tseng';
-  RELAY.mine = { nick: NET.nick, join: code, char: ch, ib: 0, ic: IN.counters.slice() };
+  RELAY.mine = { nick: NET.nick, join: code, char: ch, skin: typeof mySkin === 'function' ? mySkin(ch) : '', ib: 0, ic: IN.counters.slice() };
   NET.room = relayRoom; NET.me = RELAY.id;
   let reached = 0;
   for (let bi = 0; bi < BROKERS.length; bi++) {
@@ -431,6 +431,8 @@ function hostSync(peers) {
     s.missSince = 0;
     const ch = p.presence.char;
     if (!inMatch && ch && isPick(ch) && s.char !== ch) { s.char = ch; changed = true; }
+    const sk = String(p.presence.skin || '').slice(0, 24);   // their skin (the game server checks they unlocked it)
+    if (!inMatch && s.skin !== sk && (!sk || (typeof SKINS !== 'undefined' && SKINS[sk]))) { s.skin = sk; changed = true; }
     const nk = cleanNick(p.presence.nick);
     if (nk && nk !== s.nick) { s.nick = nk; changed = true; }
   });
@@ -495,12 +497,12 @@ function enterGuest(hostPeer, code, hostNick) {
   NET.lb = null; NET.snap = null; NET.lostAt = 0; NET.gid = -1; NET.lbKey = '';
   G.mode = 'guest';
   const ch = isPickable(loadLocal('cb.char'), MY_UNLOCKED) ? loadLocal('cb.char') : 'tseng';
-  presence({ nick: NET.nick, join: NET.code, char: ch, ib: 0, ic: IN.counters.slice() });
+  presence({ nick: NET.nick, join: NET.code, char: ch, skin: typeof mySkin === 'function' ? mySkin(ch) : '', ib: 0, ic: IN.counters.slice() });
   SETUP.slots = defaultSlots('host'); SETUP.edit = -1;
   NET.myChar = ch;
   showSetup();
 }
-function netSetChar(id) { NET.myChar = id; presence({ char: id }); }
+function netSetChar(id) { NET.myChar = id; presence({ char: id, skin: typeof mySkin === 'function' ? mySkin(id) : '' }); }
 
 function leaveOnline(msg) {
   NET.leaving = true; NET.reconnecting = false;
@@ -590,7 +592,7 @@ function guestView() {
     NET.vfGid = lb.gid;
     NET.vf = lb.fm.map(m => {
       const c = CHAR[m[1]] || ROSTER[0], ph = physFor(c), bs = m[7] ? BOSS_SIZE : 1;
-      return { isBoss: !!m[7], slot: m[0], c, ph, W: ph.W * bs, H: ph.H * bs, tid: m[2], name: m[3], color: m[4], tag: m[5], x: 800, y: 400, face: 1, pose: 'idle', pt: 0, dmg: 0, stocks: lb.sk, anim: 0 };
+      return { isBoss: !!m[7], slot: m[0], c, ph, W: ph.W * bs, H: ph.H * bs, tid: m[2], name: m[3], color: m[4], tag: m[5], skin: typeof SKINS !== 'undefined' && SKINS[m[8]] ? m[8] : '', x: 800, y: 400, face: 1, pose: 'idle', pt: 0, dmg: 0, stocks: lb.sk, anim: 0 };
     });
   }
   if (s) {
