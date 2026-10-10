@@ -13,9 +13,12 @@
 .ad-message{color:#ffd35c;min-height:22px;margin:10px 0;line-height:1.5}
 .ad-levels{display:grid;grid-template-columns:repeat(10,minmax(0,1fr));gap:8px}
 .ad-levels button{min-height:42px;padding:5px}
-.ad-grants{display:flex;gap:12px;flex-wrap:wrap}
-.ad-grants label{display:flex;align-items:center;gap:9px;padding:12px;border:1px solid #6b6090;border-radius:9px}
-.ad-grants input{width:18px;height:18px;accent-color:#ffd35c}
+.ad-grants{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:12px}
+.ad-grant{min-width:0;padding:12px 8px}
+.ad-grant .tile-cv{height:100px;width:100%}
+.ad-grant .tile-name{white-space:normal;text-align:center}
+.ad-grant-state{margin-top:6px;color:var(--mute);font:700 12px var(--ui)}
+.ad-grant.sel .ad-grant-state{color:var(--gold)}
 .ad-history{padding:14px 0;border-top:1px solid #6b6090;font-size:13px}
 .ad-history p{margin:8px 0;color:#bfb5da}
 .ad-text{white-space:pre-wrap;line-height:1.6}

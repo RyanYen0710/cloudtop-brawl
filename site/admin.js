@@ -111,12 +111,23 @@ function renderAdminAccount(pane) {
     const reason = el('input', { required: '', minlength: '5', maxlength: '200', placeholder: 'Why are you changing this account?' });
     edit.append(el('h4', { class: 'ad-sec', text: 'Progress' }), el('div', { class: 'ad-row' }, [adminField('Levels cleared', beaten), adminField('Boss wins', wins)]));
     const grants = el('div', { class: 'ad-grants' });
-    ROSTER.filter(c => c.locked).forEach(c => {
-      const check = el('input', { type: 'checkbox', value: c.id }); check.checked = p.unlocked.includes(c.id);
-      grants.appendChild(el('label', {}, [check, el('span', { text: c.name })]));
+    const syncGrants = () => grants.querySelectorAll('button').forEach(tile => {
+      const on = tile.nextElementSibling.checked;
+      tile.classList.toggle('sel', on); tile.setAttribute('aria-pressed', String(on));
+      tile.querySelector('.ad-grant-state').textContent = on ? 'Selected' : 'Not selected';
     });
+    ROSTER.filter(c => c.locked).forEach(c => {
+      const check = el('input', { type: 'checkbox', value: c.id, hidden: '', tabindex: '-1', 'aria-hidden': 'true' }); check.checked = p.unlocked.includes(c.id);
+      const tile = adminButton('', () => { check.checked = !check.checked; syncGrants(); SFX.play('ui'); }, 'tile ad-grant');
+      tile.setAttribute('aria-label', 'Grant ' + c.name);
+      const portrait = el('canvas', { class: 'tile-cv', 'aria-hidden': 'true' });
+      tile.append(portrait, el('span', { class: 'tile-name', text: c.name }), el('span', { class: 'ad-grant-state' }));
+      grants.append(tile, check);
+      requestAnimationFrame(() => drawPortrait(portrait, c.id));
+    });
+    syncGrants();
     edit.append(el('h4', { class: 'ad-sec', text: 'Fighter grants' }), grants, el('p', { class: 'muted', text: 'Normal fighters are always available. Bosses earned by the selected progress stay unlocked.' }));
-    const checks = value => grants.querySelectorAll('input').forEach(c => { c.checked = value; });
+    const checks = value => { grants.querySelectorAll('input').forEach(c => { c.checked = value; }); syncGrants(); };
     edit.appendChild(el('div', { class: 'ad-actions' }, [adminButton('Grant every locked fighter', () => checks(true)),
       adminButton('Clear selected grants', () => checks(false)), adminButton('Stage progress reset', () => { beaten.value = '0'; wins.value = '0'; checks(false); })]));
     const save = el('button', { type: 'submit', class: 'btn start', text: 'Review and save changes' });
