@@ -239,6 +239,18 @@ test('the owner sees every player with email and online status; nobody else does
   assert.equal((await f.call('player1', '/api/admin/players')).status, 403);
 });
 
+test('the Owner panel lists the owner first, then Collab, then OP, then players; the Admin panel keeps its normal order', async () => {
+  const f = setup(); for (const id of ['owner1', 'opper', 'collabber', 'plain1']) await f.call(id, '/api/me');
+  await f.call('owner1', '/api/admin/roles', { uid: 'opper', op: true, collab: false });
+  await f.call('owner1', '/api/admin/roles', { uid: 'collabber', op: false, collab: true });
+  const ids = list => list.map(x => x.uid);
+  assert.deepEqual(ids((await f.call('owner1', '/api/admin/players')).data.players), ['owner1', 'collabber', 'opper', 'plain1']);
+  // the Admin panel: no role order (that would give roles away), same as before
+  const adminList = (await f.call('opper', '/api/admin/players')).data.players;
+  const normal = [...adminList].sort((a, b) => (b.online - a.online) || (b.seen - a.seen) || a.name.localeCompare(b.name));
+  assert.deepEqual(ids(adminList), ids(normal));
+});
+
 test('only the owner may use a 1-2 letter username', async () => {
   const f = setup(); await f.call('owner1', '/api/me'); await f.call('player1', '/api/me');
   await f.call('owner1', '/api/admin/roles', { uid: 'player1', op: true, collab: false });
