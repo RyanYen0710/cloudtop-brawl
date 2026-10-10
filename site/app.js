@@ -35,7 +35,7 @@ function showOnline() { show('online'); renderOnline(); }
 function buildCfg() {
   const slots = SETUP.slots.map((s, i) => {
     const o = Object.assign({}, s, { char: resolvePick(s.char), picked: s.char === 'random' });
-    if (s.type === 'you') { o.ctrl = { type: 'local' }; const nm = G.mode === 'host' ? NET.nick : myName(); o.name = nm || 'You'; o.tag = nm || 'P' + (i + 1); }
+    if (s.type === 'you') { o.ctrl = { type: 'local' }; const nm = G.mode === 'host' ? NET.nick : myName(); o.name = nm || 'You'; o.tag = nm || 'P' + (i + 1); o.skin = typeof mySkin === 'function' ? mySkin(o.char) : ''; }
     else if (s.type === 'peer') { o.ctrl = { type: 'remote', peer: s.peer }; o.name = s.nick || 'Friend'; o.tag = s.nick || ('P' + (i + 1)); }
     else if (s.type === 'cpu') { o.ctrl = { type: 'cpu' }; o.name = 'CPU'; o.tag = 'CPU'; }
     return o;
@@ -60,13 +60,13 @@ function startMatch() {
   G.cfg.slots.forEach((s, i) => { if (s.picked && (s.type === 'you')) toast(`Random picked ${CHAR[s.char].name} for you!`); });
   if (G.mode === 'host') {
     NET.gid++; NET.phase = 'fight'; NET.res = null;
-    NET.fm = G.game.fighters.map(f => [f.slot, f.c.id, f.tid, f.name.slice(0, 16), f.color, f.tag.slice(0, 16), f.team]);
+    NET.fm = G.game.fighters.map(f => [f.slot, f.c.id, f.tid, f.name.slice(0, 16), f.color, f.tag.slice(0, 16), f.team, 0, f.skin || '']);
     if (NET.useServer && SRV.ws) {
       // the match runs on the game server; this computer just sends buttons and shows the snapshots
       const cfg = {
         stage: G.cfg.stage, stocks: G.cfg.stocks, time: G.cfg.time, teams: G.cfg.teams,
-        slots: G.cfg.slots.map(s => s.type === 'you' ? { type: 'remote', peer: RELAY.id, char: s.char, team: s.team, name: s.name, tag: s.tag }
-          : s.type === 'peer' ? { type: 'remote', peer: s.peer, char: s.char, team: s.team, name: s.name, tag: s.tag }
+        slots: G.cfg.slots.map(s => s.type === 'you' ? { type: 'remote', peer: RELAY.id, char: s.char, skin: s.skin, team: s.team, name: s.name, tag: s.tag }
+          : s.type === 'peer' ? { type: 'remote', peer: s.peer, char: s.char, skin: s.skin, team: s.team, name: s.name, tag: s.tag }
           : s.type === 'cpu' ? { type: 'cpu', char: s.char, lvl: s.lvl, team: s.team } : { type: 'off' })
       };
       G.remote = true; G.game = null; resetSnaps();
