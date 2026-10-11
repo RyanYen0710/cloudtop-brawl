@@ -1,7 +1,7 @@
 'use strict';
 /* ===== CLOUDTOP BRAWL — remade ultimates and side specials (drawing only) =====
    Ultimates: Master Chuang's camera viewfinder, Mr. Guo's sniper scope, Volt's Chain Lightning, Rowan's Hunter's Snare.
-   Side specials: Blaze's Fire Wall, Mythic Hsi's Ankle Breaker, Lumi's Bubble Trap, Talon's Sky Snatch.
+   Side specials: Blaze's Fire Wall, Mythic Hsi's Ankle Breaker, Lumi's Bubble Trap, Talon's Hawk Call.
    The rules (who gets hit, how hard) live in ult.js / engine.js / match.js; this file only draws them. */
 
 const URM_LOW = () => typeof PERF !== 'undefined' && PERF.low;
@@ -221,6 +221,25 @@ function drawUltActorRemake(g, c, t, D, fade, fl, T, n, k) {
 
 /* ---------- new projectiles ---------- */
 Object.assign(PROJ_NEW, {
+  /* Talon's Hawk Call: an emerald hawk, wings beating */
+  hawk(g, p, t, x, y, r, dir) {
+    const flap = Math.sin(t * 0.55 + (p.size || 0)), col = p.color || '#3fcf7a', dark = '#1f8a5b';
+    r *= 1.5;   // drawn bigger than its catch area, so it reads even next to Titan
+    g.save(); g.translate(x, y); g.scale(dir, 1);
+    g.globalAlpha = 0.35; g.fillStyle = col; g.beginPath(); g.ellipse(-r * 0.9, 0, r * 1.3, r * 0.45, 0, 0, Math.PI * 2); g.fill(); g.globalAlpha = 1;   // a soft trail
+    g.fillStyle = dark; g.strokeStyle = '#0c2a1a'; g.lineWidth = 2;
+    for (const s2 of [1, -1]) {   // the wings
+      g.beginPath(); g.moveTo(-r * 0.2, -r * 0.1); g.quadraticCurveTo(-r * 0.6, -r * (0.6 + flap * 0.9) * s2, -r * 1.3, -r * (0.2 + flap * 1.1) * s2); g.lineTo(-r * 0.7, r * 0.1 * s2); g.closePath(); g.fill(); g.stroke();
+    }
+    g.fillStyle = col; g.beginPath(); g.ellipse(0, 0, r * 0.75, r * 0.38, 0, 0, Math.PI * 2); g.fill(); g.stroke();   // body
+    g.fillStyle = dark; g.beginPath(); g.moveTo(-r * 0.7, 0); g.lineTo(-r * 1.15, -r * 0.22); g.lineTo(-r * 1.15, r * 0.22); g.closePath(); g.fill();   // tail
+    g.fillStyle = col; g.beginPath(); g.arc(r * 0.72, -r * 0.12, r * 0.3, 0, Math.PI * 2); g.fill(); g.stroke();   // head
+    g.fillStyle = '#f28b2c'; g.beginPath(); g.moveTo(r * 0.98, -r * 0.18); g.lineTo(r * 1.3, -r * 0.02); g.lineTo(r * 0.98, r * 0.04); g.closePath(); g.fill();   // beak
+    g.fillStyle = '#f2e36b'; g.beginPath(); g.arc(r * 0.8, -r * 0.2, r * 0.08, 0, Math.PI * 2); g.fill();   // eye
+    g.strokeStyle = '#f2c14e'; g.lineWidth = 2.5; g.beginPath(); g.moveTo(r * 0.1, r * 0.3); g.lineTo(r * 0.2, r * 0.6); g.moveTo(-r * 0.15, r * 0.3); g.lineTo(-r * 0.05, r * 0.6); g.stroke();   // talons
+    g.restore();
+    if (!URM_LOW() && t % 6 === 0) spawnFx({ k: 'leaf', x: x - dir * r, y, vx: -dir * (0.5 + Math.random()), vy: (Math.random() - 0.5) * 1.2, g: 0.04, life: 26, col: Math.random() < 0.5 ? '#3fcf7a' : '#f28b2c', size: 5, rot: Math.random() * 6 });
+  },
   /* Blaze's Fire Wall: a row of tall flames standing on the floor */
   firewall(g, p, t, x, y) {
     const life = Math.min(1, p.life / 20, (p.age || 0) / 8), base = y + p.size * 0.6;
@@ -275,7 +294,7 @@ function fxEventRemake(type, x, y, a, b) {
       for (let i = 0; i < 6; i++) spawnFx({ k: 'smoke', x: x + (Math.random() - 0.5) * 20, y, vx: (Math.random() - 0.5) * 1.5, vy: -1.5 - Math.random(), life: 26, col: 'rgba(80,60,50,.6)', size: 8 + Math.random() * 6 });
       spawnFx({ k: 'ring', x, y, life: 10, r0: 6, r1: 34, col: '#ffd35c', lw: 3 });
       return true;
-    case 'snatch':   // Talon catches someone
+    case 'snatch':   // Talon's hawk catches someone (and drops them)
       for (let i = 0; i < 8; i++) { const an = Math.random() * 6.28, s = 2 + Math.random() * 4; spawnFx({ k: 'leaf', x, y, vx: Math.cos(an) * s, vy: Math.sin(an) * s - 1, g: 0.08, life: 30, col: i % 2 ? '#3fcf7a' : '#f28b2c', size: 6, rot: Math.random() * 6 }); }
       spawnFx({ k: 'ring', x, y, life: 12, r0: 8, r1: 50, col: '#f2e36b', lw: 4 });
       return true;
