@@ -1,7 +1,7 @@
 'use strict';
 // Run after building: node --test server/test/remake.cjs
 // The remade side specials (Fire Wall, Ankle Breaker, Bubble Trap, Hawk Call) and ultimates (camera frame, sniper scope,
-// Chain Lightning, Hunter's Snare) on the solo engine and on the online server build.
+// Chain Lightning, Hunter's Snare, Lunar Cannon) on the solo engine and on the online server build.
 const assert = require('node:assert/strict');
 const { readFileSync } = require('node:fs');
 const { join } = require('node:path');
@@ -116,7 +116,7 @@ for (const server of [false, true]) {
     assert.ok(s.g.ult && s.g.ult.ph === 'fx', 'caught in the frame'); assert.deepEqual(JSON.parse(JSON.stringify(s.g.ult.targets)), [s.o.slot]);
   });
 
-  test(label + ': Mr. Guo\'s sniper scope is smaller than the old circle', () => {
+  test(label + ': Mr. Guo\'s Lunar Cannon locks on (same reach as the old scope) and the beam hits as hard', () => {
     const api = load(server), s = fresh(api, 'guo', 'titan');
     const dx = api.ULT_SCOPE_R + s.o.W * 0.35 + 8;   // the old 110px circle would still have caught this
     assert.ok(dx < api.ULT_R + s.o.W * 0.35);
@@ -126,7 +126,8 @@ for (const server of [false, true]) {
     ult(s2, api, () => { s2.g.ult.ax = s2.o.x - 30; s2.g.ult.ay = s2.o.y - s2.o.H / 2; });
     assert.ok(s2.g.ult && s2.g.ult.ph === 'fx');
     const d0 = s2.o.dmg; for (let i = 0; i < 120 && s2.g.ult; i++) s2.tick();
-    assert.ok(s2.o.dmg > d0 + 20, 'three heavy shots and the final one');
+    assert.ok(s2.o.dmg > d0 + 30, 'the beam and the final blast');
+    assert.equal(api.CHAR.guo.ultimate.style, 'moon'); assert.equal(api.CHAR.rowan.ultimate.aim, 'bows');
   });
 
   test(label + ': Volt\'s Chain Lightning needs no aiming and hits every enemy', () => {
