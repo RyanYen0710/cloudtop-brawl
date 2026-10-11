@@ -67,6 +67,62 @@ test('buffs only in event matches, only for that event\'s 3 fighters, and never 
   assert.ok(hit('halloween') > hit(undefined) * 1.1);
 });
 
+/* me (with or without event rules) vs standing dummies on the main platform */
+function duel(c, ev, char, enemy, third) {
+  const api = vm.runInContext('({ makeGame, stepGame, BL, BR, BU, BD, BS })', c);
+  const slots = [{ type: 'you', char, team: 0, ctrl: { type: 'local' } }, { type: 'peer', char: enemy, team: 1, ctrl: { type: 'dummy', mode: 'stand' } }];
+  if (third) slots.push({ type: 'peer', char: third, team: 2, ctrl: { type: 'dummy', mode: 'stand' } });
+  const g = api.makeGame({ stage: 0, stocks: 3, time: 0, teams: false, endless: true, evMode: ev, slots });
+  const m = g.stage.solids[0], [f, o, p] = g.fighters;
+  for (const x of g.fighters) { x.y = m.y; x.ground = m; x.inv = 0; x.halo = 0; x.vx = 0; x.vy = 0; }
+  f.x = m.x + m.w * 0.3; f.face = 1; o.x = f.x + 160; o.face = -1; if (p) p.x = o.x + 140;
+  const tick = (b = 0, pr = 0) => api.stepGame(g, g.fighters.map(x => x === f ? { b, pr } : { b: 0, pr: 0 }));
+  return { api, g, f, o, p, m, tick };
+}
+
+test('Thanksgiving: Titan, Talon and Mr. Chiu get upgraded moves, only in event matches', () => {
+  const c = load(at('2026-10-11'));
+  assert.equal(J(c, 'evOccurrence().id'), 'thanksgiving');
+  assert.deepEqual(J(c, 'EVENT_BUFFS.thanksgiving'), ['titan', 'talon', 'chui']);
+  const sp = (ev, id) => J(c, '(() => { const g = makeGame({ stage: 0, stocks: 3, time: 3, teams: false, evMode: ' + JSON.stringify(ev || null) + ', slots: [{ type: "cpu", char: "' + id + '", lvl: 5, team: 0, ctrl: { type: "cpu" } }, { type: "cpu", char: "rivet", lvl: 5, team: 1, ctrl: { type: "cpu" } }] }); const s = fSpecials(g.fighters[0]); return { n: s.neutral, d: s.down, s: s.side, base: CHAR["' + id + '"].specials }; })()');
+  let t = sp('thanksgiving', 'titan');
+  assert.ok(t.n.upgraded && t.n.charge < t.base.neutral.charge && t.n.quake, 'Mega Punch: faster charge and a shockwave');
+  assert.ok(t.d.twice, 'Earthquake Slam twice');
+  t = sp(null, 'titan'); assert.ok(!t.n.upgraded && !t.n.quake && !t.d.twice, 'no event rules: the normal moves');
+  t = sp('halloween', 'titan'); assert.ok(!t.n.upgraded, 'not buffed in Halloween');
+  t = sp('thanksgiving', 'chui'); assert.ok(t.n.child.twin && t.s.child.chain, 'Chiu: 2 sharks, chain shock');
+  assert.equal(J(c, '!!CHAR.chui.specials.neutral.child.twin'), false, 'his normal moves are untouched');
+  // every upgrade explains itself on the Event screen
+  for (const id of ['titan', 'talon', 'chui']) assert.equal(J(c, 'evUpgradeNotes("' + id + '").length'), 4, id);
+});
+
+test('upgraded moves work: 2 hawks, a double slam, 2 sharks, a chain shock', () => {
+  const c = load(at('2026-10-11'));
+  // Talon: Hawk Call sends 2 hawks
+  let s = duel(c, 'thanksgiving', 'talon', 'titan');
+  s.tick(s.api.BR, s.api.BS); for (let i = 0; i < 12; i++) s.tick();
+  assert.equal(s.g.projs.filter(p => p.shape === 'hawk').length, 2);
+  s = duel(c, null, 'talon', 'titan');
+  s.tick(s.api.BR, s.api.BS); for (let i = 0; i < 12; i++) s.tick();
+  assert.equal(s.g.projs.filter(p => p.shape === 'hawk').length, 1, 'one hawk without event rules');
+  // Titan: Earthquake Slam hits twice
+  s = duel(c, 'thanksgiving', 'titan', 'rivet'); s.o.x = s.f.x + 120;
+  const d = []; s.tick(s.api.BD, s.api.BS);
+  for (let i = 0; i < 40; i++) { s.tick(); d.push(s.o.dmg); s.o.x = s.f.x + 120; s.o.y = s.m.y; s.o.vx = 0; s.o.vy = 0; s.o.ground = s.m; s.o.hitstun = 0; s.o.inv = 0; }
+  const hits = d.filter((v, i) => i && v > d[i - 1]).length;
+  assert.equal(hits, 2, 'two quakes');
+  // Mr. Chiu: Shark Summon releases 2 sharks
+  s = duel(c, 'thanksgiving', 'chui', 'rivet'); s.o.x = s.f.x + 600;
+  s.tick(0, s.api.BS); let n = 0;
+  for (let i = 0; i < 80 && !n; i++) { s.tick(); n = s.g.projs.filter(p => p.shape === 'shark').length; }
+  assert.equal(n, 2);
+  // Mr. Chiu: Volt Eel's shock jumps to a second enemy
+  s = duel(c, 'thanksgiving', 'chui', 'rivet', 'zephyr'); s.p.x = s.o.x + 120;
+  s.tick(s.api.BR, s.api.BS);
+  for (let i = 0; i < 60 && !(s.p.dmg > 0); i++) s.tick();
+  assert.ok(s.o.dmg > 0 && s.p.dmg > 0, 'both shocked');
+});
+
 test('the event leaderboard: wins only, at most one a minute, most wins first', async () => {
   const c = load(), { op } = accounts(c), D = c.__D, key = 'halloween-' + J(c, 'evOccurrence().start');
   assert.equal(J(c, 'evOccurrence().id'), 'halloween');
