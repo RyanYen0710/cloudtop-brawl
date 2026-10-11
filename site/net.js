@@ -378,7 +378,7 @@ function encodeLb() {
   return {
     c: NET.code, n: NET.nick, sv: NET.useServer ? 1 : 0, ti: SETUP.time, ph: NET.phase, st: NET.phase !== 'lobby' && G.cfg ? G.cfg.stage : SETUP.stage, sk: SETUP.stocks, tm: SETUP.teams ? 1 : 0, gid: NET.gid,
     s: SETUP.slots.map(s => [s.type, s.peer || '', s.char, s.lvl, s.team, (s.nick || '').slice(0, 16)]),
-    fm: NET.phase === 'lobby' ? null : NET.fm, res: NET.phase === 'res' ? NET.res : null
+    fm: NET.phase === 'lobby' ? null : NET.fm, res: NET.phase === 'res' ? NET.res : null, ev: SETUP.evMode || 0
   };
 }
 function pushLobby() {
@@ -527,6 +527,7 @@ function guestSync(peers) {
   NET.lb = lb;
   NET.hostNick = cleanNick(lb.n);
   SETUP.stage = lb.st | 0; SETUP.stocks = lb.sk | 0; SETUP.teams = !!lb.tm; SETUP.time = lb.ti || 5;
+  SETUP.evMode = lb.ev && typeof EVENTS !== 'undefined' && EVENTS[lb.ev] ? lb.ev : null;   // event rules (the host decides)
   SETUP.slots = (lb.s || []).map(a => ({ type: a[0], peer: a[1] || null, char: isPick(a[2]) ? a[2] : 'titan', lvl: a[3] | 0, team: a[4] | 0, nick: cleanNick(a[5]) }));
   if (SETUP.slots[0]) SETUP.slots[0].nick = cleanNick(lb.n);
   const mine = SETUP.slots.findIndex(s => s.type === 'peer' && s.peer === NET.me);
@@ -543,7 +544,7 @@ function guestSync(peers) {
   } else {
     if (G.screen === 'fight' || G.screen === 'results') { G.game = null; showSetup(); }
     else if (G.screen === 'setup') {
-      const key = JSON.stringify([lb.s, lb.st, lb.sk, lb.tm, lb.ti, NET.me]);
+      const key = JSON.stringify([lb.s, lb.st, lb.sk, lb.tm, lb.ti, lb.ev, NET.me]);
       if (key !== NET.lbKey) { NET.lbKey = key; renderSetup(); }
     }
   }
