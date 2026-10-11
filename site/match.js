@@ -71,10 +71,10 @@ function spawnChild(p, g, out) {
     if (sy === null || sy - p.y > 220) return;
     y = sy - c.size * 0.12;
   }
-  out.push({
+  (c.twin ? [dir, -dir] : [dir]).forEach(d => out.push({
     owner: p.owner, tid: p.tid, key: p.key, m: c, shape: c.shape, color: c.color, size: c.size,
-    x: p.x, y, vx: dir * (c.speed || 0), vy: 0, life: c.life || 60, dmg: c.dmg, hit: new Set(), age: 0, armed: 0, stuck: false, face: dir, child: 1
-  });
+    x: p.x, y, vx: d * (c.speed || 0), vy: 0, life: c.life || 60, dmg: c.dmg, hit: new Set(), age: 0, armed: 0, stuck: false, face: d, child: 1
+  }));
   emit(g, 'summon', p.x, y, SHAPES.indexOf(c.shape), dir);
 }
 
@@ -82,7 +82,7 @@ function reflectProjs(f, g, m) {
   const r = m.range || 1.5;
   const box = { x: f.face > 0 ? f.x - f.W * 0.2 : f.x - f.W * r, y: f.y - f.H * 1.1, w: f.W * (r + 0.2), h: f.H * 1.2 };
   for (const p of g.projs) {
-    if (p.tid === f.tid || p.m.mine || p.m.ground) continue;
+    if (p.tid === f.tid || p.m.mine || p.m.ground || p.carry != null) continue;
     if (!circRect(p.x, p.y, p.size * 0.6, box)) continue;
     p.vx = f.face * Math.max(Math.abs(p.vx), 6) * 1.25; p.vy *= -0.3;
     p.owner = f; p.tid = f.tid; p.dmg *= 1.25; p.hit = new Set(); p.life = Math.max(p.life, 50);
@@ -112,6 +112,46 @@ function explode(p, g) {
   }
 }
 
+/* Talon's hawk: steer toward the nearest enemy it hasn't caught yet */
+function seekEnemy(p, g) {
+  let best = null, bd = 720;
+  for (const o of g.fighters) {
+    if (o.out || o.dead > 0 || o.vanish || o.tid === p.tid || p.hit.has(o) || o.hawk > 0) continue;
+    const d = Math.hypot(o.x - p.x, (o.y - o.H / 2) - p.y); if (d < bd) { bd = d; best = o; }
+  }
+  if (!best || p.age < 4) return;
+  const dx = best.x - p.x, dy = (best.y - best.H / 2) - p.y, d = Math.hypot(dx, dy) || 1, sp = p.m.speed || 8;
+  p.vx += dx / d * p.m.seek; p.vy += dy / d * p.m.seek;
+  const v = Math.hypot(p.vx, p.vy); if (v > sp) { p.vx *= sp / v; p.vy *= sp / v; }
+  if (Math.abs(p.vx) > 0.5) p.face = Math.sign(p.vx);
+}
+/* the hawk carries its catch up, then drops them with a hit */
+function stepHawk(p, g) {
+  const o = g.fighters.find(q => q.slot === p.carry), B = g.stage.blast;
+  p.carryT--; p.life = Math.max(p.life, 2);
+  if (!o || o.out || o.dead > 0 || !(o.hawk > 0)) { p.life = 0; return; }   // knocked free
+  p.vx = p.face * 1.3; p.vy = -3.3; p.x += p.vx; p.y += p.vy;
+  o.x = p.x; o.y = p.y + p.size * 0.35 + o.H; o.vx = 0; o.vy = 0; o.ground = null;
+  if (p.carryT <= 0 || p.y < B.t + 170) {
+    o.hawk = 0; p.life = 0;
+    emit(g, 'snatch', p.x, p.y, p.face, p.owner.slot);
+    applyHit(p.owner, o, p.m.hawk, p.face, g, true);
+  }
+}
+/* an upgraded Volt Eel: the shock jumps to the next enemy */
+function chainShock(p, from, g, dir) {
+  p.chained = 1;
+  let best = null, bd = p.m.chain;
+  for (const o of g.fighters) {
+    if (o === from || o.out || o.dead > 0 || o.vanish || o.tid === p.tid || p.hit.has(o)) continue;
+    const d = Math.hypot(o.x - from.x, o.y - from.y); if (d < bd) { bd = d; best = o; }
+  }
+  if (!best) return;
+  p.hit.add(best);
+  emit(g, 'zapline', from.x, from.y - from.H / 2, Math.round(best.x), p.owner.slot);
+  applyHit(p.owner, best, { dmg: p.dmg * 0.8, b: p.m.b, g: p.m.g, angle: p.m.angle, zap: p.m.zap }, Math.sign(best.x - from.x) || dir, g, true);
+}
+
 /* the area Blaze's Fire Wall covers (it stands on the floor) */
 const wallBox = p => ({ x: p.x - 44, y: p.y - 124, w: 88, h: 142 });
 function stepProjs(g) {
@@ -119,6 +159,8 @@ function stepProjs(g) {
   for (const p of g.projs) {
     p.age++; p.life--;
     const m = p.m;
+    if (p.carry != null) { stepHawk(p, g); continue; }
+    if (m.seek) seekEnemy(p, g);
     if (m.rehit && p.age % m.rehit === 0) { const hadOrb = p.hit.has('orb'); p.hit.clear(); if (hadOrb) p.hit.add('orb'); }
     if (m.pull) pullEnemies(p.owner, g, p.x, p.y, m.pullR || 200, m.pull);
     if (p.life <= 0 && m.burst && !p.burst) { p.burst = 1; burstProj(p, g); continue; }
@@ -198,7 +240,14 @@ function stepProjs(g) {
         p.hit.add(o);
         const dir = Math.sign(p.vx) || (o.x > p.x ? 1 : -1);
         if (m.fuse) { if (!p.stuck) explode(p, g); p.hit.delete(o); break; }
+        if (m.hawk) {   // Talon's hawk grabs them and carries them up
+          const r0 = applyHit(p.owner, o, { dmg: p.dmg, b: 0, g: 0, angle: 90, hawk: m.hawk.t + 4 }, dir, g, p);
+          if (r0 === 'hit') { p.carry = o.slot; p.carryT = m.hawk.t; p.face = dir; p.x = o.x; p.y = o.y - o.H - p.size * 0.35; emit(g, 'snatch', p.x, p.y, dir, p.owner.slot); }   // claws on their shoulders
+          else p.life = 0;
+          break;
+        }
         const r = applyHit(p.owner, o, { dmg: p.dmg, b: m.b * (p.bMul || 1), g: m.g, angle: m.angle, freeze: m.freeze || p.frz, burn: m.burn, zap: m.zap, slow: m.slow, flash: m.flash, bubble: m.bubble }, dir, g, p);
+        if (m.chain && r === 'hit' && !p.chained) chainShock(p, o, g, dir);
         if (!(m.pierce || p.pierce) || r === 'block' || r === 'counter') { p.life = 0; break; }
       }
     }
@@ -210,9 +259,9 @@ function stepProjs(g) {
   }
   const ps = g.projs;
   for (let i = 0; i < ps.length; i++) {
-    const a = ps[i]; if (a.life <= 0 || a.m.mine || a.m.shape === 'puddle') continue;
+    const a = ps[i]; if (a.life <= 0 || a.m.mine || a.m.shape === 'puddle' || a.carry != null) continue;
     for (let j = i + 1; j < ps.length; j++) {
-      const b = ps[j]; if (b.life <= 0 || b.m.mine || b.m.shape === 'puddle' || a.tid === b.tid) continue;
+      const b = ps[j]; if (b.life <= 0 || b.m.mine || b.m.shape === 'puddle' || a.tid === b.tid || b.carry != null) continue;
       if (a.m.wall || b.m.wall) {   // Blaze's Fire Wall burns up enemy projectiles and stays
         if (a.m.wall && b.m.wall) continue;
         const w = a.m.wall ? a : b, o = w === a ? b : a;
