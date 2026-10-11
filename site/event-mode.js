@@ -59,8 +59,17 @@ function evmFighterCard(id, big) {
   const card = el('div', { class: 'evm-buff' + (big ? ' big' : '') }, [el('div', { class: 'evm-pic' }, [cv, el('span', { class: 'evm-tag', text: '⚡ BUFFED' })]),
     el('b', { text: evmName(id) }),
     el('div', { class: 'evm-ups' }, [el('span', { text: '▲ Damage' }), el('span', { text: '▲ Speed' }), el('span', { text: '▲ Weight' })])]);
+  const notes = typeof evUpgradeNotes === 'function' ? evUpgradeNotes(id) : [];
+  if (notes.length) card.appendChild(el('span', { class: 'evm-upg-tag', text: '⚡ ' + notes.length + ' upgrades' }));
   requestAnimationFrame(() => drawPortrait(cv, id, { skin: '' }));
   return card;
+}
+/* what each buffed fighter's upgraded moves do (full width, so it reads well on phones) */
+function evmUpgradeList(buffs) {
+  const list = buffs.filter(id => typeof evUpgradeNotes === 'function' && evUpgradeNotes(id).length);
+  if (!list.length) return null;
+  return el('div', { class: 'evm-upgs' }, list.map(id => el('div', { class: 'evm-upgs-f' }, [el('b', { text: '⚡ ' + evmName(id) + '’s upgraded moves' }),
+    el('ul', { class: 'evm-upg' }, evUpgradeNotes(id).map(n => el('li', { text: n })))])));
 }
 function renderEvent() {
   const s = evmScreen(); s.textContent = '';
@@ -75,7 +84,8 @@ function renderEvent() {
   wrap.appendChild(el('section', { class: 'card evm-power' }, [
     el('div', { class: 'card-h' }, [el('span', { text: 'This event’s power-ups' }), el('span', { class: 'muted', text: info && info.id === ev.id ? (info.daysLeft <= 1 ? 'last day!' : 'ends in ' + info.daysLeft + ' days') : '' })]),
     el('div', { class: 'evm-buffs' }, buffs.map(id => evmFighterCard(id))),
-    el('p', { class: 'muted', text: 'In event matches these 3 hit harder, move faster and get launched less. Legend Yen is still the strongest.' }),
+    evmUpgradeList(buffs),
+    el('p', { class: 'muted', text: 'In event matches these 3 hit harder, move faster, get launched less and get upgraded moves. Legend Yen is still the strongest.' }),
     el('button', { type: 'button', class: 'mini', text: '▶ Replay intro', on: { click: () => showEventIntro(ev) } })]));
   // play
   wrap.appendChild(el('div', { class: 'evm-play' }, [
@@ -132,7 +142,7 @@ function showEventIntro(ev) {
       el('div', { class: 'evi-ev', text: ev.icon + ' ' + ev.name.toUpperCase() + ' EVENT' }),
       el('h2', { class: 'evi-title', text: 'THIS SEASON’S POWER-UPS' }),
       el('div', { class: 'evi-cards' }, buffs.map((id, i) => { const c = evmFighterCard(id, true); c.style.animationDelay = (0.7 + i * 0.45) + 's'; return c; })),
-      el('p', { class: 'evi-sub', text: 'Stronger, faster and heavier in event matches. Play them, or beat them!' }),
+      el('p', { class: 'evi-sub', text: 'Stronger, faster, heavier and with upgraded moves in event matches. Play them, or beat them!' }),
       el('button', { type: 'button', class: 'btn primary evi-go', text: 'Let’s go!', on: { click: close } })]),
     el('button', { type: 'button', class: 'evi-skip', text: 'Skip', on: { click: close } }));
   document.body.appendChild(box);
