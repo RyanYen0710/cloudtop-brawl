@@ -169,6 +169,80 @@ if (typeof renderSetup === 'function') {
   };
 }
 
+/* ---------- event matches: the 3 buffed fighters stand out on the Choose Fighters screen ---------- */
+const evmOn = () => { const ev = evmEvent(); return ev && typeof SETUP !== 'undefined' && SETUP.evMode === ev.id && !G.training ? ev : null; };
+function evmHighlight() {
+  const roster = document.getElementById('roster'), scr = document.getElementById('scr-setup'); if (!roster || !scr) return;
+  const ev = evmOn();
+  roster.querySelectorAll('.tile.evm-hide').forEach(t => t.classList.remove('evm-hide'));
+  document.querySelectorAll('.cs-slots .slot.evm-slot').forEach(d => { d.classList.remove('evm-slot'); const t = d.querySelector('.evm-slot-tag'); if (t) t.remove(); });
+  scr.classList.toggle('evm-on', !!ev);
+  let feat = document.getElementById('evm-feat'), all = document.getElementById('evm-all');
+  if (!ev) { if (feat) feat.remove(); if (all) all.remove(); return; }
+  const list = eventBuffed(ev.id).filter(id => roster.querySelector('.tile[data-id="' + id + '"]'));
+  if (!list.length) { if (feat) feat.remove(); if (all) all.remove(); return; }
+  if (!feat || feat.dataset.ev !== ev.id) {
+    if (feat) feat.remove();
+    feat = el('section', { id: 'evm-feat', class: 'evm-feat ev-' + ev.id, 'aria-label': ev.name + ' event fighters' });
+    feat.dataset.ev = ev.id;
+    feat.appendChild(el('div', { class: 'evm-feat-h' }, [el('b', { text: '⚡ EVENT FIGHTERS' }), el('span', { text: ev.icon + ' ' + ev.name + ' · stronger, with upgraded moves' })]));
+    const row = el('div', { class: 'evm-feat-row' }); feat.appendChild(row);
+    list.forEach(id => {
+      const n = typeof evUpgradeNotes === 'function' ? evUpgradeNotes(id).length : 0, cv = el('canvas', { class: 'evm-ft-cv', 'aria-hidden': 'true' });
+      const b = el('button', { type: 'button', class: 'evm-ft', 'data-id': id, 'aria-label': evmName(id) + ', buffed event fighter' }, [
+        el('i', { class: 'evm-ft-spark', 'aria-hidden': 'true' }), cv, el('span', { class: 'evm-ft-rib', text: '⚡ BUFFED' }),
+        el('b', { class: 'evm-ft-name', text: evmName(id) }), n ? el('small', { class: 'evm-ft-up' }, [el('span', { text: '⚡ ' + n + ' upgrade' }), el('span', { class: 'evm-long', text: 'd moves' })]) : null]);
+      b.addEventListener('click', () => pickChar(id));
+      b.addEventListener('mouseenter', () => { SETUP.hover = id; renderStatCard(); });
+      b.addEventListener('mouseleave', () => setTimeout(() => { if (SETUP.hover === id && !SETUP.onCard) { SETUP.hover = null; renderStatCard(); } }, 250));
+      b.addEventListener('focus', () => { SETUP.hover = id; renderStatCard(); });
+      b.addEventListener('blur', () => { SETUP.hover = null; renderStatCard(); });
+      row.appendChild(b);
+    });
+    roster.parentNode.insertBefore(feat, roster);
+    requestAnimationFrame(() => feat.querySelectorAll('.evm-ft').forEach(b => drawPortrait(b.querySelector('canvas'), b.dataset.id, { pose: 'cast2', skin: typeof mySkin === 'function' ? mySkin(b.dataset.id) : '' })));
+  }
+  if (!all) { all = el('div', { id: 'evm-all', class: 'cs-pickfor evm-all', text: 'All fighters' }); roster.parentNode.insertBefore(all, roster); }
+  const cur = SETUP.slots[SETUP.edit];
+  feat.querySelectorAll('.evm-ft').forEach(b => b.classList.toggle('sel', !!(cur && cur.char === b.dataset.id)));
+  list.forEach(id => roster.querySelector('.tile[data-id="' + id + '"]').classList.add('evm-hide'));
+  // a buffed fighter in a player spot (the CPU in Event Vs CPU, or a friend) gets the gold frame too
+  document.querySelectorAll('.cs-slots .slot-cv').forEach(cv => {
+    if (list.indexOf(cv.dataset.char) < 0) return;
+    const d = cv.closest('.slot'); if (!d || d.classList.contains('empty')) return;
+    d.classList.add('evm-slot'); d.appendChild(el('span', { class: 'evm-slot-tag', text: '⚡ BUFFED' }));
+  });
+}
+if (typeof renderSetup === 'function') {
+  const renderSetupEv = renderSetup;
+  renderSetup = function () {
+    renderSetupEv.apply(this, arguments);
+    try { evmHighlight(); } catch (e) { }
+    const ev = evmOn(), r = document.getElementById('rules');   // friends in the lobby see that event rules are on
+    if (ev && r && G.mode === 'guest' && !r.querySelector('.evm-rule')) r.prepend(el('div', { class: 'rule evm-rule' }, [el('span', { class: 'rule-l', text: 'Event' }), el('span', { class: 'stage-chip on', text: ev.icon + ' Event rules on' })]));
+  };
+}
+/* the info card: what this fighter's upgraded moves do in this event */
+if (typeof renderStatCard === 'function') {
+  const renderStatCardPlain = renderStatCard;
+  renderStatCard = function () {
+    renderStatCardPlain.apply(this, arguments);
+    const card = document.getElementById('statcard'); if (!card) return;
+    const ev = evmOn(), cur = SETUP.slots[SETUP.edit], id = SETUP.hover || (cur && cur.char);
+    const want = ev && id && eventBuffed(ev.id).indexOf(id) >= 0 ? ev.id + ':' + id : '';
+    const old = card.querySelector('.evm-sc');
+    if (old && old.dataset.k === want) return;
+    if (old) old.remove();
+    card.classList.toggle('evm-card', !!want);
+    if (!want) return;
+    const notes = typeof evUpgradeNotes === 'function' ? evUpgradeNotes(id) : [];
+    const box = el('div', { class: 'evm-sc' }, [el('b', { text: '⚡ Buffed in this event' }), el('span', { class: 'evm-sc-sub', text: 'Hits harder, moves faster, harder to launch' + (notes.length ? ', plus:' : '') }),
+      notes.length ? el('ul', { class: 'evm-upg' }, notes.map(n => el('li', { text: n }))) : null]);
+    box.dataset.k = want;
+    card.appendChild(box);
+  };
+}
+
 /* ---------- the event chip opens the Event screen ---------- */
 document.addEventListener('click', e => { if (e.target.closest && e.target.closest('#ev-chip')) showEvent(); });
 document.addEventListener('keydown', e => { if ((e.key === 'Enter' || e.key === ' ') && e.target && e.target.id === 'ev-chip') { e.preventDefault(); showEvent(); } });
