@@ -1,6 +1,6 @@
 'use strict';
 /* ===== CLOUDTOP BRAWL — the Shop and your Inventory =====
-   Two buttons under "Founder Ryan Yen" on the main menu:
+   Two buttons under the Founder badge on the main menu:
    - Shop: spend coins (shop-data.js) on locked fighters and shop-only skins. The game server checks the price
      and your coins, so nothing can be bought from the browser alone.
    - Inventory: every fighter and every skin. The ones you own are in colour; the rest are gray and locked,
