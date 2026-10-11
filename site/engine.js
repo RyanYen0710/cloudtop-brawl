@@ -27,7 +27,7 @@ class Fighter {
     this.anim = 0; this.land = 0; this.roll = 0; this.rollDir = 1; this.lastHit = -1; this.lastHitT = 0;
     this.dropT = 0; this.ff = false; this.armor = false; this.charge = 0;
     this.ledge = null; this.ledgeCD = 0; this.ledgeGrabs = 0; this.burn = 0;
-    this.zap = 0; this.slow = 0; this.hist = []; this.bubble = 0; this.bubbleBy = -1;
+    this.zap = 0; this.slow = 0; this.hist = []; this.bubble = 0; this.bubbleBy = -1; this.hawk = 0;
     this.avalanche = null; this.carriedBy = null;
   }
 }
@@ -100,6 +100,10 @@ function stepFighter(f, inp, g) {
       emit(g, 'bubblepop', f.x, f.y - f.H / 2);
       if (by) applyHit(by, f, { dmg: 5, b: 6, g: 0.55, angle: 80 }, Math.sign(f.x - by.x) || 1, g, true);
     }
+  } else if (f.hawk > 0) {
+    /* held by Talon's hawk: it carries them up (the hawk moves them), they can't act */
+    f.hawk--; f.vx = 0; f.vy = 0; grav = 0; controlled = false; f.pose = 'hurt'; f.pt = 0.8;
+    if (!g.projs.some(p => p.carry === f.slot)) f.hawk = 0;   // the hawk is gone: free
   } else if (f.frozen > 0) {
     f.frozen--; f.vx *= 0.92; controlled = false; f.pose = 'frozen';
     if (f.frozen === 0) emit(g, 'shatter', f.x, f.y - f.H / 2);
@@ -311,6 +315,10 @@ function runAct(f, inp, g, dirX) {
         const frac = m.charge ? a.charge / m.charge : 0;
         if (a.t === S && m.fx === 'palm') emit(g, 'palm', f.x + f.face * f.W, f.y - f.H * 0.6, f.face);
         hitCheck(f, g, m, a, 1 + 0.8 * frac);
+        if (m.quake && a.t === S && f.ground) {   // the punch also sends a shockwave along the ground
+          emit(g, 'wave', f.x + f.face * f.W, f.y, Math.round(f.W * m.quake.hw)); g.shake = Math.max(g.shake, 10);
+          hitCheck(f, g, Object.assign({ sides: true, hx: 0, hy: 0.2, hh: 0.5 }, m.quake), a, 1 + 0.5 * frac);
+        }
       }
       ptPose(f, a, S, A, E, m.pose || 'punch');
       if (a.t >= S + A + E) endAct(f);
@@ -324,8 +332,8 @@ function runAct(f, inp, g, dirX) {
         a.noGrav = false; f.vx = f.face * m.vx; if (!f.ground) f.vy = Math.min(f.vy, 1);
         f.hot = true; f.pose = 'dash'; f.pt = 1;
         if (m.finalB && a.t === S + m.dur - 1) { a.hit.clear(); hitCheck(f, g, Object.assign({}, m, { b: m.finalB, g: m.g * 2.5, rehit: 0 }), a, 1); }
-        else if (!(m.fling && a.hit.size)) hitCheck(f, g, m, a, 1);   // Sky Snatch catches only the first enemy
-        if (m.fling && a.hit.size && !a.snatched) { a.snatched = 1; a.t = S + m.dur; emit(g, 'snatch', f.x + f.face * f.W * 0.5, f.y - f.H * 0.6, f.face, f.slot); }
+        else hitCheck(f, g, m, a, 1);
+        if (m.crack && f.ground && a.t % 7 === 0) emit(g, 'wave', f.x - f.face * f.W * 0.5, f.y, 46);   // cracks the ground behind
         if (m.fx && a.t % 5 === 0) emit(g, 'trail', f.x - f.face * f.W * 0.3, f.y - f.H * 0.5, f.face, MOVEFX.indexOf(m.fx));
         if (a.t % 4 === 0) emit(g, 'dust', f.x - f.face * f.W * 0.4, f.y);
       } else {
@@ -408,7 +416,8 @@ function runAct(f, inp, g, dirX) {
         else if (a.t > 90) endAct(f);
       } else {
         f.pose = 'slam'; f.pt = Math.max(0, 1 - a.t / E); f.vx *= 0.7;
-        if (a.t <= 5) { f.hot = true; hitCheck(f, g, Object.assign({}, m, { sides: true, hx: 0, hy: 0.2 }), a, 1); }
+        if (m.twice && a.t === 14) { a.hit = new Map(); emit(g, 'wave', f.x, f.y, Math.round(f.W * (m.hw || 3) * 1.2)); g.shake = Math.max(g.shake, 12); }   // a second quake
+        if (a.t <= 5 || (m.twice && a.t >= 14 && a.t <= 19)) { f.hot = true; hitCheck(f, g, Object.assign({}, m, { sides: true, hx: 0, hy: 0.2 }, a.t >= 14 ? { hw: (m.hw || 3) * 1.2 } : null), a, 1); }
         if (a.t >= E) endAct(f);
       }
       break;
@@ -523,7 +532,7 @@ function hitCheck(f, g, h, a, cm) {
     const last = a.hit.get(o);
     if (last !== undefined && (!h.rehit || a.t - last < h.rehit)) continue;
     a.hit.set(o, a.t);
-    const dir = h.sides ? (Math.sign(o.x - f.x) || f.face) : h.fling ? -f.face : f.face;   // Talon's Sky Snatch throws them behind him
+    const dir = h.sides ? (Math.sign(o.x - f.x) || f.face) : f.face;
     const r = applyHit(f, o, { dmg: h.dmg * cm, b: h.b * (1 + (cm - 1) * 0.45), g: h.g, angle: h.angle, freeze: h.freeze, burn: h.burn, zap: h.zap, slow: h.slow, trip: h.trip }, dir, g, false);
     if (h.drain && (r === 'hit' || r === 'armor')) f.dmg = Math.max(0, f.dmg - h.drain);
   }
@@ -532,7 +541,7 @@ function hitCheck(f, g, h, a, cm) {
 /* bounce enemy projectiles back from all around (Mind Spirit) */
 function reflectAround(f, g, r) {
   for (const p of g.projs) {
-    if (p.tid === f.tid || p.m.mine || p.m.ground || p.m.fuse) continue;
+    if (p.tid === f.tid || p.m.mine || p.m.ground || p.m.fuse || p.carry != null) continue;
     const dx = p.x - f.x, dy = p.y - (f.y - f.H / 2);
     if (dx * dx + dy * dy > r * r) continue;
     const d = Math.hypot(dx, dy) || 1, v = Math.max(Math.hypot(p.vx, p.vy), 6) * 1.2;
@@ -578,6 +587,7 @@ function applyHit(att, tgt, h, dir, g, proj) {
     if (tgt.shieldHP <= 0) breakShield(tgt, g);
     return 'block';
   }
+  if (tgt.hawk > 0 && !h.hawk) tgt.hawk = 0;   // any other hit knocks them out of the hawk's claws
   if (tgt.bubble > 0 && !h.bubble) { tgt.bubble = 0; emit(g, 'bubblepop', tgt.x, tgt.y - tgt.H / 2); }   // any other hit pops the bubble
   const aB = !att.boss && att.c && att.c.bonus, tB = !tgt.boss && tgt.c && tgt.c.bonus;
   const pow = att.ph.pm * (att.buffT > 0 ? att.buffPow : 1) * (att.boss ? att.boss.pow : 1) * (aB ? aB.pow : 1);
@@ -614,6 +624,9 @@ function applyHit(att, tgt, h, dir, g, proj) {
     tgt.bubble = Math.round(h.bubble + tgt.dmg * 0.08); tgt.bubbleBy = att.slot; tgt.hitstun = 0;
     tgt.vx = 0; tgt.vy = -1.2; tgt.ground = null; tgt.y -= 2;
     emit(g, 'bubbled', tgt.x, tgt.y - tgt.H / 2);
+  }
+  if (h.hawk) {   // Talon's Hawk Call: grabbed and carried up
+    tgt.hawk = h.hawk; tgt.hitstun = 0; tgt.vx = 0; tgt.vy = 0; tgt.ground = null; tgt.y -= 2;
   }
   if (h.freeze) {
     tgt.frozen = Math.round(h.freeze + tgt.dmg * 0.15); tgt.hitstun = 0;
