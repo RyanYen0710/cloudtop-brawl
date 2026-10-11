@@ -25,8 +25,8 @@
 <link rel="icon" href="icon-192.png" type="image/png" sizes="192x192">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="stylesheet" href="admin.css?v=20261010-xp1">
-<link rel="stylesheet" href="leaderboard.css?v=20261009-season1">
-<link rel="stylesheet" href="xp.css?v=20261010-xp1">
+<link rel="stylesheet" href="leaderboard.css?v=20261010-ph1">
+<link rel="stylesheet" href="xp.css?v=20261010-sr1">
 <link rel="stylesheet" href="ranked.css?v=20261010-rk1">
 <link rel="stylesheet" href="events.css?v=20261010-ev1">
 <link rel="stylesheet" href="skins.css?v=20261010-sh1">
@@ -530,6 +530,51 @@ body.tester-on #go-online .tt-off{display:block;font-weight:800;color:#ffd35c}
   .cs-title{padding:4px 20px}
   .cs-start{font-size:20px}
 }
+/* ----- phones: more room for text, nothing cut off or squeezed (laptops and tablets don't change) ----- */
+@media (max-width:560px){
+  body{font-size:15.5px;line-height:1.5}
+  .card{padding:16px}
+  .muted,.lb-sub,.cs-sub{line-height:1.5}
+  /* main menu: the 1-2-3 medals fit, the small buttons sit in one even row */
+  #hub-home .ht-lead{gap:8px;padding:10px 12px!important}
+  #hub-home .ht-lead .lb-mini{gap:3px;margin-left:6px;flex:none}
+  #hub-home .ht-lead .lb-mini i{width:22px}
+  #hub-home .ht-lead b{font-size:clamp(20px,6.4vw,28px)}
+  .hub-side{grid-template-columns:repeat(3,minmax(0,1fr))!important}
+  .hub-side .mini{font-size:13px;padding:10px 4px;min-height:42px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .hub-side .mini[hidden]{display:none}
+  @media (max-width:380px){.hub-side .mini{font-size:12px;padding:10px 2px}}
+  /* choose fighters: 4 across, names on one line */
+  .cs-roster{grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}
+  .cs-roster .tile-cv{height:64px}
+  .cs-roster .tile-name{font-size:11px;letter-spacing:-.01em;text-transform:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:4px 2px 2px}
+  /* how to play: each action's keys sit under its name */
+  .keys tr{display:block;padding:8px 0;border-bottom:1px solid var(--line)}
+  .keys td{display:block;width:auto!important;padding:2px 0;border:0}
+  .keys td:first-child{font-weight:700;color:var(--ink)}
+  /* settings: the 4 tabs as two even rows, so none get cut off */
+  .set-tabs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
+  .set-tab{padding:8px 4px!important;font-size:13px!important;text-align:center;white-space:nowrap}
+  /* results: three big, even buttons */
+  #scr-results .row{display:grid;grid-template-columns:minmax(0,1fr);gap:10px}
+  #scr-results .row>button{width:100%;min-height:52px;font-size:17px}
+  #scr-results .row>.start{font-size:22px}
+  /* the match: small icon buttons on the right so the timer has its own space */
+  .fight-top{gap:6px}
+  .fight-top button{width:40px;height:40px;padding:0;font-size:0!important;display:grid;place-items:center;border-radius:10px}
+  .fight-top button::before{font:700 18px var(--ui);color:#fff}
+  #fs-btn::before{content:"⛶"}
+  .fight-top [data-open-settings]::before{content:"⚙"}
+  #pause-btn::before{content:"❚❚";font-size:13px;letter-spacing:-1px}
+  /* "turn your phone sideways": a small bar near the top, not over the stage */
+  #rotate-hint{top:calc(126px + env(safe-area-inset-top,0px));font-size:12.5px;padding:6px 8px 6px 12px;gap:8px}
+  #rotate-hint .mini{padding:4px 10px}
+}
+/* small phones held upright: the buttons shrink a little so Shield never covers the stick */
+@media (max-width:430px) and (orientation:portrait){
+  #tbtns{transform:scale(.86);transform-origin:right bottom}
+  #stick{left:calc(14px + env(safe-area-inset-left,0px));width:calc(112px * var(--ts));height:calc(112px * var(--ts))}
+}
 </style>
 
 <div id="app">
@@ -810,7 +855,7 @@ body.tester-on #go-online .tt-off{display:block;font-weight:800;color:#ffd35c}
 <script src="input.js?v=20261008g"></script>
 <script src="setup.js?v=20261010-sh1"></script>
 <script src="music.js?v=20261008b"></script>
-<script src="touch.js?v=20261009-zoom"></script>
+<script src="touch.js?v=20261010-ph1"></script>
 <script src="hints.js?v=20261008f"></script>
 <script src="freeze.js?v=20261008b"></script>
 <script src="training.js?v=20261009-tester2"></script>
@@ -823,7 +868,7 @@ body.tester-on #go-online .tt-off{display:block;font-weight:800;color:#ffd35c}
 <script src="admin.js?v=20261010-xp1"></script>
 <script src="leaderboard.js?v=20261010-em1"></script>
 <script src="season.js?v=20261009-season1"></script>
-<script src="xp.js?v=20261010-sh1"></script>
+<script src="xp.js?v=20261010-sr1"></script>
 <script src="ranked.js?v=20261010-sk1"></script>
 <script src="events.js?v=20261010-ev1"></script>
 <script src="skins-ui.js?v=20261010-sh1"></script>
