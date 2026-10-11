@@ -155,3 +155,16 @@
 .season-own input{flex:1;min-width:0;padding:8px;border:1px solid #6b6090;border-radius:8px;background:#211b39;color:#fff;font:700 14px var(--ui)}
 .season-ok{font:800 13px var(--ui);color:#6cf08a}
 @media (max-width:600px){.hub-top{flex-wrap:wrap;row-gap:2px}.season-chip{padding:3px 9px;margin-bottom:4px}.season-chip b{font-size:13px}.season-chip span{font-size:11px}}
+
+/* phones: the title and Refresh share one line, and the categories are one row you can swipe */
+@media (max-width:560px){
+  .lb-wrap .bar{flex-wrap:nowrap}
+  .lb-title{font-size:clamp(18px,5.8vw,28px)!important;min-width:0;white-space:nowrap}
+  .lb-wrap .bar .back{flex:none;white-space:nowrap}
+  .lb-wrap .bar .mini{flex:none;width:42px;height:40px;padding:0;font-size:0;display:grid;place-items:center}
+  .lb-wrap .bar .mini::before{content:"↻";font:800 20px var(--ui)}
+  .lb-tabs{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;margin-inline:-16px;padding:2px 16px 4px;scroll-padding-inline:16px}
+  .lb-tabs::-webkit-scrollbar{display:none}
+  .lb-tab{flex:none;padding:10px 18px;font-size:13px}
+  .lb-row{gap:10px;padding:10px 12px}
+}
