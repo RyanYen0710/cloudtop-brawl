@@ -1,6 +1,7 @@
 'use strict';
 /* ===== CLOUDTOP BRAWL — remade ultimates and side specials (drawing only) =====
-   Ultimates: Master Chuang's camera viewfinder, Mr. Guo's sniper scope, Volt's Chain Lightning, Rowan's Hunter's Snare.
+   Ultimates: Master Chuang's camera viewfinder, Mr. Guo's Lunar Cannon, Volt's Chain Lightning, Rowan's bow storm (Hunter's Snare),
+   Professor Sprocket's Mega Mech.
    Side specials: Blaze's Fire Wall, Mythic Hsi's Ankle Breaker, Lumi's Bubble Trap, Talon's Hawk Call.
    The rules (who gets hit, how hard) live in ult.js / engine.js / match.js; this file only draws them. */
 
@@ -13,6 +14,8 @@ function drawUltAimRemake(g, view, t) {
   const def = ultDef(f.c);
   if (def.aim === 'frame') { urmViewfinder(g, u, t, def); return true; }
   if (def.aim === 'scope') { urmScope(g, view, u, t); return true; }
+  if (def.aim === 'bows') { urmBows(g, view, u, t); return true; }
+  if (def.aim === 'moon') { urmMoonScan(g, view, u, t); return true; }
   return false;
 }
 /* Master Chuang: a camera viewfinder. Whoever is inside the frame gets photographed. */
@@ -73,13 +76,14 @@ function urmScope(g, view, u, t) {
 /* ---------- the finishers (world space) ---------- */
 function drawUltWorldRemake(g, view, c, t) {
   const { f, tg, def, k, u } = c, st = def.style;
-  if (st !== 'photo' && st !== 'snipe' && st !== 'chain' && st !== 'snare') return false;
+  if (st !== 'photo' && st !== 'snipe' && st !== 'chain' && st !== 'snare' && st !== 'moon') return false;
   const FIN = ULT_FX_FINAL * ULT_ART, low = URM_LOW();
   g.save();
   if (st === 'photo') urmPhoto(g, tg, k, FIN, t);
   else if (st === 'snipe') urmSnipe(g, f, tg, k, FIN, def);
   else if (st === 'chain') urmChain(g, view, f, tg, k, FIN, low);
-  else urmSnare(g, f, tg, k, FIN, low);
+  else if (st === 'moon') urmMoonBeam(g, view, tg, k, FIN, low);
+  else { urmArrowStorm(g, view, tg, k, low); urmSnare(g, f, tg, k, FIN, low); }
   g.restore();
   return true;
 }
@@ -201,6 +205,7 @@ function urmSnare(g, f, tg, k, FIN, low) {
 /* the fighter acting it out (called from ult-act.js for these styles) */
 function drawUltActorRemake(g, c, t, D, fade, fl, T, n, k) {
   const { f, tg, def } = c, st = def.style;
+  if (st === 'moon') return true;   // Mr. Guo is on the moon, at the cannon's controls
   if (st !== 'snipe' && st !== 'chain' && st !== 'snare') return false;
   const o = tg[0] || { x: c.u.ax, y: c.u.ay + f.H / 2, H: f.H, W: f.W };
   if (st === 'snipe') {   // lying far back, one eye on the scope
@@ -322,3 +327,301 @@ drawFxNew = function (g, p, k) {
 
 /* the opening cutscenes: the remade ultimates reuse their fighter's scene (Volt's storm, Rowan's bow, Guo's scope) */
 if (typeof UI_SCENES !== 'undefined') { UI_SCENES.chain = UI_SCENES.storm; UI_SCENES.snare = UI_SCENES.arrows; UI_SCENES.snipe = UI_SCENES.barrage; }
+
+/* ===================================================================================================
+   Rowan's bow storm, Mr. Guo's Lunar Cannon, Professor Sprocket's gadgets and Mega Mech (drawing only)
+   =================================================================================================== */
+
+/* ---------- Rowan: bows all around the map, dotted aim lines, then every bow fires ---------- */
+function urmBowSpots(view) {
+  // around the edges of what's on screen right now (so every bow is visible), across the top half
+  const n = URM_LOW() ? 8 : 12, out = [];
+  let cx, cy, rx, ry;
+  if (typeof CAM !== 'undefined' && CAM.init && typeof document !== 'undefined') {
+    const cv = document.getElementById('cv'), w = cv ? cv.clientWidth : 1280, h = cv ? cv.clientHeight : 720;
+    cx = CAM.x; cy = CAM.y + h / 2 / CAM.z * 0.15; rx = w / 2 / CAM.z * 0.84; ry = h / 2 / CAM.z * 0.95;
+  } else { const m = view.stage.solids[0]; cx = m.x + m.w / 2; cy = m.y - 140; rx = m.w / 2 + 230; ry = 430; }
+  for (let i = 0; i < n; i++) { const a = Math.PI * (0.98 + 1.04 * i / (n - 1)); out.push({ x: cx + Math.cos(a) * rx, y: cy + Math.sin(a) * ry }); }
+  return out;
+}
+const urmArc = (P, T, s) => { const cx = (P.x + T.x) / 2, cy = Math.min(P.y, T.y) - 140; const q = 1 - s; return { x: q * q * P.x + 2 * q * s * cx + s * s * T.x, y: q * q * P.y + 2 * q * s * cy + s * s * T.y }; };
+function urmBow(g, P, T, draw, glow, t) {
+  const a = Math.atan2(T.y - P.y, T.x - P.x), R = 40;
+  g.save(); g.translate(P.x, P.y); g.rotate(a);
+  if (glow) { g.globalCompositeOperation = 'lighter'; g.fillStyle = 'rgba(155,196,90,.25)'; circle(g, 0, 0, 40); g.fill(); g.globalCompositeOperation = 'source-over'; }
+  g.strokeStyle = '#5a3d1e'; g.lineWidth = 6; g.lineCap = 'round'; g.beginPath(); g.arc(0, 0, R, -1.15, 1.15); g.stroke();   // the bow
+  g.strokeStyle = '#9bc45a'; g.lineWidth = 2; g.beginPath(); g.arc(0, 0, R, -1.15, 1.15); g.stroke();
+  const tx = Math.cos(1.15) * R, ty = Math.sin(1.15) * R, back = -draw * 22;   // the string, pulled back
+  g.strokeStyle = '#f2e3b3'; g.lineWidth = 1.6; g.beginPath(); g.moveTo(tx, -ty); g.lineTo(back, 0); g.lineTo(tx, ty); g.stroke();
+  if (draw > 0.05) { g.strokeStyle = '#f2e3b3'; g.lineWidth = 3; g.beginPath(); g.moveTo(back, 0); g.lineTo(back + 46, 0); g.stroke(); g.fillStyle = '#e8ffd0'; g.beginPath(); g.moveTo(back + 54, 0); g.lineTo(back + 44, -5); g.lineTo(back + 44, 5); g.closePath(); g.fill(); }
+  g.restore();
+}
+function urmBows(g, view, u, t) {
+  const lock = u.ph === 'lock', lk = lock ? 1 - u.lock / ULT_LOCK : 0, T = { x: u.ax, y: u.ay };
+  const spots = urmBowSpots(view), appear = Math.min(1, (ULT_AIM - u.aim + 1) / 24), draw = lock ? 1 : Math.min(1, 0.35 + (ULT_AIM - u.aim) / 90);
+  g.save();
+  spots.forEach((P, i) => {
+    const vis = Math.min(1, Math.max(0, appear * 1.6 - i * 0.05)); if (vis <= 0) return;
+    g.globalAlpha = vis;
+    // the dotted path from this bow to the aim point
+    const n = 16, off = (t * 0.04 + i * 0.13) % (1 / n);
+    g.fillStyle = lock ? (Math.floor(t / 3) % 2 ? '#ff5a4d' : '#ffffff') : 'rgba(230,255,190,.85)';
+    for (let j = 0; j < n; j++) { const s = j / n + off; if (s > 0.97 || s < 0.06) continue; const q = urmArc(P, T, s); circle(g, q.x, q.y, lock ? 4.5 : 3.6); g.fill(); }
+    urmBow(g, P, urmArc(P, T, 0.08), draw, lock, t);
+  });
+  g.globalAlpha = 1;
+  // where they'll land: a small marker (the arrows reach about this far)
+  const pulse = 1 + Math.sin(t * 0.25) * 0.08;
+  g.strokeStyle = lock ? '#ff5a4d' : 'rgba(230,255,190,.35)'; g.setLineDash([6, 10]); g.lineWidth = 2; circle(g, u.ax, u.ay, ULT_R * pulse); g.stroke(); g.setLineDash([]);
+  g.strokeStyle = lock ? '#ffffff' : '#e8ffd0'; g.lineWidth = 3;
+  for (let i = 0; i < 4; i++) { const a = i * Math.PI / 2 + t * 0.03; g.beginPath(); g.moveTo(u.ax + Math.cos(a) * 12, u.ay + Math.sin(a) * 12); g.lineTo(u.ax + Math.cos(a) * 26, u.ay + Math.sin(a) * 26); g.stroke(); }
+  g.fillStyle = lock ? '#ff5a4d' : '#9bc45a'; circle(g, u.ax, u.ay, 5 + lk * 4); g.fill();
+  if (!lock) { g.fillStyle = 'rgba(0,0,0,.45)'; g.fillRect(u.ax - 70, u.ay + ULT_R + 18, 140, 6); g.fillStyle = '#9bc45a'; g.fillRect(u.ax - 70, u.ay + ULT_R + 18, 140 * Math.max(0, u.aim) / ULT_AIM, 6); }
+  g.restore();
+}
+/* when K is pressed: every bow fires, a storm of arrows streams down the dotted paths */
+function urmArrowStorm(g, view, tg, k, low) {
+  if (!tg.length || k > 70) return;
+  const spots = urmBowSpots(view), N = low ? 26 : 84;
+  g.save();
+  if (k < 56) spots.forEach(P => { g.globalAlpha = Math.min(1, Math.max(0, (56 - k) / 16)); urmBow(g, P, { x: tg[0].x, y: tg[0].y - tg[0].H / 2 }, Math.max(0, 1 - (k % 8) / 4), false, k); });
+  g.globalAlpha = 1;
+  for (let i = 0; i < N; i++) {
+    const o = tg[i % tg.length], P = spots[i % spots.length], T = { x: o.x + (urmSeed(i) - 0.5) * o.W * 0.8, y: o.y - o.H * (0.25 + urmSeed(i + 9) * 0.55) };
+    const s = (k - (i / N) * 44) / 9; if (s < 0 || s > 1.3) continue;
+    if (s >= 1) { g.globalCompositeOperation = 'lighter'; g.fillStyle = `rgba(230,255,190,${(1.3 - s) * 3})`; circle(g, T.x, T.y, 10); g.fill(); g.globalCompositeOperation = 'source-over'; continue; }
+    const a = urmArc(P, T, s), b = urmArc(P, T, Math.max(0, s - 0.14));
+    g.strokeStyle = 'rgba(170,230,90,.55)'; g.lineWidth = 9; g.beginPath(); g.moveTo(b.x, b.y); g.lineTo(a.x, a.y); g.stroke();
+    g.strokeStyle = '#fff4c8'; g.lineWidth = 3.5; g.beginPath(); g.moveTo(b.x, b.y); g.lineTo(a.x, a.y); g.stroke();
+    const an = Math.atan2(a.y - b.y, a.x - b.x); g.fillStyle = '#ffffff'; g.beginPath(); g.moveTo(a.x + Math.cos(an) * 13, a.y + Math.sin(an) * 13); g.lineTo(a.x + Math.cos(an + 2.6) * 11, a.y + Math.sin(an + 2.6) * 11); g.lineTo(a.x + Math.cos(an - 2.6) * 11, a.y + Math.sin(an - 2.6) * 11); g.closePath(); g.fill();
+    g.strokeStyle = '#7fd14a'; g.lineWidth = 3; g.beginPath(); g.moveTo(b.x, b.y); g.lineTo(b.x + Math.cos(an + 2.5) * 9, b.y + Math.sin(an + 2.5) * 9); g.moveTo(b.x, b.y); g.lineTo(b.x + Math.cos(an - 2.5) * 9, b.y + Math.sin(an - 2.5) * 9); g.stroke();
+  }
+  g.restore();
+}
+
+/* ---------- Mr. Guo: Lunar Cannon ---------- */
+/* aiming: a green scanner from space looks down on the battlefield */
+function urmMoonScan(g, view, u, t) {
+  const B = view.stage.blast, lock = u.ph === 'lock', lk = lock ? 1 - u.lock / ULT_LOCK : 0, R = ULT_SCOPE_R;
+  g.save();
+  g.fillStyle = 'rgba(0,30,12,.42)'; g.fillRect(B.l - 400, B.t - 400, B.r - B.l + 800, B.b - B.t + 800);
+  g.strokeStyle = 'rgba(70,255,138,.10)'; g.lineWidth = 1; g.beginPath();
+  for (let y = B.t - 400; y < B.b + 400; y += 9) { g.moveTo(B.l - 400, y); g.lineTo(B.r + 400, y); }
+  g.stroke();
+  g.strokeStyle = 'rgba(70,255,138,.18)'; g.beginPath();
+  for (let x = Math.floor((B.l - 400) / 140) * 140; x < B.r + 400; x += 140) { g.moveTo(x, B.t - 400); g.lineTo(x, B.b + 400); }
+  for (let y = Math.floor((B.t - 400) / 140) * 140; y < B.b + 400; y += 140) { g.moveTo(B.l - 400, y); g.lineTo(B.r + 400, y); }
+  g.stroke();
+  // a scanning sweep line
+  const sy = B.t + ((t * 9) % (B.b - B.t)); g.fillStyle = 'rgba(70,255,138,.12)'; g.fillRect(B.l - 400, sy - 30, B.r - B.l + 800, 30);
+  // the lock-on box (this is how far the beam reaches)
+  const col = lock ? (Math.floor(t / 3) % 2 ? '#ff3b3b' : '#ffffff') : '#46ff8a', s = R + 14 - lk * 10, c = 28;
+  g.strokeStyle = col; g.lineWidth = 4;
+  for (const [dx, dy] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) { const x = u.ax + dx * s, y = u.ay + dy * s; g.beginPath(); g.moveTo(x, y - dy * c); g.lineTo(x, y); g.lineTo(x - dx * c, y); g.stroke(); }
+  g.save(); g.translate(u.ax, u.ay); g.rotate(t * 0.04); g.lineWidth = 2; g.strokeStyle = col;
+  for (let i = 0; i < 3; i++) { g.beginPath(); g.arc(0, 0, R * 0.62, i * 2.09, i * 2.09 + 1.2); g.stroke(); }
+  g.restore();
+  g.beginPath(); g.moveTo(u.ax - 18, u.ay); g.lineTo(u.ax + 18, u.ay); g.moveTo(u.ax, u.ay - 18); g.lineTo(u.ax, u.ay + 18); g.stroke();
+  g.font = '700 15px "Chakra Petch", system-ui, sans-serif'; g.textAlign = 'center'; g.fillStyle = col;
+  g.fillText(lock ? 'TARGET LOCKED · FIRING' : 'LUNAR CANNON · SCANNING', u.ax, u.ay - s - 14);
+  g.textAlign = 'left'; g.fillText('LAT ' + (u.ay / 10).toFixed(1) + '  LON ' + (u.ax / 10).toFixed(1), u.ax + s + 10, u.ay - s + 10);
+  if (!lock) { g.fillStyle = 'rgba(0,0,0,.5)'; g.fillRect(u.ax - s, u.ay + s + 12, s * 2, 6); g.fillStyle = '#46ff8a'; g.fillRect(u.ax - s, u.ay + s + 12, s * 2 * Math.max(0, u.aim) / ULT_AIM, 6); }
+  g.restore();
+}
+/* firing: four beams join into one, then a giant beam slams down from the sky */
+function urmMoonBeam(g, view, tg, k, FIN, low) {
+  const B = view.stage.blast;
+  tg.forEach((o, j) => {
+    const x = o.x, y = o.y - o.H / 2, top = B.t - 200, meet = Math.max(B.t + 40, y - 360);
+    g.globalCompositeOperation = 'lighter';
+    if (k < 18) {   // four thin beams converge
+      const p = Math.min(1, k / 14);
+      for (let i = 0; i < 4; i++) { const sx = x + (i - 1.5) * 220 * (1 - p * 0.15); g.strokeStyle = 'rgba(70,255,138,.75)'; g.lineWidth = 3; g.beginPath(); g.moveTo(sx, top); g.lineTo(sx + (x - sx) * p, top + (meet - top) * p); g.stroke(); }
+      if (p >= 1) { g.fillStyle = 'rgba(200,255,220,.8)'; circle(g, x, meet, 18 + Math.sin(k) * 4); g.fill(); }
+    } else if (k < FIN + 26) {   // the giant beam
+      const fin = k >= FIN, p = fin ? Math.min(1, (k - FIN) / 26) : 0;
+      const w = (fin ? 120 + p * 140 : 64 + Math.sin(k * 0.9) * 10) * (fin ? 1 - p * 0.9 : 1);
+      const gr = g.createLinearGradient(x - w, 0, x + w, 0);
+      gr.addColorStop(0, 'rgba(70,255,138,0)'); gr.addColorStop(0.3, 'rgba(70,255,138,.55)'); gr.addColorStop(0.5, 'rgba(235,255,240,.95)'); gr.addColorStop(0.7, 'rgba(70,255,138,.55)'); gr.addColorStop(1, 'rgba(70,255,138,0)');
+      g.fillStyle = gr; g.fillRect(x - w, top, w * 2, o.y - top + 10);
+      g.fillStyle = 'rgba(200,255,220,.5)'; g.beginPath(); g.ellipse(x, o.y, w * 1.6, 18, 0, 0, Math.PI * 2); g.fill();   // scorch glow on the floor
+      if (!low && k % 2 === 0) for (let i = 0; i < 3; i++) spawnFx({ k: 'spark', x: x + (Math.random() - 0.5) * w, y: o.y - Math.random() * 30, vx: (Math.random() - 0.5) * 6, vy: -2 - Math.random() * 4, g: 0.15, life: 18, col: i % 2 ? '#46ff8a' : '#e8fff0', size: 3 });
+      if (fin) { g.strokeStyle = `rgba(200,255,220,${1 - p})`; g.lineWidth = 8; circle(g, x, y, 40 + p * 260); g.stroke(); circle(g, x, y, 20 + p * 160); g.stroke(); }
+    }
+    g.globalCompositeOperation = 'source-over';
+  });
+}
+if (typeof UI_SCENES !== 'undefined') {
+  /* Mr. Guo: the scene cuts to the moon. A giant telescope-cannon rises from a crater, turns toward Earth and charges */
+  UI_SCENES.moon = function (o) {
+    const { g, f, k, vw, vh, S, low } = o;
+    g.fillStyle = '#03040b'; g.fillRect(0, 0, vw, vh);
+    g.fillStyle = '#ffffff'; for (let i = 0; i < (low ? 40 : 110); i++) { g.globalAlpha = 0.3 + uiSeed(i) * 0.7; g.fillRect(uiSeed(i + 3) * vw, uiSeed(i + 7) * vh * 0.7, 2, 2); }
+    g.globalAlpha = 1;
+    // Earth in the sky
+    const ex = vw * 0.78, ey = vh * 0.24, er = 70 * S;
+    const eg = g.createRadialGradient(ex - er * 0.3, ey - er * 0.3, er * 0.1, ex, ey, er); eg.addColorStop(0, '#7ad7ff'); eg.addColorStop(0.7, '#1f6fbf'); eg.addColorStop(1, '#0a2a5a');
+    g.fillStyle = eg; circle(g, ex, ey, er); g.fill();
+    g.fillStyle = 'rgba(111,227,154,.8)'; g.beginPath(); g.ellipse(ex - er * 0.2, ey - er * 0.1, er * 0.35, er * 0.22, 0.6, 0, Math.PI * 2); g.ellipse(ex + er * 0.35, ey + er * 0.3, er * 0.2, er * 0.14, -0.4, 0, Math.PI * 2); g.fill();
+    g.strokeStyle = 'rgba(122,215,255,.35)'; g.lineWidth = 8 * S; circle(g, ex, ey, er + 6 * S); g.stroke();
+    // the moon's surface
+    const gy = vh * 0.72;
+    g.fillStyle = '#8a8f9c'; g.beginPath(); g.moveTo(0, vh); g.lineTo(0, gy + 30 * S); g.quadraticCurveTo(vw / 2, gy - 50 * S, vw, gy + 30 * S); g.lineTo(vw, vh); g.closePath(); g.fill();
+    g.fillStyle = '#6c717d'; for (let i = 0; i < 6; i++) { g.beginPath(); g.ellipse(uiSeed(i + 20) * vw, gy + 50 * S + uiSeed(i + 30) * vh * 0.18, (20 + uiSeed(i) * 40) * S, (6 + uiSeed(i) * 10) * S, 0, 0, Math.PI * 2); g.fill(); }
+    const cx = vw * 0.42; g.fillStyle = '#4e525c'; g.beginPath(); g.ellipse(cx, gy + 10 * S, 120 * S, 26 * S, 0, 0, Math.PI * 2); g.fill();   // the crater
+    // the cannon rises, turns toward Earth, then charges
+    const rise = uiOut(uiSeg(k, 4, 34)), turn = uiOut(uiSeg(k, 34, 58)), charge = uiSeg(k, 58, 84);
+    const bx = cx, by = gy + 10 * S - rise * 120 * S;
+    g.fillStyle = '#3a3f4a'; g.fillRect(bx - 28 * S, by, 56 * S, gy + 10 * S - by);   // the tower
+    g.fillStyle = '#c8ccd6'; g.beginPath(); g.ellipse(bx, by, 60 * S, 22 * S, 0, 0, Math.PI * 2); g.fill();
+    const aim = Math.atan2(ey - by, ex - bx), ang = -0.15 + (aim + 0.15) * turn, L = 190 * S;
+    g.save(); g.translate(bx, by - 10 * S); g.rotate(ang);
+    g.fillStyle = '#e8ebf2'; g.strokeStyle = '#1a1d26'; g.lineWidth = 3 * S;
+    g.beginPath(); g.moveTo(-50 * S, -30 * S); g.lineTo(L, -22 * S); g.lineTo(L, 22 * S); g.lineTo(-50 * S, 30 * S); g.closePath(); g.fill(); g.stroke();
+    g.fillStyle = '#9aa3ad'; for (let i = 0; i < 3; i++) g.fillRect((i * 50 - 10) * S, -32 * S, 12 * S, 64 * S);
+    g.fillStyle = '#1a1d26'; g.beginPath(); g.ellipse(L, 0, 10 * S, 26 * S, 0, 0, Math.PI * 2); g.fill();
+    if (charge > 0) {   // four beams join at the mouth, like the Death Star
+      g.globalCompositeOperation = 'lighter';
+      for (let i = 0; i < 4; i++) { const yy = (i - 1.5) * 18 * S; g.strokeStyle = `rgba(70,255,138,${0.4 + charge * 0.6})`; g.lineWidth = 3 * S; g.beginPath(); g.moveTo(L, yy); g.lineTo(L + 70 * S * charge, 0); g.stroke(); }
+      g.fillStyle = `rgba(220,255,230,${charge})`; circle(g, L + 70 * S * charge, 0, (8 + charge * 22) * S); g.fill();
+      if (k >= 84) { g.fillStyle = 'rgba(70,255,138,.85)'; g.fillRect(L + 70 * S, -22 * S, vw * 2, 44 * S); g.fillStyle = '#ffffff'; g.fillRect(L + 70 * S, -8 * S, vw * 2, 16 * S); }
+      g.globalCompositeOperation = 'source-over';
+    }
+    g.restore();
+    // Mr. Guo at the controls
+    uiFig(g, f, vw * 0.16, gy + 40 * S, 150 * S, 'cast', 1);
+    g.fillStyle = '#1a1d26'; g.fillRect(vw * 0.16 + 26 * S, gy - 20 * S, 60 * S, 46 * S); g.fillStyle = k % 8 < 4 ? '#46ff8a' : '#1a7a40'; g.fillRect(vw * 0.16 + 32 * S, gy - 14 * S, 48 * S, 20 * S);
+    if (k > 84) { g.fillStyle = `rgba(220,255,230,${(k - 84) / 8})`; g.fillRect(0, 0, vw, vh); }
+  };
+  /* Professor Sprocket: mech parts fly in from every side and lock on around him */
+  UI_SCENES.mech = function (o) {
+    const { g, f, k, vw, vh, S, cx } = o, gy = vh * 0.84, H = 300 * S;
+    g.strokeStyle = 'rgba(201,147,42,.25)'; g.lineWidth = 2; for (let x = 0; x < vw; x += 60 * S) { g.beginPath(); g.moveTo(x, 0); g.lineTo(x, vh); g.stroke(); }
+    const jump = uiSeg(k, 0, 18), fy = gy - Math.sin(jump * Math.PI) * 60 * S;
+    uiFig(g, f, cx, fy, 170 * S, k < 18 ? 'up' : 'power', 1);
+    const p = uiOut(uiSeg(k, 14, 58));
+    urmMechArt(g, cx, gy, H, 1, k, 1, p);
+    if (k > 60) {
+      g.font = `${28 * S | 0}px "Dela Gothic One", Impact, sans-serif`; g.textAlign = 'center'; g.fillStyle = '#ffd35c'; g.globalAlpha = uiSeg(k, 60, 68);
+      g.fillText('MEGA MECH ONLINE', cx, vh * 0.16); g.globalAlpha = 1;
+      if (k < 66) { g.fillStyle = 'rgba(255,255,255,.35)'; g.fillRect(0, 0, vw, vh); }
+    }
+  };
+}
+
+/* ---------- Professor Sprocket ---------- */
+/* the mech suit around him: x,y = feet, h = height. asm (0..1) = parts flying in (1 = all on) */
+function urmMechArt(g, x, y, h, face, t, alpha, asm, pose, air) {
+  asm = asm == null ? 1 : asm;
+  const fly = (dx, dy) => [(1 - asm) * dx * h, (1 - asm) * dy * h];
+  const brass = '#c9932a', dark = '#2a1d0a', steel = '#9aa3ad', W = h * 0.62;
+  g.save(); g.globalAlpha *= alpha == null ? 1 : alpha; g.translate(x, y); g.scale(face, 1);
+  g.strokeStyle = dark; g.lineWidth = Math.max(2, h * 0.012); g.lineJoin = 'round';
+  // jetpack (flames when flying)
+  let [ox, oy] = fly(-1.4, -0.4);
+  g.fillStyle = steel; g.fillRect(ox - W * 0.62, oy - h * 0.78, W * 0.26, h * 0.34); g.strokeRect(ox - W * 0.62, oy - h * 0.78, W * 0.26, h * 0.34);
+  if (air && asm >= 1) { g.globalCompositeOperation = 'lighter'; const fl = h * (0.16 + Math.random() * 0.08); g.fillStyle = 'rgba(255,138,31,.85)'; g.beginPath(); g.moveTo(-W * 0.6, -h * 0.44); g.lineTo(-W * 0.49, -h * 0.44 + fl); g.lineTo(-W * 0.38, -h * 0.44); g.closePath(); g.fill(); g.globalCompositeOperation = 'source-over'; }
+  // legs
+  [ox, oy] = fly(0, 1.2);
+  for (const sx of [-1, 1]) {
+    g.fillStyle = steel; g.fillRect(ox + sx * W * 0.22 - W * 0.09, oy - h * 0.42, W * 0.18, h * 0.32); g.strokeRect(ox + sx * W * 0.22 - W * 0.09, oy - h * 0.42, W * 0.18, h * 0.32);
+    g.fillStyle = brass; g.beginPath(); g.arc(ox + sx * W * 0.22, oy - h * 0.26, W * 0.1, 0, Math.PI * 2); g.fill(); g.stroke();
+    g.fillRect(ox + sx * W * 0.22 - W * 0.17, oy - h * 0.1, W * 0.34, h * 0.1); g.strokeRect(ox + sx * W * 0.22 - W * 0.17, oy - h * 0.1, W * 0.34, h * 0.1);
+  }
+  // body plate
+  [ox, oy] = fly(1.4, 0.2);
+  g.fillStyle = brass; g.beginPath(); g.roundRect ? g.roundRect(ox - W * 0.38, oy - h * 0.74, W * 0.76, h * 0.34, h * 0.05) : g.rect(ox - W * 0.38, oy - h * 0.74, W * 0.76, h * 0.34); g.fill(); g.stroke();
+  g.fillStyle = '#7ad7ff'; circle(g, ox, oy - h * 0.58, W * 0.09); g.fill(); g.stroke();   // the power core
+  g.fillStyle = dark; for (const [rx, ry] of [[-0.3, -0.7], [0.3, -0.7], [-0.3, -0.45], [0.3, -0.45]]) { circle(g, ox + rx * W, oy + ry * h, h * 0.012); g.fill(); }
+  // arms with big fists (the front one punches out)
+  [ox, oy] = fly(-1.2, -0.8);
+  const reach = pose === 'punch' || pose === 'dash' ? W * 0.55 : 0;
+  for (const sx of [-1, 1]) {
+    const ax = ox + sx * W * 0.5 + (sx > 0 ? reach : 0), ay = oy - h * 0.6;
+    g.fillStyle = steel; g.fillRect(Math.min(ox + sx * W * 0.42, ax) - W * 0.06, ay - h * 0.04, Math.abs(ax - ox - sx * W * 0.42) + W * 0.12, h * 0.08);
+    g.fillStyle = brass; g.beginPath(); g.arc(ox + sx * W * 0.44, oy - h * 0.7, W * 0.15, 0, Math.PI * 2); g.fill(); g.stroke();   // shoulder pad
+    g.beginPath(); g.arc(ax, ay + h * 0.02, W * 0.15, 0, Math.PI * 2); g.fill(); g.stroke();   // fist
+  }
+  // cockpit glass around his head
+  [ox, oy] = fly(0, -1.4);
+  g.fillStyle = 'rgba(122,215,255,.22)'; g.strokeStyle = steel; g.lineWidth = Math.max(2, h * 0.016);
+  g.beginPath(); g.arc(ox, oy - h * 0.86, W * 0.3, Math.PI * 1.02, Math.PI * 1.98); g.lineTo(ox + W * 0.3, oy - h * 0.76); g.lineTo(ox - W * 0.3, oy - h * 0.76); g.closePath(); g.fill(); g.stroke();
+  g.fillStyle = (t >> 3) % 2 ? '#ff5a4d' : '#ffd35c'; circle(g, ox, oy - h * 0.99, h * 0.016); g.fill();   // antenna light
+  g.restore();
+}
+if (typeof drawFighter === 'function') {
+  const drawFighterNoMech = drawFighter;
+  drawFighter = function (g, f, t, portrait) {
+    drawFighterNoMech(g, f, t, portrait);
+    if (f && f.mech > 0 && !portrait && !f.out && !(f.dead > 0)) {
+      try { urmMechArt(g, f.x, f.y, f.H, f.face || 1, t, 1, 1, f.pose, !f.ground && (f.vy < 0 || f.pose === 'up' || f.pose === 'fly')); } catch (e) { }
+    }
+  };
+}
+Object.assign(PROJ_NEW, {
+  /* Robo-Pup: a wind-up robot dog running along the floor */
+  robopup(g, p, t, x, y, r, dir) {
+    const run = Math.sin(t * 0.8) * 4, s = r / 15;
+    g.save(); g.translate(x, y - 2 * s); g.scale(dir * s, s);
+    g.strokeStyle = '#2a1d0a'; g.lineWidth = 1.6;
+    g.fillStyle = '#9aa3ad'; for (const lx of [-8, 6]) { g.fillRect(lx - 2, 4, 4, 9 + (lx < 0 ? run : -run) * 0.5); }
+    g.fillStyle = '#c9932a'; g.beginPath(); g.ellipse(0, 0, 13, 8, 0, 0, Math.PI * 2); g.fill(); g.stroke();
+    g.fillStyle = '#e8d9b0'; g.fillRect(8, -12, 12, 10); g.strokeRect(8, -12, 12, 10);   // head
+    g.fillStyle = '#c9932a'; g.beginPath(); g.moveTo(10, -12); g.lineTo(12, -18); g.lineTo(14, -12); g.fill();   // ear
+    g.fillStyle = '#ff5a4d'; circle(g, 17, -8, 1.8); g.fill();   // eye
+    g.save(); g.translate(-4, -9); g.rotate(t * 0.4); g.fillStyle = '#e8d9b0'; g.fillRect(-1, -6, 2, 12); g.fillRect(-5, -6, 10, 3); g.restore();   // the wind-up key
+    g.strokeStyle = '#9aa3ad'; g.lineWidth = 2; g.beginPath(); g.moveTo(-13, -2); g.quadraticCurveTo(-20, -8 + run, -22, -12); g.stroke();   // tail
+    g.restore();
+  },
+  /* Sprocket's spring pad */
+  springpad(g, p, t, x, y, r, dir) {
+    const sq = 1 + Math.sin(t * 0.5) * 0.1, base = y + p.size * 0.55, h = 18 * sq, fade = Math.min(1, p.life / 20);
+    g.save(); g.globalAlpha *= fade; g.strokeStyle = '#2a1d0a'; g.lineWidth = 2;
+    g.fillStyle = '#5a4636'; g.fillRect(x - 22, base - 5, 44, 6); g.strokeRect(x - 22, base - 5, 44, 6);
+    g.strokeStyle = '#c8ccd6'; g.lineWidth = 3; g.beginPath(); g.moveTo(x - 10, base - 5);
+    for (let i = 1; i <= 5; i++) g.lineTo(x + (i % 2 ? 10 : -10), base - 5 - h * i / 5);
+    g.stroke();
+    g.fillStyle = '#c9932a'; g.strokeStyle = '#2a1d0a'; g.lineWidth = 2; g.fillRect(x - 20, base - 9 - h, 40, 6); g.strokeRect(x - 20, base - 9 - h, 40, 6);
+    g.restore();
+  },
+  /* Magnet Trap: a big horseshoe magnet with a pulling field */
+  magnet(g, p, t, x, y, r, dir) {
+    const base = y + p.size * 0.5;
+    g.save();
+    g.globalCompositeOperation = 'lighter';
+    for (let i = 0; i < 3; i++) { const q = ((t * 0.04 + i / 3) % 1); g.strokeStyle = `rgba(122,215,255,${0.5 * (1 - q)})`; g.lineWidth = 3; circle(g, x, base - 20, 230 * (1 - q)); g.stroke(); }
+    g.globalCompositeOperation = 'source-over';
+    g.lineCap = 'butt'; g.strokeStyle = '#2a1d0a'; g.lineWidth = 18; g.beginPath(); g.arc(x, base - 22, 18, Math.PI, 0); g.stroke();
+    g.strokeStyle = '#e8354a'; g.lineWidth = 14; g.beginPath(); g.arc(x, base - 22, 18, Math.PI, 0); g.stroke();
+    g.fillStyle = '#e8354a'; g.fillRect(x - 25, base - 22, 14, 14); g.fillRect(x + 11, base - 22, 14, 14);
+    g.fillStyle = '#e8ebf2'; g.fillRect(x - 25, base - 10, 14, 9); g.fillRect(x + 11, base - 10, 14, 9);
+    if ((t >> 2) % 2) { g.strokeStyle = '#7ad7ff'; g.lineWidth = 2; g.beginPath(); g.moveTo(x - 18, base); g.lineTo(x - 6, base - 8); g.lineTo(x + 4, base + 2); g.lineTo(x + 18, base - 6); g.stroke(); }
+    g.restore();
+  }
+});
+if (typeof fxEventRemake === 'function') {
+  const fxEventRemake1 = fxEventRemake;
+  fxEventRemake = function (type, x, y, a, b) {
+    switch (type) {
+      case 'pupboom':   // Robo-Pup blows up: springs and bolts everywhere
+        spawnFx({ k: 'ring', x, y, life: 16, r0: 10, r1: a || 95, col: '#ffd35c', lw: 6 });
+        for (let i = 0; i < (URM_LOW() ? 8 : 18); i++) { const an = Math.random() * 6.28, s = 3 + Math.random() * 6; spawnFx({ k: 'spark', x, y, vx: Math.cos(an) * s, vy: Math.sin(an) * s - 2, g: 0.25, life: 30, col: i % 3 ? '#9aa3ad' : '#c9932a', size: 4 }); }
+        for (let i = 0; i < 6; i++) spawnFx({ k: 'smoke', x: x + (Math.random() - 0.5) * 40, y, vx: (Math.random() - 0.5) * 2, vy: -1.5, life: 30, col: 'rgba(90,80,70,.6)', size: 12 });
+        return true;
+      case 'magburst':   // the Magnet Trap zaps everyone it pulled in
+        spawnFx({ k: 'ring', x, y, life: 18, r0: 20, r1: a || 110, col: '#7ad7ff', lw: 6 });
+        for (let i = 0; i < (URM_LOW() ? 8 : 16); i++) { const an = Math.random() * 6.28, s = 3 + Math.random() * 5; spawnFx({ k: 'spark', x, y, vx: Math.cos(an) * s, vy: Math.sin(an) * s, life: 18, col: i % 2 ? '#7ad7ff' : '#ffffff', size: 3 }); }
+        return true;
+      case 'mechon':   // the Mega Mech powers up
+        spawnFx({ k: 'ring', x, y, life: 22, r0: 30, r1: 170, col: '#ffd35c', lw: 8 });
+        spawnFx({ k: 'flash', life: 8, a: 0.3, col: '255,211,92' });
+        for (let i = 0; i < 12; i++) spawnFx({ k: 'smoke', x: x + (Math.random() - 0.5) * 80, y: y + 40, vx: (Math.random() - 0.5) * 4, vy: -2 - Math.random() * 2, life: 34, col: 'rgba(230,230,240,.6)', size: 14 });
+        return true;
+      case 'mechoff':   // the suit falls apart
+        for (let i = 0; i < 14; i++) { const an = -Math.PI * Math.random(), s = 2 + Math.random() * 5; spawnFx({ k: 'spark', x, y, vx: Math.cos(an) * s, vy: Math.sin(an) * s, g: 0.3, life: 34, col: i % 2 ? '#c9932a' : '#9aa3ad', size: 5 }); }
+        for (let i = 0; i < 8; i++) spawnFx({ k: 'smoke', x: x + (Math.random() - 0.5) * 60, y, vx: (Math.random() - 0.5) * 2, vy: -1.2, life: 30, col: 'rgba(90,80,70,.55)', size: 12 });
+        return true;
+    }
+    return fxEventRemake1(type, x, y, a, b);
+  };
+}
