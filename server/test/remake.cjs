@@ -1,6 +1,6 @@
 'use strict';
 // Run after building: node --test server/test/remake.cjs
-// The remade side specials (Fire Wall, Ankle Breaker, Bubble Trap) and ultimates (camera frame, sniper scope,
+// The remade side specials (Fire Wall, Ankle Breaker, Bubble Trap, Hawk Call) and ultimates (camera frame, sniper scope,
 // Chain Lightning, Hunter's Snare) on the solo engine and on the online server build.
 const assert = require('node:assert/strict');
 const { readFileSync } = require('node:fs');
@@ -77,13 +77,29 @@ for (const server of [false, true]) {
     assert.equal(s2.o.bubble, 0, 'popped by the punch');
   });
 
-  test(label + ': Talon\'s Sky Snatch catches the first enemy and flings them behind him', () => {
-    const api = load(server), s = fresh(api, 'talon', 'titan', 'zephyr');
-    s.p.x = s.o.x + 40;   // a second enemy right behind the first one is not hit
-    let i = 0; s.tick(api.BR, api.BS);
-    while (!(s.o.hitstun > 0) && i++ < 30) s.tick();
-    assert.ok(s.o.hitstun > 0, 'caught'); assert.ok(s.o.vx < -2, 'flung backward (behind Talon)');
-    assert.equal(s.p.dmg, 0, 'only the first enemy');
+  test(label + ': Talon\'s Hawk Call hunts the nearest enemy, carries them up, then drops them with a hit', () => {
+    const api = load(server), s = fresh(api, 'talon', 'titan');
+    s.o.x = s.f.x - 220;   // behind Talon: the hawk turns around to find them
+    s.tick(api.BR, api.BS); s.f.face = 1;
+    let i = 0;
+    while (!(s.o.hawk > 0) && i++ < 120) s.tick();
+    assert.ok(s.o.hawk > 0, 'caught by the hawk');
+    assert.equal(s.g.projs.filter(p => p.shape === 'hawk').length, 1);
+    const y0 = s.o.y, d0 = s.o.dmg;
+    s.run(12); assert.ok(s.o.y < y0 - 25, 'carried up'); assert.ok(s.o.hawk > 0, 'still held');
+    i = 0; while (s.o.hawk > 0 && i++ < 80) s.tick();
+    assert.equal(s.o.hawk, 0); assert.ok(s.o.dmg > d0 + 6, 'dropped with a hit'); assert.ok(s.o.hitstun > 0);
+    assert.equal(s.g.projs.filter(p => p.shape === 'hawk').length, 0, 'the hawk flies off');
+  });
+
+  test(label + ': any other hit knocks them out of the hawk\'s claws', () => {
+    const api = load(server), s = fresh(api, 'talon', 'titan');
+    s.tick(api.BR, api.BS);
+    let i = 0; while (!(s.o.hawk > 0) && i++ < 120) s.tick();
+    assert.ok(s.o.hawk > 0);
+    api.applyHit(s.f, s.o, { dmg: 4, b: 3, g: 0.3, angle: 40 }, 1, s.g, false);
+    assert.equal(s.o.hawk, 0); s.tick();
+    assert.equal(s.g.projs.filter(p => p.shape === 'hawk').length, 0);
   });
 
   const ult = (s, api, aimMoves) => {
