@@ -11,6 +11,13 @@
 .evm-tag{position:absolute;top:2px;left:50%;transform:translateX(-50%);padding:2px 8px;border-radius:999px;background:#ffd35c;color:#2a1a00;font:800 10px var(--ui);letter-spacing:.08em;white-space:nowrap}
 .evm-ups{display:flex;flex-wrap:wrap;justify-content:center;gap:4px}
 .evm-ups span{padding:2px 7px;border-radius:999px;background:rgba(111,227,154,.15);border:1px solid #6fe39a;color:#9ff0bd;font:700 10px var(--ui)}
+.evm-upgs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:2px 0 6px}
+.evm-upgs-f{display:flex;flex-direction:column;gap:6px;padding:10px;border-radius:12px;background:rgba(255,211,92,.07);border:1px solid rgba(255,211,92,.35)}
+.evm-upgs-f b{font:800 13px var(--ui);color:#ffd35c}
+.evm-upg{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:4px;text-align:left;width:100%}
+.evm-upg li{position:relative;padding:4px 8px 4px 20px;border-radius:6px;background:rgba(255,211,92,.1);font:600 12.5px/1.4 var(--ui);color:#fff3c4}
+.evm-upg li::before{content:"▲";position:absolute;left:6px;top:5px;font-size:9px;color:#6fe39a}
+.evm-upg-tag{padding:2px 9px;border-radius:999px;background:#ffd35c;color:#2a1a00;font:800 11px var(--ui)}
 .evm-play{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .evm-go{display:flex;flex-direction:column;align-items:flex-start;gap:4px;padding:14px 16px;border-radius:14px;border:2px solid var(--ev1,#ffd35c);background:linear-gradient(135deg,var(--ev2,#c2401a),#2a1d5e);color:#fff;text-align:left;cursor:pointer;box-shadow:0 4px 0 rgba(0,0,0,.35)}
 .evm-go.friends{background:linear-gradient(135deg,#1f6fbf,#2a1d5e)}
@@ -35,7 +42,7 @@
 .rk-pill{padding:2px 8px;border-radius:999px;border:2px solid var(--rk);color:var(--rk);font:800 11px var(--ui);flex:none}
 .rk-lb{margin-left:auto}
 .evm-rule .stage-chip{white-space:nowrap}
-@media (max-width:640px){.evm-buffs{gap:6px}.evm-cv{height:96px}.evm-buff b{font-size:14px}.evm-play{grid-template-columns:1fr}.evm-go b{font-size:19px}.evm-list small{display:none}}
+@media (max-width:640px){.evm-upgs{grid-template-columns:minmax(0,1fr)}.evm-upg-tag{font-size:10px;padding:2px 6px}.evm-buffs{gap:6px}.evm-cv{height:96px}.evm-buff b{font-size:14px}.evm-play{grid-template-columns:1fr}.evm-go b{font-size:19px}.evm-list small{display:none}}
 
 /* the intro */
 .evi{position:fixed;inset:0;z-index:10050;display:grid;place-items:center;overflow:hidden;background:radial-gradient(circle at 50% 45%,#3a1d6e,#0b0820 70%);animation:evi-in .3s ease-out}
