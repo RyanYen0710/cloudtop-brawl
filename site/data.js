@@ -254,8 +254,9 @@ const ROSTER = [
       neutral: { name: 'Leaf Tornado', desc: 'Send out a tornado of leaves that carries enemies up, then bursts.', kind: 'proj',
         dmg: 3, b: 3.4, g: 0.2, angle: 88, startup: 10, end: 14, speed: 5, life: 90, size: 36, shape: 'leafnado', color: '#6fd35a', max: 1, pierce: true, rehit: 9, tall: true, yoff: 18,
         burst: { dmg: 7, b: 8, g: 1.0, angle: 85, r: 95, fx: 'leafburst' } },
-      side: { name: 'Sky Snatch', desc: 'Swoop forward, catch the first enemy in your talons and fling them behind you.', kind: 'dash',
-        dmg: 9, b: 7.5, g: 0.85, angle: 55, startup: 6, dur: 16, vx: 13.5, end: 14, hx: 0.6, hy: 0.5, hw: 1.2, hh: 0.8, fx: 'feathers', fling: true },
+      side: { name: 'Hawk Call', desc: 'An emerald hawk flies out, hunts down the nearest enemy, grabs them and carries them up, then drops them.', kind: 'proj',
+        dmg: 3, b: 0, g: 0, angle: 90, startup: 9, end: 14, speed: 8.5, life: 75, size: 40, shape: 'hawk', color: '#3fcf7a', max: 1, seek: 0.6,
+        hawk: { t: 36, dmg: 8, b: 7.2, g: 0.85, angle: 78 } },
       up: { name: 'Soar', desc: 'Spread the wings and fly anywhere for 7 seconds.', kind: 'fly',
         dur: 420, speed: 7.5, startup: 3, fx: 'birdwings' },
       down: { name: 'Feather Fan', desc: 'Flick three razor feathers in a spread.', kind: 'proj',
@@ -469,7 +470,7 @@ function xpLevel(xp) {
   return { xp, level: lv, cur, need, max: lv >= XP_MAX_LEVEL };
 }
 const MOVEKEYS = [...Object.keys(NORMALS), 'sp_neutral', 'sp_side', 'sp_up', 'sp_down'];
-const SHAPES = ['orb', 'star', 'laser', 'fist', 'mine', 'shard', 'spike', 'fire', 'bolt', 'strike', 'void', 'pillar', 'arrow', 'arrowbomb', 'javelin', 'hammer', 'tstrike', 'leafnado', 'feather', 'capture', 'shark', 'eel', 'bullet', 'dagger', 'soundwave', 'gear', 'potion', 'puddle', 'flask', 'flash', 'photo', 'cammine', 'ball', 'firewall', 'bubble'];
+const SHAPES = ['orb', 'star', 'laser', 'fist', 'mine', 'shard', 'spike', 'fire', 'bolt', 'strike', 'void', 'pillar', 'arrow', 'arrowbomb', 'javelin', 'hammer', 'tstrike', 'leafnado', 'feather', 'capture', 'shark', 'eel', 'bullet', 'dagger', 'soundwave', 'gear', 'potion', 'puddle', 'flask', 'flash', 'photo', 'cammine', 'ball', 'firewall', 'bubble', 'hawk'];
 
 /* 'random' is a pick, not a fighter: it becomes a real fighter when the battle starts */
 /* fighters this player has unlocked (filled in after signing in) */
