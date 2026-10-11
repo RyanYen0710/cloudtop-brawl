@@ -240,6 +240,7 @@ function stepProjs(g) {
         p.hit.add(o);
         const dir = Math.sign(p.vx) || (o.x > p.x ? 1 : -1);
         if (m.fuse) { if (!p.stuck) explode(p, g); p.hit.delete(o); break; }
+        if (m.pup) { p.life = 0; if (!p.burst) { p.burst = 1; burstProj(p, g); } break; }   // Sprocket's Robo-Pup leaps on them and blows up
         if (m.hawk) {   // Talon's hawk grabs them and carries them up
           const r0 = applyHit(p.owner, o, { dmg: p.dmg, b: 0, g: 0, angle: 90, hawk: m.hawk.t + 4 }, dir, g, p);
           if (r0 === 'hit') { p.carry = o.slot; p.carryT = m.hawk.t; p.face = dir; p.x = o.x; p.y = o.y - o.H - p.size * 0.35; emit(g, 'snatch', p.x, p.y, dir, p.owner.slot); }   // claws on their shoulders
