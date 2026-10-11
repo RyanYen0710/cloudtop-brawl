@@ -15,7 +15,7 @@ function ultInAim(def, u, o, grow) {
   grow = grow || 1;
   const dx = Math.abs(o.x - u.ax), dy = Math.abs((o.y - o.H / 2) - u.ay);
   if (def.aim === 'frame') return dx < ULT_FRAME_W / 2 * grow + o.W * 0.35 && dy < ULT_FRAME_H / 2 * grow + o.H * 0.3;
-  return Math.hypot(dx, dy) < (def.aim === 'scope' ? ULT_SCOPE_R : ULT_R) * grow + o.W * 0.35;
+  return Math.hypot(dx, dy) < (def.aim === 'scope' || def.aim === 'moon' ? ULT_SCOPE_R : ULT_R) * grow + o.W * 0.35;
 }
 /* the finisher itself is quick: small hits, then the big blow at FX_FINAL, done at FX_END.
    The art was drawn for ULT_FX frames, so it plays sped up by ULT_ART to match. */
@@ -43,7 +43,9 @@ const ULT_STYLES = {
   chain: { hit: (o, i, u, g) => ultPush(o, g, (i % 2 ? -1 : 1) * 6, -5), angle: () => ultRnd(70, 85), finMul: 1.46 },
   /* Rowan: trapped by vines and a net (can't escape), then one giant arrow sends them sideways */
   snare: { angle: () => ultRnd(20, 32), dir: (o, u, f) => Math.sign(o.x - f.x) || f.face, finMul: 0.6 },
-  /* Mr. Guo: three sniper shots, each one knocks the target back */
+  /* Mr. Guo: a giant beam from the moon pins the target down, then blasts them away */
+  moon: { hit: (o, i, u, g) => ultPush(o, g, ultRnd(-5, 5), 3), angle: () => ultRnd(38, 52), dir: (o, u, f) => Math.sign(o.x - f.x) || f.face, finMul: 0.36 },
+  /* Mr. Guo's old sniper (kept for anything still using it) */
   snipe: { hit: (o, i, u, g, f) => ultPush(o, g, (Math.sign(o.x - f.x) || 1) * 18, -4), angle: () => ultRnd(20, 32), dir: (o, u, f) => Math.sign(o.x - f.x) || f.face, finMul: 0.34 },
   vortex: { tick: (o, k, u, g) => { if (k < ULT_FX_FINAL) { o.x += (u.ax - o.x) * 0.08; o.y += ((u.ay + o.H / 2) - o.y) * 0.08; } }, angle: () => ultRnd(45, 70), dir: (o, u) => Math.sign(o.x - u.ax) || (Math.random() < 0.5 ? -1 : 1), finMul: 0.98 },
   arrows: { free: true, reach: 1.3, chance: 0.75, angle: () => ultRnd(25, 40), finMul: 0.51 },
@@ -252,10 +254,10 @@ function aiAvalanche(f, g) {
 function tryUlt(f, g) {
   if (f.avalanche) return;   // the roll ends by itself now
   if (!f.ult || g.ult || g.over || f.carriedBy != null || f.dead > 0 || f.out || f.halo > 0 || f.hitstun > 0 || f.frozen > 0 || f.ledge || f.shieldBreak > 0) return;
-  const roll = f.c.id === 'titan' && f.c.ultimate?.kind === 'avalanche';
+  const roll = f.c.id === 'titan' && f.c.ultimate?.kind === 'avalanche', mech = f.c.ultimate?.kind === 'mech';
   if (roll && f.zap > 0) return;
   f.ult = false; endAct(f); f.vx = 0; f.vy = 0;
-  g.ult = { slot: f.slot, t: 0, targets: [], ph: 'cut', ax: f.x, ay: f.y - f.H / 2, aim: ULT_AIM, lock: 0, roll };
+  g.ult = { slot: f.slot, t: 0, targets: [], ph: 'cut', ax: f.x, ay: f.y - f.H / 2, aim: ULT_AIM, lock: 0, roll, mech };
   f.vanish = true; f.inv = Math.max(f.inv, 4);
   emit(g, 'ult', f.x, f.y - f.H / 2, 0, f.slot);
 }
@@ -274,12 +276,14 @@ function stepUlt(g, inputs) {
     if (avalancheInterrupted(f, g)) finishAvalanche(f, g, false);
     else if (f.avalanche.left <= 0) finishAvalanche(f, g, true);
   }
+  if ((!g.ult || g.ult.ph !== 'cut') && typeof stepMechs === 'function') stepMechs(g);
   const u = g.ult; if (!u) return false;
   const f = g.fighters.find(x => x.slot === u.slot);
   if (!f) { g.ult = null; return false; }
   if (u.ph === 'cut') {
     u.t++; f.vanish = true;
     if (u.t >= ULT_CUT && u.roll) { g.ult = null; f.vanish = false; startAvalanche(f, g); return false; }   // Titan: the opening scene, then he rolls
+    if (u.t >= ULT_CUT && u.mech) { g.ult = null; f.vanish = false; f.inv = Math.max(f.inv, 30); startMech(f, g); return false; }   // Sprocket: the opening scene, then the Mega Mech
     if (u.t >= ULT_CUT) {
       const kind = ultKind(ultDef(f.c));
       if (kind === 'aim') { u.ph = 'aim'; emit(g, 'ultaim', u.ax, u.ay, 0, f.slot); return true; }
