@@ -212,7 +212,7 @@ const ROSTER = [
     look: { build: 'normal', body: '#4a5d2a', skin: '#c98e62', accent: '#b5412b', hair: '#7a3f1d', legs: '#5a3b22', extra: ['archer'] },
     passive: 'The best range in the game: charge arrows until they pierce, rain them from the sky, or plant a blast arrow.',
     strongVs: ['nyx', 'tseng'], weakVs: ['zephyr', 'nova'],
-    ultimate: { style: 'snare', kind: 'aim', name: "Hunter's Snare", desc: 'Aim the circle. Vines and a net trap whoever is inside so they can’t escape, then one giant glowing arrow pierces them.', theme: 'arrows', colors: ['#10180a', '#9bc45a', '#f2e3b3'], hits: 5, dmg: 3.2, final: { dmg: 18, b: 12.5, g: 1.35, angle: 50 } },
+    ultimate: { style: 'snare', kind: 'aim', aim: 'bows', name: "Hunter's Snare", desc: 'Bows appear all around the map and draw back: aim the dotted lines, then every bow fires at once. Vines and a net trap the target, then one giant glowing arrow pierces them.', theme: 'arrows', colors: ['#10180a', '#9bc45a', '#f2e3b3'], hits: 5, dmg: 3.2, final: { dmg: 18, b: 12.5, g: 1.35, angle: 50 } },
     specials: {
       neutral: { name: 'Power Shot', desc: 'Hold to draw the bow further. A full draw fires a glowing arrow that pierces.', kind: 'proj',
         dmg: 7, b: 3.2, g: 0.55, angle: 20, startup: 10, end: 12, speed: 16, life: 55, size: 14, shape: 'arrow', color: '#e8d9b0', max: 3, charge: 50, chargeMul: 1.4 },
@@ -289,7 +289,7 @@ const ROSTER = [
     look: { build: 'slim', body: '#2a2d34', skin: '#e8c19c', accent: '#e8354a', hair: '#151515', legs: '#3a3f4a', extra: ['agent'] },
     passive: 'Hold the special button to keep firing the Ghostor. He can shoot, throw daggers and knife people while hovering.',
     strongVs: ['rowan', 'nyx'], weakVs: ['nova', 'titan'],
-    ultimate: { style: 'snipe', kind: 'aim', aim: 'scope', name: 'Phantom Sniper', desc: 'Look down a sniper scope (the rest of the screen goes dark). Three precise shots, each one pushing the target back.', theme: 'tactical', colors: ['#0a0c12', '#e8354a', '#f2f4f8'], hits: 3, dmg: 8.4, final: { dmg: 17, b: 12.5, g: 1.35, angle: 40 } },
+    ultimate: { style: 'moon', kind: 'aim', aim: 'moon', name: 'Lunar Cannon', desc: 'The scene cuts to the moon, where a giant telescope-cannon rises from a crater. Lock on from space, then a huge beam fires down from the sky.', theme: 'tactical', colors: ['#03040b', '#46ff8a', '#e8f4ff'], hits: 6, dmg: 4.2, final: { dmg: 17, b: 12.5, g: 1.35, angle: 40 } },
     specials: {
       neutral: { name: 'Ghostor', desc: 'A silenced pistol that fires really fast. Hold the button to keep shooting (up to 8 shots).', kind: 'proj',
         dmg: 2.1, b: 1.6, g: 0.12, angle: 18, startup: 5, end: 10, speed: 26, life: 26, size: 8, shape: 'bullet', color: '#ffe9a8', max: 8, jitter: 1.2, auto: { every: 6, max: 8 } },
@@ -470,7 +470,7 @@ function xpLevel(xp) {
   return { xp, level: lv, cur, need, max: lv >= XP_MAX_LEVEL };
 }
 const MOVEKEYS = [...Object.keys(NORMALS), 'sp_neutral', 'sp_side', 'sp_up', 'sp_down'];
-const SHAPES = ['orb', 'star', 'laser', 'fist', 'mine', 'shard', 'spike', 'fire', 'bolt', 'strike', 'void', 'pillar', 'arrow', 'arrowbomb', 'javelin', 'hammer', 'tstrike', 'leafnado', 'feather', 'capture', 'shark', 'eel', 'bullet', 'dagger', 'soundwave', 'gear', 'potion', 'puddle', 'flask', 'flash', 'photo', 'cammine', 'ball', 'firewall', 'bubble', 'hawk'];
+const SHAPES = ['orb', 'star', 'laser', 'fist', 'mine', 'shard', 'spike', 'fire', 'bolt', 'strike', 'void', 'pillar', 'arrow', 'arrowbomb', 'javelin', 'hammer', 'tstrike', 'leafnado', 'feather', 'capture', 'shark', 'eel', 'bullet', 'dagger', 'soundwave', 'gear', 'potion', 'puddle', 'flask', 'flash', 'photo', 'cammine', 'ball', 'firewall', 'bubble', 'hawk', 'robopup', 'springpad', 'magnet'];
 
 /* 'random' is a pick, not a fighter: it becomes a real fighter when the battle starts */
 /* fighters this player has unlocked (filled in after signing in) */
@@ -500,6 +500,7 @@ ROSTER.forEach(c => { if (c.modes) c.specials = CHAR[c.modes[0]].specials; });
 function fSpecials(f) {
   const c = f.c;
   if (c.modes) { const m = CHAR[c.modes[f.yenMode | 0]]; if (m) return m.specials; }
+  if (f.mech > 0 && typeof MECH_SPECIALS !== 'undefined') return MECH_SPECIALS;   // Professor Sprocket in his Mega Mech
   return c.specials;
 }
 
