@@ -27,7 +27,7 @@ class Fighter {
     this.anim = 0; this.land = 0; this.roll = 0; this.rollDir = 1; this.lastHit = -1; this.lastHitT = 0;
     this.dropT = 0; this.ff = false; this.armor = false; this.charge = 0;
     this.ledge = null; this.ledgeCD = 0; this.ledgeGrabs = 0; this.burn = 0;
-    this.zap = 0; this.slow = 0; this.hist = []; this.bubble = 0; this.bubbleBy = -1; this.hawk = 0;
+    this.zap = 0; this.slow = 0; this.hist = []; this.bubble = 0; this.bubbleBy = -1; this.hawk = 0; this.mech = 0;
     this.avalanche = null; this.carriedBy = null;
   }
 }
@@ -346,6 +346,7 @@ function runAct(f, inp, g, dirX) {
       a.t++;
       if (a.t < S) { f.pose = 'charge'; f.pt = 0.4; f.vx *= 0.6; }
       else if (a.t === S) {
+        if (m.pad && f.ground && typeof spawnProj === 'function') spawnProj(f, g, m.pad, 'up');   // Sprocket leaves a spring pad behind
         f.vy = -m.vy; f.vx = f.face * (m.vx || 0) + dirX * 1.5; f.ground = null; f.y -= 2; emit(g, 'jump', f.x, f.y, 2);
         if (m.fx === 'speaker' || m.fx === 'spring') { emit(g, m.fx, f.x, f.y + 2); g.shake = Math.max(g.shake, 5); }
       }
@@ -366,6 +367,7 @@ function runAct(f, inp, g, dirX) {
       if (a.t < S) { f.pose = 'charge'; f.pt = 0.4; a.noGrav = !f.ground; if (!f.ground) { f.vy *= 0.5; f.vx *= 0.8; } break; }
       if (a.t === S) {
         if (!f.ground) a.grab = grappleTarget(f, g, m.reach || 360);
+        else if (m.magnet && typeof spawnProj === 'function') { a.magnet = 1; spawnProj(f, g, m.magnet, 'down'); }   // on the ground: a Magnet Trap
         if (a.grab) { const e = a.grab; emit(g, 'grapple', f.x + f.face * f.W * 0.3, f.y - f.H * 0.6, e.x, e.y); a.sx = f.x; a.sy = f.y; }
       }
       if (a.grab) {
@@ -385,8 +387,8 @@ function runAct(f, inp, g, dirX) {
         break;
       }
       a.noGrav = false;
-      if (a.t >= S && a.t < S + A) { f.hot = true; hitCheck(f, g, m, a, 1); }
-      ptPose(f, a, S, A, E, 'punch');
+      if (a.t >= S && a.t < S + A && !a.magnet) { f.hot = true; hitCheck(f, g, m, a, 1); }
+      ptPose(f, a, S, A, E, a.magnet ? 'cast' : 'punch');
       if (a.t >= S + A + E) endAct(f);
       break;
     }
@@ -598,7 +600,7 @@ function applyHit(att, tgt, h, dir, g, proj) {
   if (!proj) att.hitlag = hl;
   tgt.hitlag = hl;
   tgt.lastHit = att.slot; tgt.lastHitT = 360;
-  if (tgt.armor && kb < 16) {
+  if ((tgt.armor || tgt.mech > 0) && kb < 16) {   // super armor (and Sprocket's Mega Mech)
     emit(g, 'hit', tgt.x, tgt.y - tgt.H * 0.55, Math.round(kb * 0.5), att.slot);
     return 'armor';
   }
