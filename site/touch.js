@@ -26,7 +26,10 @@ function updateTouchUI() {
 }
 function updateRotateHint() {
   const portrait = window.innerHeight > window.innerWidth * 1.1;
-  document.getElementById('rotate-hint').hidden = !(TOUCH.on && portrait && !TOUCH.hintClosed);
+  const show = !!(TOUCH.on && portrait && !TOUCH.hintClosed);
+  document.getElementById('rotate-hint').hidden = !show;
+  // it hides itself after a few seconds, so it never stays over the fight
+  if (show && !TOUCH.hintTimer) TOUCH.hintTimer = setTimeout(() => { TOUCH.hintClosed = true; updateRotateHint(); }, 6000);
 }
 window.addEventListener('resize', updateRotateHint);
 
