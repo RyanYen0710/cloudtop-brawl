@@ -84,7 +84,7 @@ const skfxSatM = s => [.213 + .787 * s, .715 - .715 * s, .072 - .072 * s, .213 -
    Dark skins: nearly black, see-through parts lean toward the edge colour, and a glowing edge. */
 function skfxRecipe(s, t) {
   const o = skfxTone(s, t);
-  if (o.dark) { const e = skfxParse(o.dark); return { key: 'd' + o.dark, steps: [[.1, 0, 0, 0, .1, 0, 0, 0, .1]], glow: skinMix(o.dark, '#ffffff', 0.15), blur: 10, tint: [e[0] / 255, e[1] / 255, e[2] / 255] }; }
+  if (o.dark) { const e = skfxParse(o.dark); return { key: 'd' + o.dark, steps: [[.1, 0, 0, 0, .1, 0, 0, 0, .1]], glow: skinMix(o.dark, '#ffffff', 0.15), tint: [e[0] / 255, e[1] / 255, e[2] / 255] }; }
   const sa = 1.4 + Math.max(0.15, o.s) * 3.2, br = o.l > 0.78 ? 1.18 : o.l < 0.45 ? 1.1 : 1.05, hu = Math.round(o.h - 38);
   return { key: hu + ',' + sa.toFixed(2) + ',' + br, steps: [SKFX_SEPIA, skfxHueM(hu), skfxSatM(sa), [br, 0, 0, 0, br, 0, 0, 0, br]] };
 }
@@ -93,7 +93,7 @@ function skfxMapCol(R, c) {
   const k = R.key + '|' + c; let v = SKFX_MAP.get(k); if (v) return v;
   const p = skfxParse(c); let x = [p[0] / 255, p[1] / 255, p[2] / 255];
   for (const M of R.steps) x = skfxMul(M, x);
-  if (R.tint && p[3] < 1) { const q = (1 - p[3]) * 0.55; x = x.map((v, i) => v + (R.tint[i] - v) * q); }
+  if (R.tint && p[3] < 1) { const q = (1 - p[3]) * 0.8; x = x.map((v, i) => v + (R.tint[i] - v) * q); }
   v = 'rgba(' + Math.round(x[0] * 255) + ',' + Math.round(x[1] * 255) + ',' + Math.round(x[2] * 255) + ',' + p[3] + ')';
   if (SKFX_MAP.size > 20000) SKFX_MAP.clear();
   SKFX_MAP.set(k, v); return v;
@@ -107,7 +107,7 @@ function skfxHook(g) {
     set(v) { if (g._skR) { raw[n] = v; D[n].set.call(g, n === 'shadowColor' && g._skR.glow ? g._skR.glow : skfxMapCol(g._skR, v)); } else { raw[n] = null; D[n].set.call(g, v); } } });
   ['fillStyle', 'strokeStyle', 'shadowColor'].forEach(n => Object.defineProperty(g, n, colour(n)));
   Object.defineProperty(g, 'shadowBlur', { configurable: true, get() { return g._skR && raw.shadowBlur != null ? raw.shadowBlur : D.shadowBlur.get.call(g); },
-    set(v) { if (g._skR && g._skR.glow) { raw.shadowBlur = v; D.shadowBlur.set.call(g, Math.max(v, g._skR.blur)); } else { raw.shadowBlur = null; D.shadowBlur.set.call(g, v); } } });
+    set(v) { raw.shadowBlur = g._skR ? v : null; D.shadowBlur.set.call(g, v); } });
   g._skRaw = raw;
   g.save = function () { stack.push(Object.assign({}, raw)); return P.save.call(g); };
   g.restore = function () { const r = stack.pop(); if (r) Object.assign(raw, r); return P.restore.call(g); };
@@ -125,19 +125,34 @@ function skfxHook(g) {
             add.call(gr, last.o + (o - last.o) * k, skfxMapCol(R, 'rgba(' + Math.round(m[0]) + ',' + Math.round(m[1]) + ',' + Math.round(m[2]) + ',' + m[3].toFixed(3) + ')'));
           }
           add.call(gr, o, skfxMapCol(R, c)); last = q ? { o, q } : null;
+          if (q && q[3] < 0.5) gr._skFade = true;   // fades out: a soft glow
         };
       }
       return gr;
     };
   });
-  // dark skins: each shape is drawn a second time with a tighter glow, so the edge glows as brightly as before
-  ['fill', 'stroke', 'fillRect', 'strokeRect', 'fillText', 'strokeText'].forEach(n => {
-    g[n] = function () {
-      P[n].apply(g, arguments);
-      const R = g._skR;
-      if (R && R.glow && g.globalAlpha > 0.25) { const b = D.shadowBlur.get.call(g); D.shadowBlur.set.call(g, b * 0.35); P[n].apply(g, arguments); D.shadowBlur.set.call(g, b); }
-    };
-  });
+  // dark skins: a glowing edge drawn as two cheap outlines (a soft wide one and a thin bright rim) instead of a blur.
+  // Blurred glows are one of the slowest things a browser can draw, so these never blur.
+  const L = Object.getOwnPropertyDescriptor(P, 'lineWidth'), A = Object.getOwnPropertyDescriptor(P, 'globalAlpha');
+  const rim = (outline, args, under, thin) => {
+    const R = g._skR, a = A.get.call(g);
+    if (!R || !R.glow || a < 0.2) return false;
+    const fs = D.fillStyle.get.call(g);
+    if (!under && typeof fs !== 'string' && fs._skFade) return false;   // soft see-through glows already fade into the edge colour
+    const ss = D.strokeStyle.get.call(g), lw = L.get.call(g), sb = D.shadowBlur.get.call(g), base = under || 0;
+    D.shadowBlur.set.call(g, 0); D.strokeStyle.set.call(g, R.glow);
+    if (!thin) { A.set.call(g, a * 0.12); L.set.call(g, base + 13); outline(args); }
+    A.set.call(g, a * (thin ? 0.22 : 0.3)); L.set.call(g, base + (thin ? 4 : 6)); outline(args);
+    A.set.call(g, a * 0.85); L.set.call(g, base + 2.2); outline(args);
+    A.set.call(g, a); L.set.call(g, lw); D.strokeStyle.set.call(g, ss); D.shadowBlur.set.call(g, sb);
+    return true;
+  };
+  const path = args => args[0] instanceof Path2D ? P.stroke.call(g, args[0]) : P.stroke.call(g);
+  g.fill = function () { P.fill.apply(g, arguments); rim(path, arguments); };
+  g.fillRect = function () { P.fillRect.apply(g, arguments); rim(a => P.strokeRect.apply(g, a), arguments); };
+  g.fillText = function () { P.fillText.apply(g, arguments); rim(x => P.strokeText.apply(g, x), arguments, 0, true); };
+  g.stroke = function () { rim(path, arguments, L.get.call(g)); P.stroke.apply(g, arguments); };
+  g.strokeRect = function () { rim(a => P.strokeRect.apply(g, a), arguments, L.get.call(g)); P.strokeRect.apply(g, arguments); };
 }
 function skfxOf(f) { const id = f && (f.skin || (f.slot != null && SKFX_SLOT[f.slot])); return id && typeof SKINS !== 'undefined' ? SKINS[id] || null : null; }
 
@@ -150,7 +165,7 @@ function skfxPaint(g, s, t, draw) {
   const keepRaw = Object.assign({}, raw);
   g._skR = R; SKFX.on = true;
   ['fillStyle', 'strokeStyle', 'shadowColor', 'shadowBlur'].forEach(n => { g[n] = keep[n]; });   // colours set before the effect started get recoloured too
-  if (R.glow) { skfxDark(g, 1); D.shadowColor.set.call(g, R.glow); D.shadowBlur.set.call(g, Math.max(keep.shadowBlur, R.blur)); }
+  if (R.glow) skfxDark(g, 1);
   try { return draw(); } finally {
     if (R.glow) skfxDark(g, -1);
     // like the old filter: whatever the effect set last stays set, in its own colours
@@ -158,7 +173,7 @@ function skfxPaint(g, s, t, draw) {
     g._skR = R0; SKFX.on = on0; Object.assign(raw, keepRaw);
     if (!R0) ['fillStyle', 'strokeStyle', 'shadowColor'].forEach(n => { raw[n] = null; D[n].set.call(g, last[n]); });
     else ['fillStyle', 'strokeStyle', 'shadowColor', 'shadowBlur'].forEach(n => { g[n] = last[n]; });
-    if (!R0) { raw.shadowBlur = null; D.shadowBlur.set.call(g, R.glow ? keep.shadowBlur : last.shadowBlur); if (R.glow) D.shadowColor.set.call(g, keep.shadowColor); }
+    if (!R0) { raw.shadowBlur = null; D.shadowBlur.set.call(g, last.shadowBlur); }
   }
 }
 /* black effects can't glow: while a dark skin's effect is drawn, glowing ('lighter') drawing is turned into normal drawing */
@@ -194,7 +209,10 @@ function skfxPlain(g, draw) {
 });
 
 /* ---------- the skin's little bits, as particles (hit bursts and projectile trails) ---------- */
+/* skin bits make way when the screen is already busy, so big fights stay smooth */
+const SKFX_ROOM = () => typeof FX === 'undefined' ? 99 : Math.max(0, 260 - FX.length);
 function skfxBits(s, x, y, n, spd, life, t) {
+  n = Math.min(n, SKFX_ROOM()); if (!n) return;
   const cols = s.fxc && s.fxc.length ? s.fxc : skfxCols(s, t);
   for (let i = 0; i < n; i++) {
     const an = Math.random() * 6.28, v = spd * (0.4 + Math.random() * 0.8);
@@ -225,6 +243,16 @@ if (typeof drawFxNew === 'function') {
   };
 }
 
+/* a soft round glow, painted once per colour and reused (drawing a picture is much faster than a fresh gradient each frame) */
+const SKFX_GLOW = new Map();
+function skfxGlowImg(col, inner) {
+  const k = col + '|' + (inner || 0); let c = SKFX_GLOW.get(k); if (c) return c;
+  if (SKFX_GLOW.size > 240) SKFX_GLOW.clear();
+  c = document.createElement('canvas'); c.width = c.height = 128;
+  const x = c.getContext('2d'), gr = x.createRadialGradient(64, 64, 64 * (inner || 0), 64, 64, 64);
+  const q = skfxParse(col); gr.addColorStop(0, col); gr.addColorStop(1, 'rgba(' + q[0] + ',' + q[1] + ',' + q[2] + ',0)'); x.fillStyle = gr; x.fillRect(0, 0, 128, 128);
+  SKFX_GLOW.set(k, c); return c;
+}
 /* ---------- projectiles: the skin's colour and a trail of its bits ---------- */
 if (typeof drawProj === 'function') {
   const drawProjNoSkin = drawProj;
@@ -234,13 +262,12 @@ if (typeof drawProj === 'function') {
     // a soft glow of the skin's colour under it
     const c = skfxCols(s, t), r = Math.max(10, (p.size || 10) * 1.1);
     g.save(); g.globalCompositeOperation = 'lighter'; g.globalAlpha = 0.45;
-    const gr = g.createRadialGradient(p.x, p.y, 0, p.x, p.y, r * 1.8); gr.addColorStop(0, c[2]); gr.addColorStop(1, 'rgba(0,0,0,0)');
-    g.fillStyle = gr; g.fillRect(p.x - r * 1.8, p.y - r * 1.8, r * 3.6, r * 3.6); g.restore();
+    g.drawImage(skfxGlowImg(c[2]), p.x - r * 1.8, p.y - r * 1.8, r * 3.6, r * 3.6); g.restore();
     if (!SKFX.low()) skfxPaint(g, s, t, () => drawProjNoSkin(g, p, t));
     else { const col0 = p.color; p.color = c[1]; try { drawProjNoSkin(g, p, t); } finally { p.color = col0; } }   // slow devices: just its main colour
     // the trail: a bit every few frames (fewer on slow devices)
     const every = SKFX.low() ? 9 : 4, key = (t + Math.round(p.x * 0.13)) | 0;
-    if (key % every === 0 && typeof spawnFx === 'function') skfxBits(s, p.x - (p.dir || Math.sign(p.vx) || 1) * r * 0.6, p.y, 1, 0.8, 26, t);
+    if (key % every === 0 && typeof spawnFx === 'function' && SKFX_ROOM() > 0) skfxBits(s, p.x - (p.dir || Math.sign(p.vx) || 1) * r * 0.6, p.y, 1, 0.8, 26, t);
   };
 }
 
