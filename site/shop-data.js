@@ -18,7 +18,7 @@ function coinStop(lv) {
 /* all the coin stops after level `from`, up to and including level `to` */
 function coinsForLevels(from, to) { let n = 0; for (let lv = (from | 0) + 1; lv <= (to | 0); lv++) n += coinStop(lv); return n; }
 /* locked fighters you can buy (Boss Fight and the Sky Road still unlock them for free) */
-const SHOP_CHARS = { sprocket: 8000, chuang: 15000, hsi: 15000, yen: 40000 };
+const SHOP_CHARS = { sprocket: 8000, chuang: 15000, hsi: 15000, vexa: 18000, yen: 40000 };
 /* 'char:yen' or 'skin:lava' -> { kind, id, price, name }, or null if it isn't for sale */
 function shopItem(item) {
   const m = /^(char|skin):([a-z]{1,24})$/.exec(String(item || ''));
