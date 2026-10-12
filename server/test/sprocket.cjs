@@ -130,9 +130,10 @@ test('Spring Leap leaves a spring pad that bounces enemies; on the ground Grappl
   o.x = pad.x; o.y = g.stage.solids[0].y; o.ground = g.stage.solids[0];
   let i = 0; while (!(o.vy < -3) && i++ < 30) step(c, g, 0, 0);
   assert.ok(o.vy < -3 && o.dmg > 0, 'bounced up');
-  g = game(c, 0); ({ f, o } = near(c, g)); o.x = f.x + 240;
+  g = game(c, 0); ({ f, o } = near(c, g)); o.x = f.x + 190;
   step(c, g, B.BD | B.BS, B.BS); for (let i = 0; i < 10; i++) step(c, g, 0, 0);
   const mag = g.projs.find(p => p.shape === 'magnet'); assert.ok(mag, 'a magnet');
+  assert.ok(mag.m.pullR <= 140, 'the field is not too big');
   const x0 = o.x; for (let k = 0; k < 20; k++) step(c, g, 0, 0);
   assert.ok(Math.abs(o.x - mag.x) < Math.abs(x0 - mag.x), 'pulled in');
   i = 0; while (g.projs.some(p => p.shape === 'magnet') && i++ < 120) step(c, g, 0, 0);
