@@ -173,7 +173,7 @@ test('stats only go up, and one result can never add an absurd amount', async ()
   const f = apiSetup();
   await f.add('u1', 'Ryan', { onlineMs: 999999999999, wins: 1e9, games: -5 }, 999);
   const s = (await f.get()).data.sections.online[0];
-  assert.equal(s.onlineMs, 3600000); assert.equal(s.wins, 1000); assert.equal(s.games, 0); assert.equal(s.bestLevel, 30);
+  assert.equal(s.onlineMs, 3600000); assert.equal(s.wins, 1000); assert.equal(s.games, 0); assert.equal(s.bestLevel, 40);
 });
 
 /* ---- the owner can edit the leaderboard; nobody else can ---- */
