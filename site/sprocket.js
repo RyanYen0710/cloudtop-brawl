@@ -23,8 +23,8 @@ ROSTER.push({
       pad: { dmg: 4, b: 7.5, g: 0.6, angle: 88, speed: 0, life: 150, size: 40, shape: 'springpad', color: '#c9932a', ground: true, offset: 0.01, pierce: true, rehit: 40 } },
     down: { name: 'Grapple Hand', desc: 'In the air, shoot the hand at the nearest ledge and reel in to hang on it (works even while falling). On the ground, drop a Magnet Trap that pulls enemies in, then zaps them.', kind: 'grapple',
       reach: 360, dmg: 7, b: 5, g: 0.7, angle: 40, startup: 8, active: 6, end: 18, hx: 1.6, hy: 0.55, hw: 2.2, hh: 0.4,
-      magnet: { dmg: 1, b: 0.5, g: 0.1, angle: 45, speed: 0, life: 80, size: 30, shape: 'magnet', color: '#e8354a', ground: true, offset: 80, pierce: true, rehit: 18, pull: 2.1, pullR: 230,
-        burst: { dmg: 9, b: 6.5, g: 0.8, angle: 55, r: 110, fx: 'magburst', zap: 26 } } }
+      magnet: { dmg: 1, b: 0.5, g: 0.1, angle: 45, speed: 0, life: 80, size: 30, shape: 'magnet', color: '#e8354a', ground: true, offset: 80, pierce: true, rehit: 18, pull: 2.6, pullR: 140,
+        burst: { dmg: 9, b: 6.5, g: 0.8, angle: 55, r: 90, fx: 'magburst', zap: 26 } } }
   }
 });
 CHAR.sprocket = ROSTER[ROSTER.length - 1];
