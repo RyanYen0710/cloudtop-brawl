@@ -35,7 +35,7 @@ async function xpFetch() {
     const r = await acctApi('/api/xp'); XP.log = r.log || [];
     if (ACCT.profile) { if (r.evSkins) ACCT.profile.evSkins = r.evSkins; if (r.evPlays) ACCT.profile.evPlays = r.evPlays; }   // event skins you've kept
     if (Array.isArray(r.unlocked) && typeof setUnlocked === 'function') { if (ACCT.profile) ACCT.profile.unlocked = r.unlocked; setUnlocked(r.unlocked); }   // e.g. Professor Sprocket at level 50
-    if (ACCT.profile && r.coins != null) { ACCT.profile.coins = r.coins; ACCT.profile.shopSkins = r.shopSkins || []; if (typeof shopRenderIcons === 'function') shopRenderIcons(); }   // coins (shop.js)
+    if (ACCT.profile && r.coins != null) { ACCT.profile.coins = r.coins; ACCT.profile.shopSkins = r.shopSkins || []; ACCT.profile.giftSkins = r.giftSkins || []; if (typeof shopRenderIcons === 'function') shopRenderIcons(); }   // coins (shop.js)
     xpSet(r.xp || 0); XP.polled = Date.now(); return r;
   }
   catch (e) { return null; }
