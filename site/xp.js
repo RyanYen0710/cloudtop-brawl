@@ -10,7 +10,9 @@
 const XP = { xp: null, base: null, uid: undefined, matchXp: null, matchAt: 0, matchCoins: null, lastScreen: '', lastSlide: 0, log: [], busy: false, polled: 0, pending: 0 };
 /* the rewards along the Sky Road */
 const XP_ROAD = { 5: ['⚔', 'Ranked mode', ''], 50: ['★', 'Professor Sprocket (fighter)', ''] };
-[100, 150, 200, 250, 300].forEach(l => { XP_ROAD[l] = ['★', 'New fighter', 'coming soon']; });
+// fighters that unlock with a level (heroes.js), and the Trial of Ashura (ashura.js)
+if (typeof CHAR !== 'undefined') Object.keys(CHAR).forEach(id => { const c = CHAR[id]; if (c.unlockLevel && !c.hidden && !XP_ROAD[c.unlockLevel]) XP_ROAD[c.unlockLevel] = ['★', c.name + ' (fighter)', '']; });
+if (typeof ASHURA_TRIAL !== 'undefined' && !XP_ROAD[ASHURA_TRIAL.needLevel]) XP_ROAD[ASHURA_TRIAL.needLevel] = ['☸', ASHURA_TRIAL.name, 'boss trial'];
 // skins (skins.js) for every fighter
 if (typeof SKINS !== 'undefined') Object.keys(SKINS).forEach(id => { const s = SKINS[id]; if (s.level && !XP_ROAD[s.level]) XP_ROAD[s.level] = ['🎨', s.name + ' skin', '']; });
 // coin stops (shop-data.js): on their own, or added to a level that already has a reward
@@ -117,13 +119,13 @@ function xpCountCard(from, to, why) {
 const SR = { tab: 'road', raf: 0, io: null, live: new Set(), t: 0, last: 0, W: 0, pos: [], laid: false };
 const srMotion = () => { try { return !matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) { return true; } };
 const srMyChar = () => { let c = ''; try { c = loadLocal('cb.char'); } catch (e) { } return c && typeof CHAR !== 'undefined' && CHAR[c] && !CHAR[c].hidden ? c : 'titan'; };
-/* what you get at each level: { kind: 'ranked' | 'fighter' | 'mystery' | 'skin' | 'coins', id, name, coins } */
+/* what you get at each level: { kind: 'ranked' | 'fighter' | 'trial' | 'skin' | 'coins', id, name, coins } */
 function srRewards() {
   const R = {};
   const add = (lv, o) => { R[lv] = Object.assign(R[lv] || {}, o); };
   add(5, { kind: 'ranked', name: 'Ranked mode' });
   if (typeof CHAR !== 'undefined') Object.keys(CHAR).forEach(id => { const c = CHAR[id]; if (c.unlockLevel && !c.hidden) add(c.unlockLevel, { kind: 'fighter', id, name: c.name }); });
-  [100, 150, 200, 250, 300].forEach(lv => { if (!R[lv]) add(lv, { kind: 'mystery', name: 'New fighter' }); });
+  if (typeof ASHURA_TRIAL !== 'undefined' && !R[ASHURA_TRIAL.needLevel]) add(ASHURA_TRIAL.needLevel, { kind: 'trial', id: 'ashura', name: ASHURA_TRIAL.name });
   if (typeof SKINS !== 'undefined') Object.keys(SKINS).forEach(id => { const s = SKINS[id]; if (s.level && !(R[s.level] && R[s.level].kind)) add(s.level, { kind: 'skin', id, name: s.name + ' skin' }); });
   if (typeof coinStop === 'function') for (let lv = 2; lv <= XP_MAX_LEVEL; lv++) { const c = coinStop(lv); if (c) { add(lv, { coins: c }); if (!R[lv].kind) R[lv].kind = 'coins'; } }
   return R;
@@ -150,30 +152,18 @@ function srCoins(n, size) {
   }
   return wrap;
 }
-/* a mystery fighter: a dark shape with a glowing question mark */
-function srMystery(cv) {
-  const dpr = Math.min(2, window.devicePixelRatio || 1), w = cv.clientWidth || 120, h = cv.clientHeight || 110;
-  cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr);
-  const g = cv.getContext('2d'); g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, w, h);
-  const cx = w / 2, s = h / 110;
-  g.fillStyle = '#120d2c'; g.strokeStyle = 'rgba(200,168,255,.55)'; g.lineWidth = 2;
-  g.beginPath(); g.arc(cx, 30 * s, 16 * s, 0, Math.PI * 2); g.fill(); g.stroke();
-  g.beginPath(); g.moveTo(cx - 26 * s, 100 * s); g.quadraticCurveTo(cx - 30 * s, 52 * s, cx, 50 * s); g.quadraticCurveTo(cx + 30 * s, 52 * s, cx + 26 * s, 100 * s); g.closePath(); g.fill(); g.stroke();
-  g.font = '400 ' + Math.round(30 * s) + 'px ' + getComputedStyle(document.body).getPropertyValue('--disp');
-  g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillStyle = '#ffd35c'; g.shadowColor = '#ffd35c'; g.shadowBlur = 12;
-  g.fillText('?', cx, 76 * s);
-}
 function srCard(lv, r, got) {
   const kind = r.kind, card = el('div', { class: 'sr-card k-' + kind + (got ? ' got' : ' locked'), role: 'listitem',
-    'aria-label': 'Level ' + lv + ': ' + (kind === 'coins' ? r.coins + ' coins' : r.name + (r.coins ? ' and ' + r.coins + ' coins' : '') + (kind === 'mystery' ? ', coming soon' : '')) + (got ? ', unlocked' : ', locked') });
+    'aria-label': 'Level ' + lv + ': ' + (kind === 'coins' ? r.coins + ' coins' : r.name + (r.coins ? ' and ' + r.coins + ' coins' : '') + (kind === 'trial' ? ', a boss trial, also needs all 40 boss levels beaten' : '')) + (got ? ', unlocked' : ', locked') });
   const pic = el('div', { class: 'sr-pic' });
   if (kind === 'coins') pic.appendChild(srCoins(r.coins, r.coins >= 300 ? 46 : 40));
   else if (kind === 'ranked') pic.appendChild(el('div', { class: 'sr-badge', 'aria-hidden': 'true' }, [el('span', { text: '⚔' })]));
   else { const cv = el('canvas', { class: 'sr-cv', 'aria-hidden': 'true' }); cv.dataset.kind = kind; cv.dataset.id = r.id || ''; pic.appendChild(cv); }
   card.append(el('span', { class: 'sr-lvtag', text: 'LV ' + lv }), pic,
     el('b', { class: 'sr-name', text: kind === 'coins' ? r.coins + ' coins' : r.name }));
-  const sub = kind === 'mystery' ? 'Coming soon' : kind === 'fighter' ? 'New fighter' : kind === 'skin' ? 'Works on every fighter' : kind === 'ranked' ? 'Unlocks Ranked' : '';
+  const sub = kind === 'trial' ? 'Boss trial' : kind === 'fighter' ? 'New fighter' : kind === 'skin' ? 'Works on every fighter' : kind === 'ranked' ? 'Unlocks Ranked' : '';
   if (sub) card.appendChild(el('small', { class: 'sr-sub', text: sub }));
+  if (kind === 'trial') card.appendChild(el('small', { class: 'sr-note', text: 'Beat Chapter 4 too' }));
   if (r.coins && kind !== 'coins') card.appendChild(el('span', { class: 'sr-plus' }, [srCoins(r.coins, 18), el('em', { text: '+' + r.coins })]));
   card.appendChild(el('span', { class: 'sr-state', text: got ? '✓' : '🔒', 'aria-hidden': 'true' }));
   return card;
@@ -181,14 +171,13 @@ function srCard(lv, r, got) {
 /* draw the fighters on cards near the screen; they keep moving while you can see them */
 function srDraw(cv) {
   const k = cv.dataset.kind;
-  if (k === 'mystery') return srMystery(cv);
-  if (k === 'fighter') return drawPortrait(cv, cv.dataset.id, { t: SR.t });
+  if (k === 'fighter' || k === 'trial') return drawPortrait(cv, cv.dataset.id, { t: SR.t });
   if (k === 'skin') return drawPortrait(cv, srMyChar(), { skin: cv.dataset.id, t: SR.t });
 }
 function srLoop(now) {
   SR.raf = 0;
   if (G.screen !== 'road' || SR.tab !== 'road') return;
-  if (now - SR.last > 70) { SR.last = now; SR.t += 4; SR.live.forEach(cv => { if (cv.isConnected && cv.dataset.kind !== 'mystery') srDraw(cv); }); }
+  if (now - SR.last > 70) { SR.last = now; SR.t += 4; SR.live.forEach(cv => { if (cv.isConnected) srDraw(cv); }); }
   SR.raf = requestAnimationFrame(srLoop);
 }
 /* the sky: day at the bottom, sunset in the middle, a starry night at the top */
@@ -245,7 +234,7 @@ function srRender(jump) {
   const A = phone ? Math.min(70, W * 0.18) : Math.min(170, W * 0.2), CW = phone ? Math.min(150, W * 0.42) : 200;
   const road = el('div', { class: 'sr-road', role: 'list', 'aria-label': 'Rewards from level 1 to ' + XP_MAX_LEVEL, style: 'width:' + W + 'px' });
   const half = lv => { const r = R[lv]; return !r ? 8 : r.kind === 'coins' ? 54 : 100; };   // half the height of what sits at each level
-  const pts = []; let y = 140;
+  const pts = []; let y = 190;   // room at the top for the crown flag above the last card
   for (let lv = XP_MAX_LEVEL; lv >= 1; lv--) {
     y += lv === XP_MAX_LEVEL ? half(lv) : Math.max(40, half(lv) + half(lv + 1) + 18);
     pts.push({ lv, x: W / 2 + A * Math.sin(y / 230), y });
@@ -262,7 +251,7 @@ function srRender(jump) {
   road.appendChild(svg);
   // the start and the top
   road.appendChild(el('div', { class: 'sr-flag sr-start', style: 'left:' + pts[0].x + 'px;top:' + (pts[0].y + 52) + 'px', text: 'START' }));
-  road.appendChild(el('div', { class: 'sr-flag sr-top', style: 'left:' + pts[pts.length - 1].x + 'px;top:' + (pts[pts.length - 1].y - 100) + 'px', text: '👑 LEVEL ' + XP_MAX_LEVEL }));
+  road.appendChild(el('div', { class: 'sr-flag sr-top', style: 'left:' + pts[pts.length - 1].x + 'px;top:' + (pts[pts.length - 1].y - half(XP_MAX_LEVEL) - 52) + 'px', text: '👑 LEVEL ' + XP_MAX_LEVEL }));
   let flip = false;
   pts.forEach(p => {
     const r = R[p.lv], got = L.level >= p.lv, here = L.level === p.lv;
