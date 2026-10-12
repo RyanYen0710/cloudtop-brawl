@@ -8,7 +8,7 @@ const SKINSEL = (() => { try { return JSON.parse(loadLocal('cb.skins') || '{}') 
 function myProf() {
   const p = (typeof ACCT !== 'undefined' && ACCT.profile) || {};
   const xp = typeof XP !== 'undefined' && XP.xp != null ? XP.xp : p.xp || 0;
-  return skinProf({ xp, evSkins: p.evSkins, shopSkins: p.shopSkins }, !!p.owner);
+  return skinProf({ xp, evSkins: p.evSkins, shopSkins: p.shopSkins, giftSkins: p.giftSkins }, !!p.owner);
 }
 function mySkinEvent() { return typeof nowEvent === 'function' ? nowEvent() : typeof eventNow === 'function' ? eventNow() : null; }
 /* the skin you picked for this fighter, if you can still wear it */
