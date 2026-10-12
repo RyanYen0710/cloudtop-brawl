@@ -653,6 +653,15 @@ export class Accounts {
       await tx.put('profile', p);
       return json({ rp: p.rp || 0, drp: (p.rp || 0) - before, tier: rankTier(p.rp || 0), ladder: p.ladder || 1, step, clears: p.clears || 0, rw: p.rw | 0, rl: p.rl | 0, name: p.name || '' });
     }
+    /* the Trial of Ashura was won: he joins the account (only if the trial is really open for this player) */
+    if (op === 'trial') {
+      if (trialOpen(p)) {
+        p.wins = (p.wins || 0) + 1; p.trialWins = (p.trialWins || 0) + 1;
+        if (p.unlocked.indexOf('ashura') < 0) p.unlocked.push('ashura');
+        p.revision = (p.revision || 0) + 1; await tx.put('profile', p);
+      }
+      return json(p);
+    }
     if (op === 'beat') {
       const lv = d.level | 0;
       if (lv >= 1 && lv <= BOSS_LEVELS.length) {
@@ -774,15 +783,15 @@ export class Room {
     if (!c.uid) { this.send(c, { err: 'signin' }); return; }
     if (!(await hit(this.env, 'uid:' + c.uid, 'boss')) || !(await hit(this.env, 'ip:' + c.ip, 'bossIp'))) { this.send(c, { err: 'slow-down' }); return; }
     const p = await acct(this.env, c.uid, 'get', { owner: !!c.owner });
-    const level = m.level | 0;
+    const trial = !!m.trial, level = trial ? 0 : m.level | 0;   // trial: the Trial of Ashura (ashura.js)
     // Admin test runs allow any level/fighter and never save a result.
     if (m.test && (!c.tester || !(c.authUntil > Date.now()))) { this.send(c, { err: 'not-admin' }); return; }
     const test = !!m.test;
-    if (level < 1 || level > BOSS_LEVELS.length || (!test && level > (p.beaten | 0) + 1)) { this.send(c, { err: 'locked' }); return; }
+    if (trial ? !test && !trialOpen(p) : level < 1 || level > BOSS_LEVELS.length || (!test && level > (p.beaten | 0) + 1)) { this.send(c, { err: 'locked' }); return; }
     c.unlocked = p.unlocked || [];
     let ch = String(m.char || 'random');
     ch = ch === 'random' ? resolvePick('random') : test ? (CHAR[ch] && !CHAR[ch].hidden ? ch : resolvePick('random')) : this.allowedChar(ch, c);
-    const cfg = bossConfig(level, ch, {});
+    const cfg = trial ? trialConfig(ch, {}) : bossConfig(level, ch, {});
     const slots = cfg.slots.map((s, i) => {
       if (s.type === 'you') return { type: 'peer', char: ch, skin: cleanSkin(skinProf(p, c.owner), m.skin, eventNow()), lvl: 5, team: 0, ctrl: { type: 'remote', peer: c.id }, name: clip(p.name || 'Player'), tag: clip(p.name || 'YOU') };
       if (s.type === 'cpu') return Object.assign({}, s, { ctrl: { type: 'cpu' }, name: s.name || 'CPU', tag: s.tag || 'CPU' });
@@ -795,9 +804,9 @@ export class Room {
     this.ended = false; this.lastSent = -9; this.last = Date.now();
     this.bossPaused = false;
     const mine = this.g.fighters.find(f => f.ctrl.type === 'remote' && f.ctrl.peer === c.id);
-    this.bossRun = { uid: c.uid, peer: c.id, level, gid: this.gid, test, slot: mine ? mine.slot : 0, name: c.pname || p.name || '' };
+    this.bossRun = { uid: c.uid, peer: c.id, level, trial, gid: this.gid, test, slot: mine ? mine.slot : 0, name: c.pname || p.name || '' };
     const fm = this.fighterMap();
-    this.srv = { boss: { gid: this.gid, lvl: level, st: cfg.stage, sk: cfg.stocks, fm } };
+    this.srv = { boss: { gid: this.gid, lvl: level, trial: trial ? 1 : undefined, st: cfg.stage, sk: cfg.stocks, fm } };
     this.broadcast({ from: 'srv', d: { boss: this.srv.boss } });
     this.timer = setInterval(() => this.tick(), 8);
   }
@@ -1029,7 +1038,7 @@ export class Room {
       this.bossRun = null;
       if (run.kind === 'ladder') { this.g = null; this.finishLadder(g, run, false); return; }
       if (run.test) {   // Tester mode: tell the player who won, but don't touch their account
-        const bossRes = { gid: run.gid, win, level: run.level, test: 1 };
+        const bossRes = { gid: run.gid, win, level: run.level, trial: run.trial ? 1 : undefined, test: 1 };
         this.srv.bossRes = bossRes;
         this.broadcast({ from: 'srv', d: { bossRes } });
         this.g = null;
@@ -1039,13 +1048,14 @@ export class Room {
       if (run.uid) acct(this.env, BOARD, 'stat-add', { uid: run.uid, name: run.name,
         add: { games: 1, bossGames: 1, wins: win ? 1 : 0, losses: win ? 0 : 1, bossWins: win ? 1 : 0, kos: me.kos | 0, deaths: me.falls | 0 },
         level: win ? run.level : 0 }).catch(() => {});
-      if (run.uid) acct(this.env, run.uid, 'xp-add', { amount: win ? 30 + run.level : 5, match: true, won: !!win, why: 'Boss Fight level ' + run.level + (win ? ' win' : '') }).catch(() => {});
-      (win ? acct(this.env, run.uid, 'beat', { level: run.level }) : acct(this.env, run.uid, 'get', {}))
+      if (run.uid) acct(this.env, run.uid, 'xp-add', run.trial ? { amount: win ? ASHURA_TRIAL.xpWin : 5, match: true, won: !!win, why: 'Trial of Ashura' + (win ? ' win' : '') }
+        : { amount: win ? 30 + run.level : 5, match: true, won: !!win, why: 'Boss Fight level ' + run.level + (win ? ' win' : '') }).catch(() => {});
+      (win ? acct(this.env, run.uid, run.trial ? 'trial' : 'beat', { level: run.level }) : acct(this.env, run.uid, 'get', {}))
         .then(p => {
-          const bossRes = { gid: run.gid, win, level: run.level, beaten: p.beaten | 0, unlocked: p.unlocked || [] };
+          const bossRes = { gid: run.gid, win, level: run.level, trial: run.trial ? 1 : undefined, beaten: p.beaten | 0, unlocked: p.unlocked || [] };
           this.srv.bossRes = bossRes;
           this.broadcast({ from: 'srv', d: { bossRes } });
-        }).catch(() => this.broadcast({ from: 'srv', d: { bossRes: { gid: run.gid, win, level: run.level, error: 1 } } }));
+        }).catch(() => this.broadcast({ from: 'srv', d: { bossRes: { gid: run.gid, win, level: run.level, trial: run.trial ? 1 : undefined, error: 1 } } }));
       this.g = null;
       return;
     }
