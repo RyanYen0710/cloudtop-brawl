@@ -572,7 +572,7 @@ export class Accounts {
     if (op === 'xp-get') {
       const log = await tx.list({ prefix: 'xplog:', limit: Math.min(200, d.limit || 100) });
       return json({ xp: p.xp || 0, log: [...log.values()], evSkins: p.evSkins || [], evPlays: p.evPlays || {}, unlocked: p.unlocked || [],
-        coins: p.coins | 0, shopSkins: p.shopSkins || [] });
+        coins: p.coins | 0, shopSkins: p.shopSkins || [], giftSkins: p.giftSkins || [] });
     }
     /* the shop: spend coins on a locked fighter or a shop-only skin (prices are in shop-data.js, never from the browser) */
     if (op === 'buy') {
@@ -580,7 +580,7 @@ export class Accounts {
       const it = shopItem(d.item);
       if (!it) return json({ error: 'item' }, 400);
       const skins = Array.isArray(p.shopSkins) ? p.shopSkins : [];
-      const owned = it.kind === 'char' ? p.unlocked.indexOf(it.id) >= 0 : skins.indexOf(it.id) >= 0;
+      const owned = it.kind === 'char' ? p.unlocked.indexOf(it.id) >= 0 : skins.indexOf(it.id) >= 0 || (Array.isArray(p.giftSkins) && p.giftSkins.indexOf(it.id) >= 0);
       if (owned) return json({ error: 'owned' }, 409);
       if ((p.coins | 0) < it.price) return json({ error: 'coins', coins: p.coins | 0 }, 409);
       p.coins = (p.coins | 0) - it.price;
@@ -588,6 +588,19 @@ export class Accounts {
       p.revision = (p.revision || 0) + 1;
       await tx.put('profile', p);
       return json({ ok: true, coins: p.coins, unlocked: p.unlocked, shopSkins: p.shopSkins || [] });
+    }
+    /* Admin / Owner panel (Coins & Skins tab): set someone's coins and the skins given to them.
+       Skins they earned themselves (level, event, shop) are not touched. The owner's account only by the owner. */
+    if (op === 'gift-set') {
+      if (!stored) return json({ error: 'not-found' }, 404);
+      if (d.revision !== (p.revision || 0)) return json({ error: 'conflict' }, 409);
+      if (p.owner && !d.byOwner) return json({ error: 'owner-protected' }, 409);
+      const before = { beaten: p.beaten, wins: p.wins, unlocked: p.unlocked.slice(), coins: p.coins | 0, giftSkins: (p.giftSkins || []).slice() };
+      p.coins = d.coins; p.giftSkins = d.giftSkins.slice(); p.revision = (p.revision || 0) + 1;
+      await tx.put('audit:' + newestKey(), { at: Date.now(), actor: d.actor, reason: d.reason, before,
+        after: { beaten: p.beaten, wins: p.wins, unlocked: p.unlocked.slice(), coins: p.coins, giftSkins: p.giftSkins.slice() } });
+      await tx.put('profile', p);
+      return json({ profile: p });
     }
     /* Admin / Owner panel: set someone's level (their XP goes to the start of that level). The owner's account only by the owner. */
     if (op === 'xp-set') {
@@ -1262,6 +1275,16 @@ export default {
             .map(x => owner ? x : Object.assign({}, x, { roles: undefined, owner: undefined }))   // admins never see roles
             .sort((a, b) => (owner ? roleRank(a) - roleRank(b) : 0) || (b.online - a.online) || (b.seen - a.seen) || a.name.localeCompare(b.name));
           return json({ players }, 200, cors);
+        }
+        /* Admin and Owner panels: set a player's coins and given skins. Admins can't change the owner. */
+        if (url.pathname === '/api/admin/gifts' && req.method === 'POST') {
+          let d; try { d = await apiBody(req); } catch (e) { return json({ error: 'invalid' }, 400, cors); }
+          const uid = await adminTarget(env, d), reason = plain(d.reason, 200);
+          if (!uid || !Number.isInteger(d.coins) || d.coins < 0 || d.coins > 1000000 || !Number.isInteger(d.revision) || d.revision < 0 ||
+              !Array.isArray(d.giftSkins) || d.giftSkins.length > SKIN_IDS.length || new Set(d.giftSkins).size !== d.giftSkins.length ||
+              !d.giftSkins.every(id => typeof id === 'string' && Object.prototype.hasOwnProperty.call(SKINS, id)) || reason.length < 5)
+            return json({ error: 'invalid' }, 400, cors);
+          return respond(await acct(env, uid, 'gift-set', { coins: d.coins, giftSkins: d.giftSkins, revision: d.revision, reason, byOwner: owner, actor }).then(hideRoles));
         }
         /* Admin and Owner panels: set a player's level (Sky Road). Admins can't change the owner. */
         if (url.pathname === '/api/admin/level' && req.method === 'POST') {
