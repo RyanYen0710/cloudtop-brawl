@@ -589,7 +589,7 @@ Object.assign(PROJ_NEW, {
     const base = y + p.size * 0.5;
     g.save();
     g.globalCompositeOperation = 'lighter';
-    for (let i = 0; i < 3; i++) { const q = ((t * 0.04 + i / 3) % 1); g.strokeStyle = `rgba(122,215,255,${0.5 * (1 - q)})`; g.lineWidth = 3; circle(g, x, base - 20, 230 * (1 - q)); g.stroke(); }
+    for (let i = 0; i < 3; i++) { const q = ((t * 0.04 + i / 3) % 1); g.strokeStyle = `rgba(122,215,255,${0.5 * (1 - q)})`; g.lineWidth = 3; circle(g, x, base - 20, 140 * (1 - q)); g.stroke(); }   // same size as its pull (sprocket.js pullR)
     g.globalCompositeOperation = 'source-over';
     g.lineCap = 'butt'; g.strokeStyle = '#2a1d0a'; g.lineWidth = 18; g.beginPath(); g.arc(x, base - 22, 18, Math.PI, 0); g.stroke();
     g.strokeStyle = '#e8354a'; g.lineWidth = 14; g.beginPath(); g.arc(x, base - 22, 18, Math.PI, 0); g.stroke();
@@ -609,7 +609,7 @@ if (typeof fxEventRemake === 'function') {
         for (let i = 0; i < 6; i++) spawnFx({ k: 'smoke', x: x + (Math.random() - 0.5) * 40, y, vx: (Math.random() - 0.5) * 2, vy: -1.5, life: 30, col: 'rgba(90,80,70,.6)', size: 12 });
         return true;
       case 'magburst':   // the Magnet Trap zaps everyone it pulled in
-        spawnFx({ k: 'ring', x, y, life: 18, r0: 20, r1: a || 110, col: '#7ad7ff', lw: 6 });
+        spawnFx({ k: 'ring', x, y, life: 18, r0: 20, r1: a || 90, col: '#7ad7ff', lw: 6 });
         for (let i = 0; i < (URM_LOW() ? 8 : 16); i++) { const an = Math.random() * 6.28, s = 3 + Math.random() * 5; spawnFx({ k: 'spark', x, y, vx: Math.cos(an) * s, vy: Math.sin(an) * s, life: 18, col: i % 2 ? '#7ad7ff' : '#ffffff', size: 3 }); }
         return true;
       case 'mechon':   // the Mega Mech powers up
