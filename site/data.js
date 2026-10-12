@@ -524,15 +524,17 @@ function moveDef(c, key) {
   return key.startsWith('sp_') ? c.specials[key.slice(3)] : NORMALS[key];
 }
 
-/* ===== Boss Fight: 30 levels in three chapters of 10. Beat a chapter's last level to unlock its boss.
+/* ===== Boss Fight: 40 levels in four chapters of 10. Beat a chapter's last level to unlock its boss.
    The game server reads this table, so players can't make a level easier. =====
    cpu = boss skill (10 = top CPU level, 11 = boss-only MAX brain), stocks = boss lives, pow = boss attack power,
    kb = how far the boss flies when hit (lower = heavier), dmgIn = damage the boss takes,
-   minions = extra CPU helpers on the boss's team (their skill level). */
+   minions = extra CPU helpers on the boss's team (their skill level).
+   stage 'kingdom' = the boss-only Overgrown Kingdom (vexa.js adds it and puts its number here). */
 const BOSS_CHAPTERS = [
   { boss: 'yen', from: 1, to: 10, title: 'Chapter 1', blurb: 'The ultra max fighter. He switches between seven fighters’ styles.' },
   { boss: 'chuang', from: 11, to: 20, title: 'Chapter 2', blurb: 'The shutter-speed photographer. His flashes dazzle and his camera traps wait for you.' },
-  { boss: 'hsi', from: 21, to: 30, title: 'Chapter 3', blurb: 'The sky-walking point guard. Triple jump, bouncing jump shots and crushing dunks.' }
+  { boss: 'hsi', from: 21, to: 30, title: 'Chapter 3', blurb: 'The sky-walking point guard. Triple jump, bouncing jump shots and crushing dunks.' },
+  { boss: 'vexa', from: 31, to: 40, title: 'Chapter 4', place: 'The Overgrown Kingdom', her: true, blurb: 'The queen of the hive. Venom stingers, a swarm that clings to you and a hive that never stops sending bees.' }
 ];
 const BOSS_ID = 'yen';
 const BOSS_SIZE = 1.15;
@@ -570,7 +572,18 @@ const BOSS_LEVELS = [
   { name: 'Half-Court Heave', stage: 6, cpu: 11, stocks: 3, pow: 1.40, kb: 0.72, dmgIn: 0.80, minions: [5] },
   { name: 'Overtime',         stage: 5, cpu: 11, stocks: 3, pow: 1.40, kb: 0.72, dmgIn: 0.80, minions: [4] },
   { name: 'Playoffs',         stage: 2, cpu: 11, stocks: 3, pow: 1.45, kb: 0.70, dmgIn: 0.78, minions: [5] },
-  { name: 'Hall of Fame',     stage: 1, cpu: 11, stocks: 3, pow: 1.50, kb: 0.66, dmgIn: 0.76, minions: [6] }
+  { name: 'Hall of Fame',     stage: 1, cpu: 11, stocks: 3, pow: 1.50, kb: 0.66, dmgIn: 0.76, minions: [6] },
+  // chapter 4 — Queen Vexa (The Overgrown Kingdom)
+  { name: 'Pollen Season',  stage: 'kingdom', cpu: 10, stocks: 2, pow: 1.20, kb: 0.90, dmgIn: 0.90, minions: [] },
+  { name: 'Thorn Gate',     stage: 1,         cpu: 10, stocks: 2, pow: 1.25, kb: 0.88, dmgIn: 0.88, minions: [] },
+  { name: 'Buzzing Halls',  stage: 'kingdom', cpu: 11, stocks: 2, pow: 1.25, kb: 0.86, dmgIn: 0.86, minions: [] },
+  { name: 'Royal Jelly',    stage: 7,         cpu: 11, stocks: 3, pow: 1.30, kb: 0.82, dmgIn: 0.84, minions: [] },
+  { name: 'Vine Maze',      stage: 'kingdom', cpu: 11, stocks: 3, pow: 1.35, kb: 0.78, dmgIn: 0.82, minions: [4] },
+  { name: 'Swarm Rising',   stage: 0,         cpu: 11, stocks: 3, pow: 1.40, kb: 0.74, dmgIn: 0.80, minions: [5] },
+  { name: 'Honey Moon',     stage: 'kingdom', cpu: 11, stocks: 3, pow: 1.40, kb: 0.72, dmgIn: 0.80, minions: [] },
+  { name: "Queen's Guard",  stage: 1,         cpu: 11, stocks: 3, pow: 1.45, kb: 0.70, dmgIn: 0.78, minions: [5, 4] },
+  { name: 'Nectar Storm',   stage: 'kingdom', cpu: 11, stocks: 3, pow: 1.50, kb: 0.67, dmgIn: 0.76, minions: [6] },
+  { name: 'The Hive Throne', stage: 'kingdom', cpu: 11, stocks: 3, pow: 1.55, kb: 0.64, dmgIn: 0.74, minions: [6] }
 ];
 function bossChapter(level) { return BOSS_CHAPTERS.find(c => level >= c.from && level <= c.to) || BOSS_CHAPTERS[0]; }
 BOSS_LEVELS.forEach((L, i) => { L.boss = bossChapter(i + 1).boss; });
