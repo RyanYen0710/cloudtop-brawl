@@ -85,7 +85,7 @@ function renderAdmin() {
     el('h2', { text: owner ? 'Owner panel' : 'Admin panel' }), el('span', { class: 'ad-badge' + (owner ? ' ad-badge-owner' : ''), text: owner ? 'OWNER ONLY' : (isOwnerAcct() ? 'OWNER' : 'ADMIN') })]));
   wrap.appendChild(el('p', { class: 'muted', text: owner
     ? 'Every player, bug reports and roles. Only you can see this panel. Changes are saved and recorded in each account’s activity log.'
-    : 'Every player and the bug reports. You can change players’ Boss Fight progress and fighters. Changes are saved and recorded in each account’s activity log.' }));
+    : 'Every player and the bug reports. You can change players’ Boss Fight progress, fighters, coins and skins. Changes are saved and recorded in each account’s activity log.' }));
   const tabs = [['players', 'Players'], ['reports', 'Bug reports']];
   const bar = el('div', { class: 'ad-tabs', role: 'tablist', 'aria-label': owner ? 'Owner tools' : 'Admin tools' });
   tabs.forEach(([id, title]) => bar.appendChild(el('button', { type: 'button', id: 'ad-tab-' + id, role: 'tab', class: 'btn' + (ADMIN.tab === id ? ' sel' : ''),
@@ -106,7 +106,8 @@ function renderAdmin() {
 /* ---------- loading accounts ---------- */
 function setTarget(t) {
   ADMIN.target = t;
-  ADMIN.draft = t ? { beaten: t.profile.beaten, wins: t.profile.wins || 0, unlocked: new Set(t.profile.unlocked.filter(id => CHAR[id] && CHAR[id].locked)), reason: '' } : null;
+  ADMIN.draft = t ? { beaten: t.profile.beaten, wins: t.profile.wins || 0, unlocked: new Set(t.profile.unlocked.filter(id => CHAR[id] && CHAR[id].locked)), reason: '',
+    coins: t.profile.coins | 0, gift: new Set((t.profile.giftSkins || []).filter(id => typeof SKINS !== 'undefined' && SKINS[id])), giftReason: '' } : null;
 }
 async function openPlayer(uid, ptab) {
   if (ADMIN.busy) return; ADMIN.busy = true; adminMessage('Opening player…');
@@ -177,15 +178,16 @@ function renderPlayer(pane) {
   if (t.info) left.push(onlineDot(t.info.online));
   head.appendChild(el('div', { class: 'ad-player-head' }, [el('div', {}, left), el('div', { class: 'ad-head-side' }, [reload, levelControl(t, owner)])]));
   const sub = el('div', { class: 'ad-subtabs', role: 'tablist', 'aria-label': 'Player sections' });
-  [['info', 'Info'], ['boss', 'Boss Fight'], ['chars', 'Characters']].forEach(([id, title]) => sub.appendChild(el('button', { type: 'button', role: 'tab',
+  [['info', 'Info'], ['boss', 'Boss Fight'], ['chars', 'Characters'], ['gifts', 'Coins & Skins']].forEach(([id, title]) => sub.appendChild(el('button', { type: 'button', role: 'tab',
     class: 'ad-subtab' + (ADMIN.ptab === id ? ' sel' : ''), 'aria-selected': String(ADMIN.ptab === id), text: title,
     on: { click: () => { ADMIN.ptab = id; ADMIN.message = ''; renderAdmin(); } } })));
   head.appendChild(sub);
   const body = el('div', { class: 'ad-subpane' }); head.appendChild(body);
   if (ADMIN.ptab === 'info') renderPlayerInfo(body, t, owner);
   else if (ADMIN.ptab === 'boss') renderPlayerBoss(body, d, canEdit);
+  else if (ADMIN.ptab === 'gifts') renderPlayerGifts(body, t, d, canEdit || owner);
   else renderPlayerChars(body, d, canEdit);
-  if (ADMIN.ptab !== 'info') {
+  if (ADMIN.ptab !== 'info' && ADMIN.ptab !== 'gifts') {
     if (!canEdit) body.appendChild(el('p', { class: 'ad-message', text: 'This is the owner’s account: every fighter and level is always unlocked, and it can’t be changed here.' }));
     else renderSaveBar(body, t, d);
   }
@@ -224,7 +226,9 @@ function renderPlayerInfo(body, t, owner) {
   t.history.forEach(event => history.appendChild(el('article', { class: 'ad-history' }, [
     el('strong', { text: event.reason }), el('p', { text: new Date(event.at).toLocaleString() + ' · ' + ((event.actor && (event.actor.name || event.actor.uid)) || '') }),
     el('p', { text: 'Levels ' + event.before.beaten + ' → ' + event.after.beaten + ' · Wins ' + event.before.wins + ' → ' + event.after.wins }),
-    el('p', { text: 'Fighters: ' + (event.before.unlocked.join(', ') || 'none') + ' → ' + (event.after.unlocked.join(', ') || 'none') })
+    el('p', { text: 'Fighters: ' + (event.before.unlocked.join(', ') || 'none') + ' → ' + (event.after.unlocked.join(', ') || 'none') }),
+    ...(event.after.coins != null ? [el('p', { text: 'Coins ' + ((event.before.coins | 0).toLocaleString()) + ' → ' + (event.after.coins | 0).toLocaleString() +
+      ' · Given skins: ' + (skinNames(event.before.giftSkins) || 'none') + ' → ' + (skinNames(event.after.giftSkins) || 'none') })] : [])
   ])));
 }
 function renderRoles(body, t) {
@@ -289,6 +293,85 @@ function renderPlayerChars(body, d, canEdit) {
   if (canEdit) body.appendChild(el('div', { class: 'ad-actions' }, [
     adminButton('Give every locked fighter', () => { ROSTER.filter(c => c.locked && !c.hidden).forEach(c => d.unlocked.add(c.id)); renderAdmin(); }),
     adminButton('Take back given fighters', () => { d.unlocked.clear(); renderAdmin(); })]));
+}
+/* ---------- Coins & Skins: give someone coins and skins (the game server checks everything again) ---------- */
+const skinNames = ids => (Array.isArray(ids) ? ids : []).map(id => (typeof SKINS !== 'undefined' && SKINS[id] && SKINS[id].name) || id).join(', ');
+/* skins this player unlocked by themselves (level, an event they played, the shop): these can't be taken away here */
+function skinEarnedBy(p, id) {
+  const s = SKINS[id]; if (!s) return false;
+  if (p.owner) return true;
+  if (s.level) return (typeof xpLevel === 'function' ? xpLevel(p.xp || 0).level : 1) >= s.level;
+  if (s.event) return Array.isArray(p.evSkins) && p.evSkins.indexOf(s.event) >= 0;
+  if (s.shop) return Array.isArray(p.shopSkins) && p.shopSkins.indexOf(id) >= 0;
+  return false;
+}
+function renderPlayerGifts(body, t, d, canEdit) {
+  const p = t.profile, MAX = 1000000, ids = typeof SKIN_IDS !== 'undefined' ? SKIN_IDS : [];
+  // coins
+  const coinBox = el('div', { class: 'ad-coins' }); body.appendChild(coinBox);
+  coinBox.appendChild(el('h4', { class: 'ad-sec', text: 'Coins' }));
+  const input = el('input', { type: 'number', min: '0', max: String(MAX), step: '1', value: String(d.coins), 'aria-label': 'Coins for ' + (p.name || 'this player') });
+  if (!canEdit) input.disabled = true;
+  const setCoins = v => { d.coins = Math.max(0, Math.min(MAX, Math.floor(+v || 0))); input.value = String(d.coins); bar(); };
+  input.addEventListener('change', () => setCoins(input.value));
+  input.addEventListener('input', () => { d.coins = Math.max(0, Math.min(MAX, Math.floor(+input.value || 0))); bar(); });
+  const quick = canEdit ? [-1000, -100, 100, 1000, 5000].map(n => adminButton((n > 0 ? '+' : '−') + Math.abs(n).toLocaleString(), () => setCoins(d.coins + n), 'mini ad-coin-btn')) : [];
+  coinBox.appendChild(el('div', { class: 'ad-coin-row' }, [el('span', { class: 'ad-coin-ico', 'aria-hidden': 'true', text: '🪙' }), input, ...quick]));
+  coinBox.appendChild(el('p', { class: 'muted', text: 'Now: ' + (p.coins | 0).toLocaleString() + ' coins. Coins can be 0 to ' + MAX.toLocaleString() + '.' }));
+  // skins
+  const earned = id => skinEarnedBy(p, id), have = id => earned(id) || d.gift.has(id);
+  body.appendChild(el('h4', { class: 'ad-sec', text: 'Skins' }));
+  body.appendChild(el('p', { class: 'ad-stats', text: ids.filter(have).length + ' of ' + ids.length + ' skins' }));
+  if (canEdit) body.appendChild(el('p', { class: 'muted', text: 'Tap a locked skin to give it. Tap again to take it back. Skins they earned themselves (level, event or shop) stay theirs.' }));
+  const model = (ROSTER.find(c => !c.locked && !c.hidden) || ROSTER[0]).id;
+  const grid = el('div', { class: 'ad-chars ad-skins' }); body.appendChild(grid);
+  ids.forEach(id => {
+    const s = SKINS[id], own = have(id), toggle = canEdit && !earned(id);
+    const how = s.level ? 'Level ' + s.level : s.event ? 'Event' : s.shop ? 'Shop' : '';
+    const tile = el(toggle ? 'button' : 'div', { class: 'tile ad-char' + (own ? '' : ' locked') + (toggle ? ' can' : ''),
+      'aria-label': s.name + ' skin' + (own ? ', unlocked' : ', locked') + (earned(id) ? ' (earned by them)' : '') });
+    if (toggle) { tile.type = 'button'; tile.setAttribute('aria-pressed', String(own)); tile.addEventListener('click', () => {
+      if (d.gift.has(id)) d.gift.delete(id); else d.gift.add(id); if (typeof SFX !== 'undefined') SFX.play('ui'); renderAdmin(); }); }
+    const cv = el('canvas', { class: 'tile-cv', 'aria-hidden': 'true' });
+    tile.append(cv, el('span', { class: 'tile-name', text: s.name }), el('span', { class: 'ad-skin-how', text: how }));
+    if (!own) tile.appendChild(el('span', { class: 'ad-lock', 'aria-hidden': 'true', text: '🔒' }));
+    else tile.appendChild(el('span', { class: 'ad-char-tag', text: earned(id) ? 'Theirs' : 'Given' }));
+    grid.appendChild(tile);
+    requestAnimationFrame(() => drawPortrait(cv, model, { skin: id }));
+  });
+  if (canEdit) body.appendChild(el('div', { class: 'ad-actions' }, [
+    adminButton('Give every skin', () => { ids.forEach(id => { if (!earned(id)) d.gift.add(id); }); renderAdmin(); }),
+    adminButton('Take back given skins', () => { d.gift.clear(); renderAdmin(); })]));
+  if (!canEdit) { body.appendChild(el('p', { class: 'ad-message', text: 'Only the owner can change the owner’s account.' })); return; }
+  // save
+  const before = new Set((p.giftSkins || []).filter(id => SKINS[id]));
+  const form = el('form', { class: 'ad-savebar' });
+  const reason = el('input', { required: '', minlength: '5', maxlength: '200', placeholder: 'Why are you changing this account?', value: d.giftReason });
+  reason.addEventListener('input', () => { d.giftReason = reason.value; });
+  const save = el('button', { type: 'submit', class: 'btn start', text: 'Save coins & skins' });
+  const head = el('p', { class: 'ad-sec' });
+  function bar() {
+    const changed = d.coins !== (p.coins | 0) || d.gift.size !== before.size || [...d.gift].some(id => !before.has(id));
+    form.classList.toggle('on', changed); save.disabled = !changed; head.textContent = changed ? 'Unsaved changes' : 'No changes yet';
+  }
+  form.append(head, adminField('Reason (saved in activity log)', reason), save); bar();
+  form.addEventListener('submit', async e => {
+    e.preventDefault(); if (ADMIN.busy || ADMIN.target !== t) return;
+    const giftSkins = [...d.gift];
+    if (!(await gameConfirm('Save coins & skins for ' + (p.name || t.uid) + '?\nCoins: ' + (p.coins | 0).toLocaleString() + ' → ' + d.coins.toLocaleString() +
+      '\nGiven skins: ' + (skinNames(giftSkins) || 'none') + '\nReason: ' + reason.value.trim(), 'Yes, save'))) return;
+    if (ADMIN.busy || ADMIN.target !== t) return;
+    ADMIN.busy = true; save.disabled = true; adminMessage('Saving coins & skins…');
+    try {
+      await adminPost('/api/admin/gifts', { uid: t.uid, revision: p.revision || 0, coins: d.coins, giftSkins, reason: reason.value.trim() });
+      if (ACCT.user && ACCT.user.uid === t.uid && typeof xpFetch === 'function') await xpFetch();   // your own account: new coins and skins right away
+      ADMIN.busy = false;
+      setTarget(await adminApi('/api/admin/account?uid=' + encodeURIComponent(t.uid))); ADMIN.ptab = 'gifts';
+      ADMIN.message = 'Coins & skins saved and recorded in the activity log.'; renderAdmin();
+    } catch (err) { adminMessage(adminError(err)); }
+    finally { ADMIN.busy = false; bar(); }
+  });
+  body.appendChild(form);
 }
 function renderSaveBar(body, t, d) {
   const p = t.profile;
