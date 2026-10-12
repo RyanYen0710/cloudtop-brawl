@@ -301,7 +301,7 @@ function draw() {
   if (hud) {
     const ls = localSlotNow(), lf = ls != null && view.fighters.find(x => x.slot === ls);
     setUltReady(!!(lf && lf.ult && !lf.out && lf.carriedBy == null));
-    if (lf?.c.id === 'titan') {
+    if (lf && lf.c && lf.c.id === 'titan') {   // lf is false when no fighter is yours (an all-CPU match)
       const hint = document.querySelector('#hints-r [data-h="ult"] .h-name');
       if (hint) hint.textContent = lf.avalanche ? `Rolling · ${bindLabel('left')}/${bindLabel('right')} steer` : lf.c.ultimate.name;
     }
