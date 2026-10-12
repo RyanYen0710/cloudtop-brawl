@@ -161,7 +161,7 @@ function moveCollide(f, g) {
     }
   }
   if (!f.ground && f.dropT <= 0) {
-    for (const p of st.plats) {
+    for (const p of st.tmpPlats && st.tmpPlats.length ? st.plats.concat(st.tmpPlats) : st.plats) {   // tmpPlats: Terra's scaffolds (heroes.js)
       if (p.off) continue;
       const tol = 0.01 + Math.max(0, -(p.dy || 0)) + 1;
       if (f.vy >= (p.dy || 0) - 0.5 && f.x > p.x - 4 && f.x < p.x + p.w + 4 && py <= p.y + tol && f.y >= p.y) {
@@ -514,7 +514,8 @@ function runAct(f, inp, g, dirX) {
       if (a.t >= S + E) endAct(f);
       break;
     }
-    default: endAct(f);
+    default: if (typeof runActX === 'function' && runActX(f, inp, g, dirX, a, m)) break;   // new move kinds (heroes.js)
+      endAct(f);
   }
 }
 
