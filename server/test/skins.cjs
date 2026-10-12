@@ -33,6 +33,10 @@ test('who can wear which skin: by level, during the event, kept event skins, the
   assert.equal(ok({ level: 1 }, 'frosty', 'halloween'), false);
   assert.equal(ok({ level: 1, owner: true }, 'mythic', null), true);
   assert.equal(ok({ level: 300 }, 'nope', null), false);
+  assert.equal(ok({ level: 1, gift: ['mythic'] }, 'mythic', null), true, 'given by an admin');
+  assert.equal(ok({ level: 1, gift: ['mythic'] }, 'gold', null), false);
+  const prof = vm.runInContext('skinProf', c);
+  assert.equal(ok(prof({ xp: 0, giftSkins: ['diamond'] }, false), 'diamond', null), true, 'the game server reads given skins from the account');
   // every event has a skin, every Sky Road skin has a level
   const ids = JSON.parse(vm.runInContext('JSON.stringify(SKIN_IDS.map(id => [id, SKINS[id].level || 0, SKINS[id].event || ""]))', c));
   const evs = ids.filter(x => x[2]).map(x => x[2]).sort();
