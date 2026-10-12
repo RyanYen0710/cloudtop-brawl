@@ -47,7 +47,7 @@ function renderBoss() {
   if (TESTER.on && !isTesterAcct()) setTester(false);
   const T = TESTER.on;
   const back = el('button', { type: 'button', class: 'back', text: '← Back', on: { click: () => { SFX.play('ui'); BOSS.result = null; show('main'); } } });
-  const outer = el('div', { class: 'wrap' }, [el('header', { class: 'bar' }, [back, el('h2', { text: T ? 'Boss Fight (Tester)' : 'Boss Fight' }), el('p', { class: 'sub', text: T ? 'Every fighter and every level. Nothing here is saved to your account.' : 'Three chapters, ten levels each. Beat a chapter to unlock its boss.' })])]);
+  const outer = el('div', { class: 'wrap' }, [el('header', { class: 'bar' }, [back, el('h2', { text: T ? 'Boss Fight (Tester)' : 'Boss Fight' }), el('p', { class: 'sub', text: T ? 'Every fighter and every level. Nothing here is saved to your account.' : (['One', 'Two', 'Three', 'Four', 'Five', 'Six'][BOSS_CHAPTERS.length - 1] || BOSS_CHAPTERS.length) + ' chapters, ten levels each. Beat a chapter to unlock its boss.' })])]);
   s.appendChild(outer);
   const wrap = el('div', { class: 'bs-wrap' });
   outer.appendChild(wrap);
@@ -81,7 +81,7 @@ function renderBoss() {
     const r = BOSS.result, rc = bossChapter(r.level);
     const txt = r.test ? (r.win ? `Test run: you beat level ${r.level}. (Not saved.)` : `Test run: defeated on level ${r.level}. (Not saved.)`)
       : r.error ? 'The fight ended, but your result couldn’t be saved. Try again.'
-      : r.win ? (r.level === rc.to && has(rc.boss) ? `${CHAR[rc.boss].name.toUpperCase()} UNLOCKED! He’s now in your fighter list.` : `LEVEL ${r.level} CLEARED!`)
+      : r.win ? (r.level === rc.to && has(rc.boss) ? `${CHAR[rc.boss].name.toUpperCase()} UNLOCKED! ${rc.her ? 'She' : 'He'}’s now in your fighter list.` : `LEVEL ${r.level} CLEARED!`)
       : `Defeated on level ${r.level}. Try again!`;
     wrap.appendChild(el('div', { class: 'bs-banner ' + (r.win ? 'win' : 'lose'), role: 'status', text: txt }));
   }
@@ -111,9 +111,9 @@ function renderBoss() {
   const prog = el('div', { class: 'bs-prog' }, [el('i', { style: `width:${cleared * 10}%` })]);
   wrap.appendChild(panel([
     el('div', { class: 'bs-boss' }, [cv, el('div', {}, [
-      el('div', { class: 'sc-eyebrow', text: (got ? 'Unlocked · ' : 'Locked fighter · ') + ch.title }),
+      el('div', { class: 'sc-eyebrow', text: (got ? 'Unlocked · ' : 'Locked fighter · ') + ch.title + (ch.place ? ' · ' + ch.place : '') }),
       el('h3', { class: 'sc-name', text: bossName }),
-      el('p', { class: 'muted', text: got ? `You beat ${ch.title}. ${bossName} is yours in Solo and Online. Keep fighting for practice.` : `${ch.blurb} Beat levels ${ch.from}–${ch.to} to make him yours.` }),
+      el('p', { class: 'muted', text: got ? `You beat ${ch.title}. ${bossName} is yours in Solo and Online. Keep fighting for practice.` : `${ch.blurb} Beat levels ${ch.from}–${ch.to} to make ${ch.her ? 'her' : 'him'} yours.` }),
       el('div', { class: 'bs-progrow' }, [prog, el('b', { text: `${cleared}/10` })])
     ])])
   ], 'bs-top'));
