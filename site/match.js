@@ -200,6 +200,8 @@ function stepProjs(g) {
         }
       } else if (--p.fuseT <= 0) { explode(p, g); continue; }
       p.armed = p.stuck ? 1 : 0;
+    } else if ((m.step || p.orbit) && typeof projStepX === 'function') {
+      projStepX(p, g);   // projectiles that move their own way (heroes.js: a swinging wrecking ball, star pins, scaffolds, orbiting shots...)
     } else {
       if (m.returns && p.age > (m.turn || 26)) {
         const o = p.owner, dx = o.x - p.x, dy = (o.y - o.H / 2) - p.y, d = Math.hypot(dx, dy) || 1;
@@ -233,7 +235,7 @@ function stepProjs(g) {
     }
     if (p.life <= 0) continue;
     if (m.finalB && p.life === 8) { p.hit.clear(); p.dmg = m.dmg * 1.8; p.bMul = 2.2; }
-    if (!m.mine) {
+    if (!m.mine && !m.noHit) {
       for (const o of g.fighters) {
         if (o.out || o.dead > 0 || o.halo > 0 || o.vanish || o.tid === p.tid || p.hit.has(o)) continue;
         if (m.wall ? !overlap(wallBox(p), hurtbox(o)) : m.tall ? !overlap({ x: p.x - p.size * 0.55, y: p.y - p.size * 3.4, w: p.size * 1.1, h: p.size * 3.9 }, hurtbox(o)) : !circRect(p.x, p.y, p.size * 0.6, hurtbox(o))) continue;
@@ -249,6 +251,7 @@ function stepProjs(g) {
         }
         const r = applyHit(p.owner, o, { dmg: p.dmg, b: m.b * (p.bMul || 1), g: m.g, angle: m.angle, freeze: m.freeze || p.frz, burn: m.burn, zap: m.zap, slow: m.slow, flash: m.flash, bubble: m.bubble }, dir, g, p);
         if (m.chain && r === 'hit' && !p.chained) chainShock(p, o, g, dir);
+        if (m.onHit && r === 'hit' && typeof projOnHit === 'function') projOnHit(p, o, g);
         if (!(m.pierce || p.pierce) || r === 'block' || r === 'counter') { p.life = 0; break; }
       }
     }
@@ -260,9 +263,9 @@ function stepProjs(g) {
   }
   const ps = g.projs;
   for (let i = 0; i < ps.length; i++) {
-    const a = ps[i]; if (a.life <= 0 || a.m.mine || a.m.shape === 'puddle' || a.carry != null) continue;
+    const a = ps[i]; if (a.life <= 0 || a.m.mine || a.m.shape === 'puddle' || a.carry != null || (a.m.noHit && !a.m.wall)) continue;
     for (let j = i + 1; j < ps.length; j++) {
-      const b = ps[j]; if (b.life <= 0 || b.m.mine || b.m.shape === 'puddle' || a.tid === b.tid || b.carry != null) continue;
+      const b = ps[j]; if (b.life <= 0 || b.m.mine || b.m.shape === 'puddle' || a.tid === b.tid || b.carry != null || (b.m.noHit && !b.m.wall)) continue;
       if (a.m.wall || b.m.wall) {   // Blaze's Fire Wall burns up enemy projectiles and stays
         if (a.m.wall && b.m.wall) continue;
         const w = a.m.wall ? a : b, o = w === a ? b : a;
@@ -277,6 +280,7 @@ function stepProjs(g) {
       }
     }
   }
+  if (typeof stepProjsX === 'function') stepProjsX(g);   // heroes.js: star links, the gravity well, scaffold platforms
   const kids = [];
   for (const p of ps) if (p.life <= 0 && p.m.child && !p.kid) { p.kid = 1; spawnChild(p, g, kids); }
   g.projs = ps.filter(p => p.life > 0).concat(kids);
