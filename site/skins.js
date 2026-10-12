@@ -40,16 +40,17 @@ const SKIN_IDS = Object.keys(SKINS);
 const EVENT_SKIN = {}; SKIN_IDS.forEach(id => { if (SKINS[id].event) EVENT_SKIN[SKINS[id].event] = id; });
 const EVENT_SKIN_PLAYS = 3;   // matches to play during an event to keep its skin
 
-/* can this player wear this skin? prof = { level, ev: [events whose skin they kept], shop: [skins they bought], owner } */
+/* can this player wear this skin? prof = { level, ev: [events whose skin they kept], shop: [skins they bought], gift: [skins an admin gave them], owner } */
 function skinAllowed(prof, id, ev) {
   const s = SKINS[id]; if (!s) return false;
   if (prof && prof.owner) return true;
+  if (prof && Array.isArray(prof.gift) && prof.gift.indexOf(id) >= 0) return true;   // given by an admin (Coins & Skins tab)
   if (s.level) return !!prof && (prof.level | 0) >= s.level;
   if (s.event) return s.event === ev || !!(prof && Array.isArray(prof.ev) && prof.ev.indexOf(s.event) >= 0);
   if (s.shop) return !!(prof && Array.isArray(prof.shop) && prof.shop.indexOf(id) >= 0);
   return false;
 }
-function skinProf(p, owner) { return { level: typeof xpLevel === 'function' ? xpLevel((p && p.xp) || 0).level : 1, ev: (p && p.evSkins) || [], shop: (p && p.shopSkins) || [], owner: !!owner }; }
+function skinProf(p, owner) { return { level: typeof xpLevel === 'function' ? xpLevel((p && p.xp) || 0).level : 1, ev: (p && p.evSkins) || [], shop: (p && p.shopSkins) || [], gift: (p && p.giftSkins) || [], owner: !!owner }; }
 /* a skin that's allowed, or '' (the fighter's normal look) */
 function cleanSkin(prof, id, ev) { id = String(id || ''); return id && skinAllowed(prof, id, ev) ? id : ''; }
 
