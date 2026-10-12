@@ -106,8 +106,33 @@ if (typeof lookHook === 'function') {
   };
 }
 
+/* a wooden marionette (base = where its feet are) */
+function haPuppet(g, x, base, dir, sc, tilt, o) {
+  const h = 60, wood = '#c49a6a', dark = '#8a6440';
+  g.save(); g.translate(x, base); g.scale(dir * sc, sc); g.rotate(tilt || 0);
+  g.strokeStyle = OUTLINE; g.lineWidth = 2;
+  g.lineCap = 'round';
+  // legs (one kicks forward)
+  g.strokeStyle = dark; g.lineWidth = 5;
+  g.beginPath(); g.moveTo(-4, -h * 0.3); g.lineTo(-7, 0); g.stroke();
+  const kk = o && o.kick || 0; g.beginPath(); g.moveTo(4, -h * 0.3); g.lineTo(6 + kk * 30, -kk * 12); g.stroke();
+  if (kk > 0.3) { g.fillStyle = '#140a16'; circle(g, 6 + kk * 30, -kk * 12, 4); g.fill(); }
+  // body and head
+  g.strokeStyle = OUTLINE; g.lineWidth = 2; g.fillStyle = wood;
+  g.beginPath(); g.ellipse(0, -h * 0.55, 9, 15, 0, 0, Math.PI * 2); g.fill(); g.stroke();
+  g.strokeStyle = dark; g.lineWidth = 1.5; g.beginPath(); g.moveTo(-8, -h * 0.5); g.lineTo(8, -h * 0.5); g.stroke();
+  g.strokeStyle = OUTLINE; g.lineWidth = 2; g.fillStyle = wood; circle(g, 0, -h * 0.9, 9); g.fill(); g.stroke();
+  g.fillStyle = '#140a16'; g.fillRect(-7, -h * 1.12, 14, 6); g.fillRect(-10, -h * 1.03, 20, 2);   // little top hat
+  g.fillStyle = '#e8c35a'; g.fillRect(-7, -h * 1.05, 14, 1.5);
+  g.fillStyle = '#140a16'; circle(g, 3, -h * 0.92, 1.4); g.fill();
+  g.strokeStyle = '#a8122a'; g.lineWidth = 1.5; g.beginPath(); g.arc(3, -h * 0.85, 3, 0.2, Math.PI - 0.2); g.stroke();   // painted smile
+  // arms
+  g.strokeStyle = wood; g.lineWidth = 4;
+  if (o && o.armsOut) { g.beginPath(); g.moveTo(0, -h * 0.68); g.lineTo(22, -h * 0.82); g.moveTo(0, -h * 0.68); g.lineTo(-22, -h * 0.82); g.stroke(); }
+  else { g.beginPath(); g.moveTo(0, -h * 0.68); g.lineTo(14, -h * 0.8); g.moveTo(0, -h * 0.68); g.lineTo(-10, -h * 0.45); g.stroke(); }
+  g.restore();
+}
 /* ---------- projectiles ---------- */
-const HA_STARS = { t: -1, list: [] };   // star pins drawn this frame (to draw the links between them)
 if (typeof PROJ_NEW !== 'undefined') Object.assign(PROJ_NEW, {
   string(g, p, t, x, y, r, dir) {   // a golden string with a little hook
     g.strokeStyle = '#e8c35a'; g.lineWidth = 2; g.beginPath(); g.moveTo(x - dir * 60, y + Math.sin(t * 0.5) * 3); g.quadraticCurveTo(x - dir * 30, y - 6, x, y); g.stroke();
@@ -126,6 +151,50 @@ if (typeof PROJ_NEW !== 'undefined') Object.assign(PROJ_NEW, {
     g.beginPath(); g.moveTo(0, -h * 0.68); g.lineTo(12 + arm * 10, -h * 0.68 - arm * 4); g.moveTo(0, -h * 0.68); g.lineTo(-10, -h * 0.45); g.stroke();
     g.beginPath(); g.moveTo(-4, -h * 0.3); g.lineTo(-6, 0); g.moveTo(4, -h * 0.3); g.lineTo(6, 0); g.stroke();
     g.fillStyle = '#140a16'; circle(g, 3, -h * 0.92, 1.4); g.fill();
+    g.restore();
+  },
+  pupkick(g, p, t, x, y, r, dir) {   // the puppet on strings, one wooden leg kicking out
+    const hx = x - dir * 95, hy = y - 70, k = Math.min(1, p.age / 6);
+    g.save();
+    g.strokeStyle = 'rgba(232,195,90,.8)'; g.lineWidth = 1.5;
+    [[-8, -26], [6, -24], [16, 4]].forEach(([dx, dy]) => { g.beginPath(); g.moveTo(hx, hy); g.lineTo(x + dir * dx, y + dy); g.stroke(); });
+    haPuppet(g, x, y + 22, dir, 1.05, -0.35 * k, { kick: k, armUp: 1 });
+    if (p.age < 9) { g.globalCompositeOperation = 'lighter'; g.strokeStyle = 'rgba(255,232,168,' + (0.7 - p.age * 0.07) + ')'; g.lineWidth = 5; g.beginPath(); g.arc(x + dir * 10, y + 4, 34, dir > 0 ? -0.9 : Math.PI - 0.5, dir > 0 ? 0.5 : Math.PI + 0.9); g.stroke(); }
+    g.restore();
+  },
+  pupwaltz(g, p, t, x, y, r, dir) {   // the big puppet dancing round him, strings from his raised hand
+    const o = p.owner, ox = o ? o.x : x - dir * 60, oy = o ? o.y - o.H * 1.05 : y - 80, spin = p.age * 0.45;
+    g.save();
+    g.strokeStyle = 'rgba(232,195,90,.85)'; g.lineWidth = 1.5;
+    [[-10, -30], [10, -30], [0, 10]].forEach(([dx, dy]) => { g.beginPath(); g.moveTo(ox, oy); g.lineTo(x + dx, y + dy); g.stroke(); });
+    haPuppet(g, x, y + 32, Math.cos(spin) >= 0 ? 1 : -1, 1.35, Math.sin(spin) * 0.25, { armsOut: 1 });
+    g.globalCompositeOperation = 'lighter'; g.strokeStyle = 'rgba(255,232,168,.35)'; g.lineWidth = 3;
+    g.beginPath(); g.arc(x, y, 30, spin, spin + 2.2); g.stroke();
+    g.restore();
+  },
+  starline(g, p, t, x, y, r, dir) {   // a burning zig-zag line joining three stars
+    if (p.sx == null) return;
+    const fade = Math.min(1, p.life / 6), grow = Math.min(1, (p.age + 1) / 3), pts = p.m.pts.map(([dx, dy]) => [p.sx + p.face * dx, p.sy + dy]);
+    const sc = p.color && p.color !== '#ffe8a8' ? p.color : null;   // a skin's colour on slow devices
+    g.save(); g.globalAlpha *= fade; g.globalCompositeOperation = 'lighter'; g.lineCap = 'round'; g.lineJoin = 'round';
+    const line = () => { g.beginPath(); pts.forEach(([px, py], i) => { if (i === 0) g.moveTo(px, py); else { const [qx, qy] = pts[i - 1]; g.lineTo(qx + (px - qx) * grow, qy + (py - qy) * grow); } }); g.stroke(); };
+    g.strokeStyle = sc || 'rgba(255,170,60,.45)'; g.lineWidth = 16; line();
+    g.strokeStyle = '#fff4c8'; g.lineWidth = 4; line();
+    pts.slice(1).forEach(([px, py], i) => { g.save(); g.translate(px, py); g.rotate(t * 0.06 + i); haStar(g, 0, 0, 11 + (i === 1 ? 3 : 0), 4, 0.35); g.fillStyle = sc || '#ffd35c'; g.fill(); g.restore(); });
+    g.restore();
+  },
+  startrail(g, p, t, x, y, r, dir) {   // shooting-star dust that bursts a moment later
+    const m = p.m, at = m.at || 18;
+    g.save(); g.globalCompositeOperation = 'lighter';
+    if (p.age < at) {
+      const k = p.age / at, tw = 0.6 + 0.4 * Math.sin(t * 0.7 + x);
+      g.fillStyle = 'rgba(159,231,255,' + (0.18 + k * 0.2) + ')'; circle(g, x, y, 10 + k * 8); g.fill();
+      g.fillStyle = 'rgba(255,244,200,' + tw + ')'; haStar(g, x, y, 5 + k * 4, 4, 0.4); g.fill();
+    } else {
+      const k = Math.min(1, (p.age - at) / 8), a = 1 - k;
+      g.fillStyle = 'rgba(255,232,168,' + a * 0.5 + ')'; circle(g, x, y, 14 + k * 26); g.fill();
+      g.strokeStyle = 'rgba(255,255,255,' + a + ')'; g.lineWidth = 3; circle(g, x, y, 10 + k * 30); g.stroke();
+    }
     g.restore();
   },
   curtain(g, p, t, x, y, r, dir) {   // a red stage curtain on a gold rail
@@ -172,26 +241,6 @@ if (typeof PROJ_NEW !== 'undefined') Object.assign(PROJ_NEW, {
     g.beginPath(); for (let i = -2; i <= 2; i++) { g.moveTo(x + i * 22, base - 14); g.lineTo(x + i * 22, base + 6); } g.stroke();
     if (warn) { const k = 1 - p.life / 22; g.strokeStyle = 'rgba(200,210,230,.8)'; g.lineWidth = 3; const cy = base - 110 + k * 30; g.strokeRect(x - 44, cy - 60, 88, 60); for (let i = 1; i < 4; i++) { g.beginPath(); g.moveTo(x - 44 + i * 22, cy - 60); g.lineTo(x - 44 + i * 22, cy); g.stroke(); } }
     g.restore();
-  },
-  starpin(g, p, t, x, y, r, dir) {   // a hanging star; linked stars draw burning lines to each other
-    if (HA_STARS.t !== t) { HA_STARS.t = t; HA_STARS.list = []; }
-    const own = p.owner ? p.owner.slot : p.os, me = { x, y, own, on: !!p.armed };
-    const sc = p.color && p.color !== '#ffe8a8' ? p.color : null;   // a skin's colour on slow devices (no filters there)
-    if (me.on) {
-      g.save(); g.globalCompositeOperation = 'lighter';
-      HA_STARS.list.forEach(q => {
-        if (!q.on || q.own !== own) return;
-        g.strokeStyle = sc || 'rgba(255,170,60,.5)'; if (sc) g.globalAlpha *= 0.5; g.lineWidth = 12; g.beginPath(); g.moveTo(q.x, q.y); g.lineTo(x, y); g.stroke();
-        if (sc) g.globalAlpha *= 2; g.strokeStyle = '#fff4c8'; g.lineWidth = 3.5; g.beginPath(); g.moveTo(q.x, q.y); g.lineTo(x, y); g.stroke();
-        for (let i = 0; i < 3; i++) { const k = (t * 0.04 + i / 3) % 1; g.fillStyle = sc || '#ffd35c'; circle(g, q.x + (x - q.x) * k, q.y + (y - q.y) * k + Math.sin(t * 0.5 + i) * 3, 3); g.fill(); }
-      });
-      g.restore();
-    }
-    HA_STARS.list.push(me);
-    g.save(); g.globalCompositeOperation = 'lighter';
-    const gl = g.createRadialGradient(x, y, 0, x, y, r * 2.4); gl.addColorStop(0, 'rgba(255,232,168,.6)'); gl.addColorStop(1, 'rgba(255,232,168,0)'); g.fillStyle = gl; circle(g, x, y, r * 2.4); g.fill();
-    g.restore();
-    g.save(); g.translate(x, y); g.rotate(t * 0.04); haStar(g, 0, 0, r * 1.1, 4, 0.35); g.fillStyle = sc || (me.on ? '#ffd35c' : '#ffe8a8'); g.fill(); g.strokeStyle = '#fff'; g.lineWidth = 1.5; g.stroke(); g.restore();
   }
 });
 
@@ -200,19 +249,21 @@ if (typeof fxEventNew === 'function') {
   const fxEventNoHeroes = fxEventNew;
   fxEventNew = function (type, x, y, a, b, col) {
     switch (type) {
-      case 'puppet': spawnFx({ k: 'ring', x, y: y - 30, life: 14, r0: 6, r1: 50, col: '#e8c35a', lw: 3 }); for (let i = 0; i < 8; i++) spawnFx({ k: 'smoke', x: x + (Math.random() - 0.5) * 40, y: y - 5, vx: (Math.random() - 0.5) * 2, vy: -1, life: 20, col: 'rgba(196,154,106,.6)', size: 8 }); return;
-      case 'pupcopy': spawnFx({ k: 'ring', x, y, life: 10, r0: 4, r1: 30, col: '#e8c35a', lw: 2 }); return;
-      case 'swap': spawnFx({ k: 'haline', x, y, x2: a, y2: b, life: 14, col: '#e8c35a', w: 3 }); spawnFx({ k: 'ring', x, y, life: 14, r0: 30, r1: 6, col: '#e8c35a', lw: 3 }); spawnFx({ k: 'ring', x: a, y: b, life: 14, r0: 6, r1: 40, col: '#e8c35a', lw: 3 }); return;
       case 'string': spawnFx({ k: 'haline', x, y, x2: a, y2: b, life: 18, col: '#e8c35a', w: 2 }); return;
       case 'yank': spawnFx({ k: 'haline', x, y, x2: a, y2: b, life: 10, col: '#fff4c8', w: 3 }); spawnFx({ k: 'ring', x, y, life: 12, r0: 10, r1: 44, col: '#e8c35a', lw: 3 }); return;
       case 'build': for (let i = 0; i < 10; i++) spawnFx({ k: 'spark', x: x + (Math.random() - 0.5) * 100, y, vx: (Math.random() - 0.5) * 4, vy: -Math.random() * 3, life: 16, col: i % 2 ? '#ffd35c' : '#ffffff', size: 3 }); return;
       case 'cage':
         spawnFx({ k: 'cagefx', x, y, life: 30 }); spawnFx({ k: 'ring', x, y, life: 16, r0: 10, r1: a || 85, col: '#9fd0ff', lw: 5 });
         for (let i = 0; i < 10; i++) spawnFx({ k: 'spark', x, y, vx: (Math.random() - 0.5) * 8, vy: -Math.random() * 6, g: 0.3, life: 20, col: '#c8ccd6', size: 3 }); return;
-      case 'starlink': spawnFx({ k: 'ring', x, y, life: 16, r0: 10, r1: 70, col: '#ffd35c', lw: 3 }); return;
       case 'comet': { const an = a / 100; for (let i = 0; i < (HA_LOW() ? 1 : 3); i++) spawnFx({ k: 'spark', x: x - Math.cos(an) * 20, y: y - Math.sin(an) * 20, vx: -Math.cos(an) * 3 + (Math.random() - 0.5) * 2, vy: -Math.sin(an) * 3 + (Math.random() - 0.5) * 2, life: 18, col: i % 2 ? '#9fe7ff' : '#ffffff', size: 4 }); return; }
-      case 'well': spawnFx({ k: 'ring', x, y, life: 18, r0: a || 150, r1: 20, col: 'rgba(159,231,255,.8)', lw: 2 }); return;
-      case 'wellthrow': spawnFx({ k: 'ring', x, y, life: 16, r0: 20, r1: 160, col: '#9fe7ff', lw: 5 }); spawnFx({ k: 'flash', life: 5, a: 0.2, col: '159,231,255' }); return;
+      case 'streak': spawnFx({ k: 'hastk', x, y, d: a, life: 12 }); spawnFx({ k: 'spark', x: x - a * 14, y: y + (Math.random() - 0.5) * 20, vx: -a * 2, vy: (Math.random() - 0.5) * 1.5, life: 14, col: Math.random() < 0.5 ? '#9fe7ff' : '#ffffff', size: 4 }); return;
+      case 'trailpop': spawnFx({ k: 'ring', x, y, life: 12, r0: 6, r1: 40, col: '#ffe8a8', lw: 3 }); if (!HA_LOW()) for (let i = 0; i < 4; i++) spawnFx({ k: 'spark', x, y, vx: (Math.random() - 0.5) * 6, vy: (Math.random() - 0.5) * 6, life: 14, col: '#fff4c8', size: 3 }); return;
+      case 'eclipse': spawnFx({ k: 'haecl', x, y, life: a || 20 }); spawnFx({ k: 'ring', x, y, life: 12, r0: 80, r1: 30, col: 'rgba(159,231,255,.7)', lw: 3 }); return;
+      case 'eclipseburst':
+        spawnFx({ k: 'ring', x, y, life: 18, r0: 30, r1: 170, col: '#ffe8a8', lw: 8 }); spawnFx({ k: 'ring', x, y, life: 14, r0: 20, r1: 120, col: '#9fe7ff', lw: 4 });
+        spawnFx({ k: 'flash', life: 5, a: 0.22, col: '255,232,168' });
+        for (let i = 0; i < (HA_LOW() ? 6 : 14); i++) { const an = i / 14 * Math.PI * 2; spawnFx({ k: 'spark', x, y, vx: Math.cos(an) * 7, vy: Math.sin(an) * 7, life: 20, col: i % 2 ? '#ffe8a8' : '#9fe7ff', size: 4 }); }
+        return;
     }
     fxEventNoHeroes(type, x, y, a, b, col);
   };
@@ -221,6 +272,22 @@ if (typeof drawFxNew === 'function') {
   const drawFxNoHeroes = drawFxNew;
   drawFxNew = function (g, p, k) {
     if (p.k === 'haline') { g.globalAlpha = 1 - k; g.strokeStyle = p.col; g.lineWidth = p.w * (1 - k * 0.5); g.beginPath(); g.moveTo(p.x, p.y); g.quadraticCurveTo((p.x + p.x2) / 2, Math.min(p.y, p.y2) - 30, p.x2, p.y2); g.stroke(); return; }
+    if (p.k === 'hastk') {   // a streak of starlight behind Astra
+      const a = 1 - k, L = 70; g.save(); g.globalCompositeOperation = 'lighter'; g.lineCap = 'round';
+      g.globalAlpha = a * 0.5; g.strokeStyle = '#9fe7ff'; g.lineWidth = 18 * (1 - k * 0.5); g.beginPath(); g.moveTo(p.x - p.d * L, p.y); g.lineTo(p.x, p.y); g.stroke();
+      g.globalAlpha = a; g.strokeStyle = '#ffffff'; g.lineWidth = 4; g.beginPath(); g.moveTo(p.x - p.d * L * 0.8, p.y); g.lineTo(p.x, p.y); g.stroke();
+      g.restore(); return;
+    }
+    if (p.k === 'haecl') {   // Astra's eclipse: a dark moon with a burning gold rim
+      const grow = Math.min(1, p.t / 5), R = 46 * grow, pulse = 1 + Math.sin(p.t * 0.6) * 0.04;
+      g.globalAlpha = 1; g.save(); g.globalCompositeOperation = 'lighter';
+      g.drawImage(typeof skfxGlowImg === 'function' ? skfxGlowImg('rgb(255,200,110)', 0.55) : document.createElement('canvas'), p.x - R * 1.7, p.y - R * 1.7, R * 3.4, R * 3.4);
+      g.restore();
+      g.fillStyle = '#05060f'; circle(g, p.x, p.y, R * pulse); g.fill();
+      g.strokeStyle = '#ffd35c'; g.lineWidth = 3; g.stroke();
+      g.strokeStyle = 'rgba(159,231,255,.6)'; g.lineWidth = 1.5; circle(g, p.x, p.y, R * pulse + 6); g.stroke();
+      return;
+    }
     if (p.k === 'cagefx') {   // a steel cage slams down
       const drop = Math.min(1, k * 4), cy = p.y + 30 - (1 - drop) * 140;
       g.globalAlpha = Math.min(1, (1 - k) * 2); g.strokeStyle = '#c8ccd6'; g.lineWidth = 4; g.strokeRect(p.x - 46, cy - 80, 92, 80);
@@ -230,7 +297,7 @@ if (typeof drawFxNew === 'function') {
     drawFxNoHeroes(g, p, k);
   };
 }
-if (typeof SKFX_EVENTS !== 'undefined') Object.assign(SKFX_EVENTS, { puppet: 1, pupcopy: 1, build: 1, starlink: 1, comet: 1, well: 1, wellthrow: 1 });
+if (typeof SKFX_EVENTS !== 'undefined') Object.assign(SKFX_EVENTS, { build: 1, comet: 1, streak: 1, trailpop: 1, eclipseburst: 1 });
 
 /* ---------- ultimate sights ---------- */
 if (typeof drawUltAimRemake === 'function') {
