@@ -133,9 +133,9 @@ test('simultaneous admin edits do not overwrite each other and boss results inva
 
 test('creator auto-unlocks remain protected from admin reset', async () => {
   const f = setup(); const owner = (await f.call('owner1', '/api/me')).data;
-  assert.equal(owner.beaten, 30); assert.ok(owner.unlocked.includes('yen'));
+  assert.equal(owner.beaten, 40); assert.ok(owner.unlocked.includes('yen'));
   assert.equal((await f.call('owner1', '/api/admin/account', { ...edit(owner), uid: 'owner1', beaten: 0, wins: 0, unlocked: [] })).status, 409);
-  assert.equal((await f.call('owner1', '/api/me')).data.beaten, 30);
+  assert.equal((await f.call('owner1', '/api/me')).data.beaten, 40);
 });
 
 test('players submit private reports; admins review, update and detect conflicting edits', async () => {
@@ -202,7 +202,7 @@ test('an admin (Admin panel) sees players and reports and edits other accounts, 
   // the owner's account can never be changed by an admin
   const owner = (await f.call('owner1', '/api/me')).data;
   assert.equal((await f.call('admin1', '/api/admin/account', { ...edit(owner), uid: 'owner1', beaten: 0, wins: 0, unlocked: [] })).status, 409);
-  assert.equal((await f.call('owner1', '/api/me')).data.beaten, 30);
+  assert.equal((await f.call('owner1', '/api/me')).data.beaten, 40);
   // bug reports: read, update and delete
   await f.call('player2', '/api/reports', report());
   const r = (await f.call('admin1', '/api/admin/reports')).data.reports[0];
