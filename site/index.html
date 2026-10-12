@@ -361,7 +361,8 @@ html,body,body *{touch-action:manipulation}   /* no double-tap zoom anywhere (th
 @media (max-width:560px){.keybinds{grid-template-columns:minmax(0,1fr) 74px 74px}.set-tab{padding:5px 7px;font-size:12px}}
 .set-user input{font:inherit;font-size:15px;color:var(--ink);background:#15122f;border:1px solid var(--line2);border-radius:6px;padding:7px 9px;min-width:0;width:100%}
 #set-uname-msg.err{color:var(--coral)}#set-uname-msg.ok{color:#6fe39a}
-.bs-chaps{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:8px}
+.bs-chaps{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-top:8px}
+@media (max-width:980px){.bs-chaps{grid-template-columns:repeat(2,minmax(0,1fr))}}
 .bs-chap{display:flex;align-items:center;gap:10px;text-align:left;padding:8px 10px;border-radius:10px;background:var(--panel2);border:2px solid var(--line2);min-width:0}
 .bs-chap.sel{border-color:var(--gold);box-shadow:0 0 0 2px rgba(255,181,71,.3);background:linear-gradient(180deg,#3a2f6e,#241d52)}
 .bs-chap.locked{opacity:.55}
@@ -829,7 +830,7 @@ body.tester-on #go-online .tt-off{display:block;font-weight:800;color:#ffd35c}
 </div>
 
 <!-- ?v= on every game file: bump it (e.g. to today's date) whenever a .js file changes, so players' browsers load the new version instead of an old saved copy -->
-<script src="data.js?v=20261011-rgs1"></script>
+<script src="data.js?v=20261012-vexa1"></script>
 <script src="sprocket.js?v=20261011-sfx1"></script>
 <script src="engine.js?v=20261012-hero1"></script>
 <script src="match.js?v=20261012-hero1"></script>
@@ -844,11 +845,12 @@ body.tester-on #go-online .tt-off{display:block;font-weight:800;color:#ffd35c}
 <script src="stages.js?v=20261008b"></script>
 <script src="stages3.js?v=20261010-ev1"></script>
 <script src="skins.js?v=20261011-gift1"></script>
-<script src="shop-data.js?v=20261010-sh1"></script>
+<script src="shop-data.js?v=20261012-vexa1"></script>
 <script src="skin-costumes.js?v=20261010-sh1"></script>
 <script src="event-buffs.js?v=20261011-hk1"></script>
 <script src="ult.js?v=20261011-rgs1"></script>
 <script src="heroes.js?v=20261012-hero1"></script>
+<script src="vexa.js?v=20261012-vexa1"></script>
 <script src="ult-act.js?v=20261010-remake1"></script>
 <script src="ult-new.js?v=20261008b"></script>
 <script src="ult-fx.js?v=20261010-remake1"></script>
@@ -856,6 +858,7 @@ body.tester-on #go-online .tt-off{display:block;font-weight:800;color:#ffd35c}
 <script src="ult-remake.js?v=20261011-sfx1"></script>
 <script src="skin-fx.js?v=20261012-sfx2"></script>
 <script src="heroes-art.js?v=20261012-hero1"></script>
+<script src="vexa-art.js?v=20261012-vexa1"></script>
 <script src="input.js?v=20261008g"></script>
 <script src="setup.js?v=20261010-sh1"></script>
 <script src="music.js?v=20261008b"></script>
@@ -868,7 +871,7 @@ body.tester-on #go-online .tt-off{display:block;font-weight:800;color:#ffd35c}
 <script src="app.js?v=20261012-sfx2"></script>
 <script src="account.js?v=20261009-owner1"></script>
 <script src="settings-ui.js?v=20261009-op1"></script>
-<script src="boss.js?v=20261010-sk1"></script>
+<script src="boss.js?v=20261012-vexa1"></script>
 <script src="admin.js?v=20261011-gift1"></script>
 <script src="leaderboard.js?v=20261010-em1"></script>
 <script src="season.js?v=20261009-season1"></script>
