@@ -289,3 +289,30 @@ test('the owner and admins can delete a bug report; players cannot', async () =>
   assert.equal((await f.call('owner1', '/api/admin/reports')).data.reports.length, 0);
   assert.equal((await f.call('owner1', '/api/admin/reports/delete', { id: r.id })).status, 404);
 });
+
+test('Coins & Skins: admins and the owner can set coins and give skins; players cannot; admins cannot touch the owner', async () => {
+  const f = setup(); await f.call('player1', '/api/me'); await f.call('admin1', '/api/me'); await f.call('owner1', '/api/me');
+  const prof = async () => (await f.call('admin1', '/api/admin/account?uid=player1')).data.profile;
+  let p = await prof();
+  const gift = (extra = {}) => ({ uid: 'player1', revision: p.revision || 0, coins: 2500, giftSkins: ['galaxy', 'diamond'], reason: 'Prize for the tournament', ...extra });
+  assert.equal((await f.call('player1', '/api/admin/gifts', gift())).status, 403, 'players cannot give themselves coins');
+  // bad input is refused
+  for (const bad of [{ coins: -5 }, { coins: 1000001 }, { coins: 1.5 }, { giftSkins: ['nope'] }, { giftSkins: ['galaxy', 'galaxy'] }, { giftSkins: ['__proto__'] }, { reason: 'hi' }])
+    assert.equal((await f.call('admin1', '/api/admin/gifts', gift(bad))).status, 400, JSON.stringify(bad));
+  const r = await f.call('admin1', '/api/admin/gifts', gift());
+  assert.equal(r.status, 200);
+  p = await prof();
+  assert.equal(p.coins, 2500); assert.deepEqual([...p.giftSkins], ['galaxy', 'diamond']);
+  // an old revision is refused (someone else changed it first)
+  assert.equal((await f.call('admin1', '/api/admin/gifts', gift({ revision: 0, coins: 1 }))).status, 409);
+  // it's in the activity log
+  const hist = (await f.call('admin1', '/api/admin/account?uid=player1')).data.history;
+  assert.ok(hist.some(h => h.reason === 'Prize for the tournament' && h.after.coins === 2500 && h.before.coins === 0));
+  // the player's own coins and skins come back from /api/xp
+  const mine = (await f.call('player1', '/api/xp')).data;
+  assert.equal(mine.coins, 2500); assert.deepEqual([...mine.giftSkins], ['galaxy', 'diamond']);
+  // admins can't change the owner's account; the owner can change their own
+  const op = (await f.call('owner1', '/api/admin/account?uid=owner1')).data.profile;
+  assert.equal((await f.call('admin1', '/api/admin/gifts', { uid: 'owner1', revision: op.revision || 0, coins: 5, giftSkins: [], reason: 'Trying the owner' })).status, 409);
+  assert.equal((await f.call('owner1', '/api/admin/gifts', { uid: 'owner1', revision: op.revision || 0, coins: 777, giftSkins: [], reason: 'My own coins' })).status, 200);
+});
