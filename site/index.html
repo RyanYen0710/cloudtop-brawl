@@ -30,6 +30,7 @@
 <link rel="stylesheet" href="ranked.css?v=20261010-rk1">
 <link rel="stylesheet" href="events.css?v=20261010-ev1">
 <link rel="stylesheet" href="skins.css?v=20261010-sh1">
+<link rel="stylesheet" href="unlock-fx.css?v=20261011-unl1">
 <link rel="stylesheet" href="shop.css?v=20261010-sh1">
 <link rel="stylesheet" href="event-mode.css?v=20261011-ft1">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -261,7 +262,7 @@ html,body,body *{touch-action:manipulation}   /* no double-tap zoom anywhere (th
 .touch-on #scr-fight{padding-top:calc(78px + env(safe-area-inset-top,0px))}
 @media (max-height:420px){.touch-on #scr-fight{padding-top:66px}}
 @media (max-height:500px){.fight-top button{padding:4px 10px;font-size:12px}}
-#toast{position:absolute;top:14px;left:50%;transform:translateX(-50%);display:flex;flex-direction:column;gap:6px;align-items:center;pointer-events:none;width:min(420px,calc(100% - 32px))}
+#toast{position:fixed;z-index:10200;top:14px;left:50%;transform:translateX(-50%);display:flex;flex-direction:column;gap:6px;align-items:center;pointer-events:none;width:min(420px,calc(100% - 32px))}
 .toast{background:rgba(17,14,36,.92);border:1px solid var(--gold);border-radius:8px;padding:8px 14px;font-size:14px;font-weight:600;animation:tin .2s ease-out}
 @keyframes tin{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
 
@@ -879,5 +880,6 @@ body.tester-on #go-online .tt-off{display:block;font-weight:800;color:#ffd35c}
 <script src="intro.js?v=20261009-text1"></script>
 <script src="menu.js?v=20261009-lb1"></script>
 <script src="keynav.js?v=20261009-sync1"></script>
+<script src="unlock-fx.js?v=20261011-unl1"></script>
 
 </html>
