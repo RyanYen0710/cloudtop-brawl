@@ -50,7 +50,7 @@ test('event maps are added after the 8 normal stages, every event has 2-3 of the
   const ids = JSON.parse(vm.runInContext('JSON.stringify(STAGES.map(s => s.id + ":" + (s.event || "")))', c));
   assert.deepEqual(ids.slice(0, 8).map(x => x.split(':')[0]), ['temple', 'ruins', 'roof', 'forge', 'peak', 'orbit', 'cove', 'dojo']);
   const byEvent = {};
-  ids.slice(8).forEach(x => { const [s, e] = x.split(':'); assert.ok(e, s + ' belongs to an event'); (byEvent[e] = byEvent[e] || []).push(s); });
+  ids.slice(8).forEach(x => { const [s, e] = x.split(':'); assert.ok(e, s + ' belongs to an event'); if (e !== 'boss') (byEvent[e] = byEvent[e] || []).push(s); });   // 'boss': Boss Fight-only maps
   assert.deepEqual(Object.keys(byEvent).sort(), ['christmas', 'cny', 'halloween', 'spring', 'summer', 'thanksgiving']);
   for (const [e, list] of Object.entries(byEvent)) assert.ok(list.length >= 2 && list.length <= 3, e);
   const play = vm.runInContext('(' + playOn.toString() + ')', c);
