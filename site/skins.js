@@ -84,8 +84,14 @@ function skinAuraCol(s, t, a) { if (s.aura === 'prism') return 'hsla(' + ((t * 2
 /* the glow behind the fighter */
 function skinAura(g, f, t, s) {
   const cx = f.x, cy = f.y - f.H * 0.5, r = f.H * 0.75;
+  const a = 0.32 + 0.08 * Math.sin(t * 0.08);
+  if (typeof skfxGlowImg === 'function') {   // a ready-made glow picture (fast); rainbow skins step through 36 colours
+    const col = s.aura === 'prism' ? 'hsl(' + Math.round(((t * 2) % 360) / 10) * 10 + ',100%,65%)' : 'rgb(' + s.aura + ')';
+    const a0 = g.globalAlpha; g.globalAlpha = a0 * a; g.drawImage(skfxGlowImg(col, 0.15), cx - r, cy - r, r * 2, r * 2); g.globalAlpha = a0;
+    return;
+  }
   const gr = g.createRadialGradient(cx, cy, r * 0.15, cx, cy, r);
-  gr.addColorStop(0, skinAuraCol(s, t, 0.32 + 0.08 * Math.sin(t * 0.08))); gr.addColorStop(1, skinAuraCol(s, t, 0));
+  gr.addColorStop(0, skinAuraCol(s, t, a)); gr.addColorStop(1, skinAuraCol(s, t, 0));
   g.fillStyle = gr; g.fillRect(cx - r, cy - r, r * 2, r * 2);
 }
 /* the little bits floating around the fighter */
