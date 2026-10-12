@@ -90,6 +90,13 @@
 .ad-lock{position:absolute;top:34px;left:50%;transform:translateX(-50%);font-size:30px;filter:grayscale(1) drop-shadow(0 2px 4px #000)}
 .ad-char-tag{position:absolute;top:6px;right:6px;padding:2px 6px;border-radius:5px;background:#ffd35c;color:#1a1238;font:800 10px var(--ui)}
 .ad-char.can{cursor:pointer}
+.ad-skin-how{display:block;text-align:center;font:700 10px var(--ui);color:#b9b3d9;margin-top:1px}
+.ad-coins{margin:4px 0 14px}
+.ad-coin-row{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:6px 0}
+.ad-coin-row .gn-wrap{flex:0 1 230px;max-width:230px;width:auto}
+.ad-coin-row input{width:120px;min-width:0;flex:1 1 auto}
+.ad-coin-ico{font-size:22px}
+.ad-coin-btn{min-width:64px}
 .ad-char.can:hover,.ad-char.can:focus-visible{border-color:#ffd35c;outline:none}
 .ad-savebar{margin-top:18px;padding:16px;border:2px dashed #3c3466;border-radius:12px}
 .ad-savebar.on{border-color:#ffd35c;border-style:solid;background:rgba(255,211,92,.06)}
