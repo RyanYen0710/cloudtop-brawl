@@ -103,7 +103,7 @@ test('the shop: prices from the server, enough coins, no buying twice, fighters 
   assert.equal(ok({ xp: 0, shopSkins: ['lava'] }, 'bubblegum'), '');
   // everything in the shop has a price, every shop skin has a picture setup, and Legend Yen costs the most
   const items = JSON.parse(vm.runInContext('JSON.stringify(Object.keys(SHOP_CHARS).map(id => shopItem("char:" + id)).concat(SKIN_IDS.filter(id => SKINS[id].shop).map(id => shopItem("skin:" + id))))', c));
-  assert.equal(items.length, 10); assert.ok(items.every(x => x && x.price > 0));
+  assert.equal(items.length, 11); assert.ok(items.every(x => x && x.price > 0));
   const chars = items.filter(x => x.kind === 'char');
   assert.equal(chars.reduce((a, b) => (b.price > a.price ? b : a)).id, 'yen');
 });
