@@ -14,8 +14,6 @@
 /* the skin each fighter slot is wearing right now (filled while fighters are drawn) */
 const SKFX_SLOT = {}, SKFX_POS = {};
 const SKFX = {
-  /* can this browser recolour drawings with canvas filters? (fast, keeps all the shading) */
-  filter: (function () { try { const c = document.createElement('canvas').getContext('2d'); if (typeof c.filter !== 'string') return false; c.filter = 'sepia(1)'; return c.filter === 'sepia(1)'; } catch (e) { return false; } })(),
   low: () => typeof PERF !== 'undefined' && PERF.low
 };
 
@@ -57,22 +55,111 @@ function skfxCols(s, t) {
   const sat = Math.round(Math.max(0.25, o.s) * 100);
   return [`hsl(${o.h | 0},${sat}%,38%)`, `hsl(${o.h | 0},${sat}%,${Math.round(Math.min(0.68, Math.max(0.5, o.l)) * 100)}%)`, `hsl(${o.h | 0},${Math.min(100, sat + 10)}%,84%)`];
 }
-/* a canvas filter that repaints a drawing in the skin's colour, keeping light and dark (sepia's own hue is about 38deg) */
-function skfxFilter(s, t) {
+/* ---------- repainting a drawing in the skin's colour ----------
+   Each colour the effect uses (fills, lines, glows and gradient stops) goes through the same maths as the CSS filters
+   sepia + hue-rotate + saturate + brightness, so light and dark shading stay. Working on colours instead of using
+   the canvas `filter` keeps it fast: a filter makes the browser render every effect on its own layer, every frame,
+   which caused lag with skins. Colours are worked out once and remembered. */
+const SKFX_P = typeof CanvasRenderingContext2D !== 'undefined' ? CanvasRenderingContext2D.prototype : null;
+const SKFX_D = SKFX_P ? ['fillStyle', 'strokeStyle', 'shadowColor', 'shadowBlur'].reduce((o, n) => (o[n] = Object.getOwnPropertyDescriptor(SKFX_P, n), o), {}) : null;
+const SKFX_PARSE = new Map(), SKFX_MAP = new Map();
+let skfxScratch = null;
+/* any CSS colour as [r, g, b, a] (0..255, alpha 0..1); the browser reads it for us */
+function skfxParse(c) {
+  let v = SKFX_PARSE.get(c); if (v) return v;
+  if (!skfxScratch) skfxScratch = document.createElement('canvas').getContext('2d');
+  SKFX_D.fillStyle.set.call(skfxScratch, '#000'); SKFX_D.fillStyle.set.call(skfxScratch, c);
+  const x = SKFX_D.fillStyle.get.call(skfxScratch);
+  if (x[0] === '#') v = [parseInt(x.slice(1, 3), 16), parseInt(x.slice(3, 5), 16), parseInt(x.slice(5, 7), 16), 1];
+  else { const m = x.match(/[\d.]+/g).map(Number); v = [m[0], m[1], m[2], m.length > 3 ? m[3] : 1]; }
+  if (SKFX_PARSE.size > 4000) SKFX_PARSE.clear();
+  SKFX_PARSE.set(c, v); return v;
+}
+const skfxCl = x => x < 0 ? 0 : x > 1 ? 1 : x;
+const skfxMul = (M, c) => [skfxCl(M[0] * c[0] + M[1] * c[1] + M[2] * c[2]), skfxCl(M[3] * c[0] + M[4] * c[1] + M[5] * c[2]), skfxCl(M[6] * c[0] + M[7] * c[1] + M[8] * c[2])];
+const SKFX_SEPIA = [.393, .769, .189, .349, .686, .168, .272, .534, .131];
+function skfxHueM(deg) { const r = deg * Math.PI / 180, C = Math.cos(r), S = Math.sin(r); return [.213 + C * .787 - S * .213, .715 - C * .715 - S * .715, .072 - C * .072 + S * .928, .213 - C * .213 + S * .143, .715 + C * .285 + S * .140, .072 - C * .072 - S * .283, .213 - C * .213 - S * .787, .715 - C * .715 + S * .715, .072 + C * .928 + S * .072]; }
+const skfxSatM = s => [.213 + .787 * s, .715 - .715 * s, .072 - .072 * s, .213 - .213 * s, .715 + .285 * s, .072 - .072 * s, .213 - .213 * s, .715 - .715 * s, .072 + .928 * s];
+/* how to recolour for a skin right now (sepia's own hue is about 38deg).
+   Dark skins: nearly black, see-through parts lean toward the edge colour, and a glowing edge. */
+function skfxRecipe(s, t) {
   const o = skfxTone(s, t);
-  if (o.dark) return `brightness(0.1) drop-shadow(0 0 2px ${o.dark}) drop-shadow(0 0 5px ${o.dark})`;   // black, with a glowing edge
-  const sat = (1.4 + Math.max(0.15, o.s) * 3.2).toFixed(2), br = o.l > 0.78 ? 1.18 : o.l < 0.45 ? 1.1 : 1.05;
-  return `sepia(1) hue-rotate(${Math.round(o.h - 38)}deg) saturate(${sat}) brightness(${br})`;
+  if (o.dark) { const e = skfxParse(o.dark); return { key: 'd' + o.dark, steps: [[.1, 0, 0, 0, .1, 0, 0, 0, .1]], glow: skinMix(o.dark, '#ffffff', 0.15), blur: 10, tint: [e[0] / 255, e[1] / 255, e[2] / 255] }; }
+  const sa = 1.4 + Math.max(0.15, o.s) * 3.2, br = o.l > 0.78 ? 1.18 : o.l < 0.45 ? 1.1 : 1.05, hu = Math.round(o.h - 38);
+  return { key: hu + ',' + sa.toFixed(2) + ',' + br, steps: [SKFX_SEPIA, skfxHueM(hu), skfxSatM(sa), [br, 0, 0, 0, br, 0, 0, 0, br]] };
+}
+function skfxMapCol(R, c) {
+  if (typeof c !== 'string') return c;
+  const k = R.key + '|' + c; let v = SKFX_MAP.get(k); if (v) return v;
+  const p = skfxParse(c); let x = [p[0] / 255, p[1] / 255, p[2] / 255];
+  for (const M of R.steps) x = skfxMul(M, x);
+  if (R.tint && p[3] < 1) { const q = (1 - p[3]) * 0.55; x = x.map((v, i) => v + (R.tint[i] - v) * q); }
+  v = 'rgba(' + Math.round(x[0] * 255) + ',' + Math.round(x[1] * 255) + ',' + Math.round(x[2] * 255) + ',' + p[3] + ')';
+  if (SKFX_MAP.size > 20000) SKFX_MAP.clear();
+  SKFX_MAP.set(k, v); return v;
+}
+/* teach a canvas to recolour while g._skR is set. It still reports the colours the drawing code set (not the
+   recoloured ones), and save()/restore() keep track of them too. Only canvases that draw skin effects get this. */
+function skfxHook(g) {
+  if (g._skHooked) return; g._skHooked = true;
+  const D = SKFX_D, P = SKFX_P, raw = { fillStyle: null, strokeStyle: null, shadowColor: null, shadowBlur: null }, stack = [];
+  const colour = n => ({ configurable: true, get() { return g._skR && raw[n] != null ? raw[n] : D[n].get.call(g); },
+    set(v) { if (g._skR) { raw[n] = v; D[n].set.call(g, n === 'shadowColor' && g._skR.glow ? g._skR.glow : skfxMapCol(g._skR, v)); } else { raw[n] = null; D[n].set.call(g, v); } } });
+  ['fillStyle', 'strokeStyle', 'shadowColor'].forEach(n => Object.defineProperty(g, n, colour(n)));
+  Object.defineProperty(g, 'shadowBlur', { configurable: true, get() { return g._skR && raw.shadowBlur != null ? raw.shadowBlur : D.shadowBlur.get.call(g); },
+    set(v) { if (g._skR && g._skR.glow) { raw.shadowBlur = v; D.shadowBlur.set.call(g, Math.max(v, g._skR.blur)); } else { raw.shadowBlur = null; D.shadowBlur.set.call(g, v); } } });
+  g._skRaw = raw;
+  g.save = function () { stack.push(Object.assign({}, raw)); return P.save.call(g); };
+  g.restore = function () { const r = stack.pop(); if (r) Object.assign(raw, r); return P.restore.call(g); };
+  // gradients: their stops are recoloured, with a few stops in between so blends follow the recolour closely
+  ['createLinearGradient', 'createRadialGradient', 'createConicGradient'].forEach(n => {
+    if (!P[n]) return;
+    g[n] = function () {
+      const gr = P[n].apply(g, arguments), R = g._skR;
+      if (R) {
+        const add = gr.addColorStop; let last = null;
+        gr.addColorStop = (o, c) => {
+          const q = typeof c === 'string' ? skfxParse(c) : null;
+          if (last && q && o > last.o) for (let i = 1; i < 4; i++) {
+            const k = i / 4, m = last.q.map((v, j) => v + (q[j] - v) * k);
+            add.call(gr, last.o + (o - last.o) * k, skfxMapCol(R, 'rgba(' + Math.round(m[0]) + ',' + Math.round(m[1]) + ',' + Math.round(m[2]) + ',' + m[3].toFixed(3) + ')'));
+          }
+          add.call(gr, o, skfxMapCol(R, c)); last = q ? { o, q } : null;
+        };
+      }
+      return gr;
+    };
+  });
+  // dark skins: each shape is drawn a second time with a tighter glow, so the edge glows as brightly as before
+  ['fill', 'stroke', 'fillRect', 'strokeRect', 'fillText', 'strokeText'].forEach(n => {
+    g[n] = function () {
+      P[n].apply(g, arguments);
+      const R = g._skR;
+      if (R && R.glow && g.globalAlpha > 0.25) { const b = D.shadowBlur.get.call(g); D.shadowBlur.set.call(g, b * 0.35); P[n].apply(g, arguments); D.shadowBlur.set.call(g, b); }
+    };
+  });
 }
 function skfxOf(f) { const id = f && (f.skin || (f.slot != null && SKFX_SLOT[f.slot])); return id && typeof SKINS !== 'undefined' ? SKINS[id] || null : null; }
 
 /* draw something in a skin's colour (or just draw it, when there's no skin or the device is struggling) */
 function skfxPaint(g, s, t, draw) {
-  if (!s || !SKFX.filter || SKFX.low()) return draw();
-  const f0 = g.filter, on0 = SKFX.on, dark = !!skfxTone(s, t).dark;
-  g.filter = skfxFilter(s, t); SKFX.on = true;
-  if (dark) skfxDark(g, 1);
-  try { return draw(); } finally { if (dark) skfxDark(g, -1); g.filter = f0 || 'none'; SKFX.on = on0; }
+  if (!s || !SKFX_D || SKFX.low()) return draw();
+  skfxHook(g);
+  const R0 = g._skR, on0 = SKFX.on, R = skfxRecipe(s, t), D = SKFX_D, raw = g._skRaw;
+  const keep = { fillStyle: g.fillStyle, strokeStyle: g.strokeStyle, shadowColor: g.shadowColor, shadowBlur: g.shadowBlur };   // what the drawing code had set
+  const keepRaw = Object.assign({}, raw);
+  g._skR = R; SKFX.on = true;
+  ['fillStyle', 'strokeStyle', 'shadowColor', 'shadowBlur'].forEach(n => { g[n] = keep[n]; });   // colours set before the effect started get recoloured too
+  if (R.glow) { skfxDark(g, 1); D.shadowColor.set.call(g, R.glow); D.shadowBlur.set.call(g, Math.max(keep.shadowBlur, R.blur)); }
+  try { return draw(); } finally {
+    if (R.glow) skfxDark(g, -1);
+    // like the old filter: whatever the effect set last stays set, in its own colours
+    const last = { fillStyle: g.fillStyle, strokeStyle: g.strokeStyle, shadowColor: g.shadowColor, shadowBlur: g.shadowBlur };
+    g._skR = R0; SKFX.on = on0; Object.assign(raw, keepRaw);
+    if (!R0) ['fillStyle', 'strokeStyle', 'shadowColor'].forEach(n => { raw[n] = null; D[n].set.call(g, last[n]); });
+    else ['fillStyle', 'strokeStyle', 'shadowColor', 'shadowBlur'].forEach(n => { g[n] = last[n]; });
+    if (!R0) { raw.shadowBlur = null; D.shadowBlur.set.call(g, R.glow ? keep.shadowBlur : last.shadowBlur); if (R.glow) D.shadowColor.set.call(g, keep.shadowColor); }
+  }
 }
 /* black effects can't glow: while a dark skin's effect is drawn, glowing ('lighter') drawing is turned into normal drawing */
 const SKFX_GCO = typeof CanvasRenderingContext2D !== 'undefined' && Object.getOwnPropertyDescriptor(CanvasRenderingContext2D.prototype, 'globalCompositeOperation');
@@ -88,9 +175,16 @@ function skfxDark(g, d) {
 /* fighters drawn inside an effect (the ultimate's actor, someone caught in a net) keep their own colours */
 function skfxPlain(g, draw) {
   if (!SKFX.on) return draw();
-  const f0 = g.filter, dk = g._skDark || 0; g.filter = 'none'; SKFX.on = false;
+  const R0 = g._skR, dk = g._skDark || 0, raw = g._skRaw, D = SKFX_D;
+  const keep = R0 ? { fillStyle: g.fillStyle, strokeStyle: g.strokeStyle, shadowColor: g.shadowColor, shadowBlur: g.shadowBlur } : null;
+  if (R0) { g._skR = null; ['fillStyle', 'strokeStyle', 'shadowColor', 'shadowBlur'].forEach(n => { raw[n] = null; D[n].set.call(g, keep[n]); }); }
+  SKFX.on = false;
   if (dk) { g._skDark = 1; skfxDark(g, -1); }
-  try { return draw(); } finally { if (dk) { skfxDark(g, 1); g._skDark = dk; } g.filter = f0; SKFX.on = true; }
+  try { return draw(); } finally {
+    if (dk) { skfxDark(g, 1); g._skDark = dk; }
+    SKFX.on = true;
+    if (R0) { const last = { fillStyle: g.fillStyle, strokeStyle: g.strokeStyle, shadowColor: g.shadowColor, shadowBlur: g.shadowBlur }; g._skR = R0; ['fillStyle', 'strokeStyle', 'shadowColor', 'shadowBlur'].forEach(n => { g[n] = last[n]; }); }
+  }
 }
 ['drawUltActor', 'drawUltActorRemake'].forEach(n => {
   if (typeof window !== 'undefined' && typeof window[n] === 'function') {
@@ -142,8 +236,8 @@ if (typeof drawProj === 'function') {
     g.save(); g.globalCompositeOperation = 'lighter'; g.globalAlpha = 0.45;
     const gr = g.createRadialGradient(p.x, p.y, 0, p.x, p.y, r * 1.8); gr.addColorStop(0, c[2]); gr.addColorStop(1, 'rgba(0,0,0,0)');
     g.fillStyle = gr; g.fillRect(p.x - r * 1.8, p.y - r * 1.8, r * 3.6, r * 3.6); g.restore();
-    if (SKFX.filter && !SKFX.low()) skfxPaint(g, s, t, () => drawProjNoSkin(g, p, t));
-    else { const col0 = p.color; p.color = c[1]; try { drawProjNoSkin(g, p, t); } finally { p.color = col0; } }   // older browsers: just its main colour
+    if (!SKFX.low()) skfxPaint(g, s, t, () => drawProjNoSkin(g, p, t));
+    else { const col0 = p.color; p.color = c[1]; try { drawProjNoSkin(g, p, t); } finally { p.color = col0; } }   // slow devices: just its main colour
     // the trail: a bit every few frames (fewer on slow devices)
     const every = SKFX.low() ? 9 : 4, key = (t + Math.round(p.x * 0.13)) | 0;
     if (key % every === 0 && typeof spawnFx === 'function') skfxBits(s, p.x - (p.dir || Math.sign(p.vx) || 1) * r * 0.6, p.y, 1, 0.8, 26, t);
