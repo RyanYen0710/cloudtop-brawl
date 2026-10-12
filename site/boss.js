@@ -1,6 +1,7 @@
 'use strict';
 /* ===== CLOUDTOP BRAWL — Boss Fight =====
-   30 levels in three chapters (Legend Yen, Master Chuang, Mythic Hsi). Beat a chapter to unlock its boss.
+   40 levels in four chapters (Legend Yen, Master Chuang, Mythic Hsi, Queen Vexa). Beat a chapter to unlock its boss.
+   Then the Trial of Ashura (ashura.js): Sky Road level 300 + every level beaten to enter, win it to unlock him.
    The fight runs on the game server (like an online match), so the server decides who won
    and saves your progress to your account. Your browser only sends button presses. */
 
@@ -79,7 +80,10 @@ function renderBoss() {
   // result banner from the last fight
   if (BOSS.result) {
     const r = BOSS.result, rc = bossChapter(r.level);
-    const txt = r.test ? (r.win ? `Test run: you beat level ${r.level}. (Not saved.)` : `Test run: defeated on level ${r.level}. (Not saved.)`)
+    const txt = r.trial ? (r.test ? (r.win ? 'Test run: you won the Trial of Ashura. (Not saved.)' : 'Test run: Ashura won the trial. (Not saved.)')
+        : r.error ? 'The trial ended, but your result couldn’t be saved. Try again.'
+        : r.win ? (has('ashura') ? 'ASHURA UNLOCKED! The Thousand-Armed is now in your fighter list.' : 'You won the Trial of Ashura!') : 'Ashura stands. The trial is waiting for you. Try again!')
+      : r.test ? (r.win ? `Test run: you beat level ${r.level}. (Not saved.)` : `Test run: defeated on level ${r.level}. (Not saved.)`)
       : r.error ? 'The fight ended, but your result couldn’t be saved. Try again.'
       : r.win ? (r.level === rc.to && has(rc.boss) ? `${CHAR[rc.boss].name.toUpperCase()} UNLOCKED! ${rc.her ? 'She' : 'He'}’s now in your fighter list.` : `LEVEL ${r.level} CLEARED!`)
       : `Defeated on level ${r.level}. Try again!`;
@@ -104,6 +108,7 @@ function renderBoss() {
     if (open) requestAnimationFrame(() => drawPortrait(cv, c.boss));
   });
   wrap.appendChild(panel([el('div', { class: 'sc-eyebrow', text: 'Chapters' }), chaps], 'bs-top'));
+  if (typeof ASHURA_TRIAL !== 'undefined') wrap.appendChild(trialPanel(T, beaten, total, has, panel));   // ashura.js
 
   // the boss card
   const cleared = Math.max(0, Math.min(10, beaten - ch.from + 1)), got = has(ch.boss);
@@ -163,8 +168,29 @@ function renderBoss() {
   ], 'bs-go'));
 }
 
+/* ---------- the Trial of Ashura: opens at Sky Road level 300 once every Boss Fight level is beaten ---------- */
+function trialPanel(T, beaten, total, has, panel) {
+  const xp = typeof XP !== 'undefined' && XP.xp ? XP.xp : (ACCT.profile && ACCT.profile.xp) || 0;
+  const lv = typeof xpLevel === 'function' ? xpLevel(xp).level : 1, need = ASHURA_TRIAL.needLevel;
+  const okLv = lv >= need, okCh = beaten >= total, open = T || (okLv && okCh), got = has('ashura');
+  const cv = el('canvas', { class: 'bs-cv', 'aria-hidden': 'true' });
+  const req = (ok, text) => el('li', { class: ok ? 'ok' : '', text: (ok ? '✓ ' : '🔒 ') + text });
+  const go = el('button', { type: 'button', class: 'btn start', text: BOSS.busy ? 'Connecting…' : T ? 'Test the Trial' : got ? 'Fight Ashura again' : 'Enter the Trial' });
+  if (!open || BOSS.busy) go.disabled = true;
+  go.addEventListener('click', () => { if (!open) return; SFX.play('ui'); bossStart(0, BOSS.pick, true); });
+  requestAnimationFrame(() => drawPortrait(cv, 'ashura'));
+  return panel([el('div', { class: 'bs-boss' }, [cv, el('div', {}, [
+    el('div', { class: 'sc-eyebrow', text: got ? 'Legendary · Unlocked' : 'Legendary trial' }),
+    el('h3', { class: 'sc-name', text: 'Trial of Ashura' }),
+    el('p', { class: 'muted', text: got ? 'You beat the Thousand-Armed. He is yours in Solo and Online. Fight him again any time.'
+      : 'Face ASHURA the Thousand-Armed alone: no helpers, on his own temple. Win, and he joins you. You fight with the fighter picked below.' }),
+    el('ul', { class: 'bs-req' }, [req(okLv, `Reach Sky Road level ${need} (you’re level ${lv})`), req(okCh, `Beat all ${total} Boss Fight levels, Chapter 4 included (${Math.min(beaten, total)}/${total})`)]),
+    go
+  ])])], 'bs-top bs-trial' + (open ? '' : ' locked'));
+}
+
 /* ---------- starting a fight on the game server ---------- */
-async function bossStart(level, char) {
+async function bossStart(level, char, trial) {
   if (BOSS.busy) return;
   if (!acctSignedIn()) { showLogin(); return; }
   BOSS.busy = true; BOSS.result = null; renderBoss();
@@ -175,7 +201,7 @@ async function bossStart(level, char) {
     RELAY.code = roomId;
     RELAY.mine = { nick: (ACCT.profile && ACCT.profile.name) || 'Player', ib: 0, ic: IN.counters.slice() };
     NET.room = relayRoom; NET.me = RELAY.id;
-    BOSS.pending = { level, char: isPickable(char, myPicks()) ? char : 'random', test: TESTER.on, at: Date.now() };
+    BOSS.pending = { level, trial: !!trial, char: isPickable(char, myPicks()) ? char : 'random', test: TESTER.on, at: Date.now() };
     await connectServer(roomId, 'boss');
     setTimeout(() => { if (BOSS.pending && BOSS.busy) { bossCleanup(); toast('The game server didn’t answer. Try again.'); } }, 12000);
   } catch (e) {
@@ -193,7 +219,7 @@ function onAcctMsg(m) {
     return;
   }
   if (m.acct && SRV.ws && SRV.ws.readyState === 1) {
-    try { SRV.ws.send(JSON.stringify({ cmd: 'boss', level: BOSS.pending.level, char: BOSS.pending.char, skin: typeof mySkin === 'function' ? mySkin(BOSS.pending.char) : '', test: BOSS.pending.test ? 1 : undefined })); } catch (e) { }
+    try { SRV.ws.send(JSON.stringify({ cmd: 'boss', level: BOSS.pending.level, trial: BOSS.pending.trial ? 1 : undefined, char: BOSS.pending.char, skin: typeof mySkin === 'function' ? mySkin(BOSS.pending.char) : '', test: BOSS.pending.test ? 1 : undefined })); } catch (e) { }
   }
 }
 function onBossSrv(d) {
@@ -207,7 +233,7 @@ function onBossSrv(d) {
     SETUP.teams = true;
     resetSnaps(); FX.length = 0; CAM.init = false;
     enterFight();
-    toast(`Level ${b.lvl}: ${BOSS_LEVELS[b.lvl - 1].name}. Good luck!`);
+    toast(b.trial ? 'The Trial of Ashura. Good luck!' : `Level ${b.lvl}: ${BOSS_LEVELS[b.lvl - 1].name}. Good luck!`);
   }
   if (d.bossPause && d.bossPause.gid === BOSS.gid && G.mode === 'boss') {
     togglePause(d.bossPause.paused, true);
@@ -215,7 +241,7 @@ function onBossSrv(d) {
   if (d.bossRes && d.bossRes.gid === BOSS.gid && G.mode === 'boss') {
     const r = d.bossRes;
     if (ACCT.profile && !r.error && !r.test) { ACCT.profile.beaten = r.beaten; setUnlocked(r.unlocked); }
-    if (r.win && r.level < BOSS_LEVELS.length && !r.test) BOSS.sel = r.level + 1;
+    if (r.win && !r.trial && r.level < BOSS_LEVELS.length && !r.test) BOSS.sel = r.level + 1;
     BOSS.result = r;
     setTimeout(() => { bossCleanup(); showBoss(); if (r.win) SFX.play('orbget'); }, 600);
   }
