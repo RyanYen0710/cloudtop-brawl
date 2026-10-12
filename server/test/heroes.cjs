@@ -44,27 +44,26 @@ test('they unlock on the Sky Road at levels 100, 175 and 250, and are weaker tha
   }
 });
 
-test('Marlowe: his puppet copies his hits; String Snare yanks; Marionette Swap trades places', () => {
+test('Marlowe: String Snare yanks, Puppet Kick reaches far, Puppet Waltz knocks people away', () => {
   const c = load(), K = B(c);
-  let g = game(c, 'marlowe'); const [f, o] = g.fighters;
-  press(c, g, K.BD | K.BS, 30);   // Puppet Double: 60 in front of him
-  const pp = g.projs.find(p => p.m.puppet); assert.ok(pp, 'a puppet');
-  // walk the dummy next to the puppet and Marlowe far away; his jab still lands through the puppet
-  o.x = pp.x + 30; f.x = pp.x - 220; f.face = 1; o.dmg = 0;
-  press(c, g, K.BA, 20);
-  assert.ok(o.dmg > 0, 'the puppet copied the hit');
-  // Marionette Swap: trade places with the puppet
-  const px = pp.x, fx = f.x; run(c, g, 20);
-  press(c, g, K.BR | K.BS, 6);
-  assert.ok(Math.abs(f.x - px) < 2, 'Marlowe is where the puppet was');
-  assert.ok(Math.abs(pp.x - fx) < 2, 'the puppet is where Marlowe was');
   // String Snare: latch on, then yank toward him
-  g = game(c, 'marlowe'); const [f2, o2] = g.fighters; o2.x = f2.x + 260;
+  let g = game(c, 'marlowe'); const [f2, o2] = g.fighters; o2.x = f2.x + 260;
   press(c, g, K.BS, 0);
   let i = 0; while (!(o2.dmg > 0) && i++ < 40) run(c, g, 1);
   assert.ok(o2.dmg > 0, 'the string hit');
   const x0 = o2.x; run(c, g, 20);
   assert.ok(o2.x < x0 - 20, 'yanked toward Marlowe');
+  // Puppet Kick: hits an enemy far in front of him (out of normal reach), and is slow to start
+  g = game(c, 'marlowe'); const [f, o] = g.fighters; o.x = f.x + 170; o.dmg = 0;
+  press(c, g, K.BR | K.BS, 0);
+  run(c, g, 10); assert.equal(o.dmg, 0, 'nothing yet: it is slow to start');
+  run(c, g, 20); assert.ok(o.dmg > 0, 'the puppet kicked from far away');
+  assert.ok(o.vx > 0, 'knocked away from him');
+  // Puppet Waltz: an enemy BEHIND him gets knocked away too
+  g = game(c, 'marlowe'); const [f3, o3] = g.fighters; o3.x = f3.x - 80; o3.dmg = 0; f3.face = 1; const bx = o3.x;
+  press(c, g, K.BD | K.BS, 50);
+  assert.ok(o3.dmg > 0, 'the waltz hit someone behind him');
+  assert.ok(o3.x < bx - 20, 'knocked away from Marlowe');
 });
 
 test('Terra Vale: brick walls stop shots, the wrecking ball, a scaffold to stand on, the blueprint cage', () => {
@@ -94,29 +93,26 @@ test('Terra Vale: brick walls stop shots, the wrecking ball, a scaffold to stand
   assert.ok(o4.dmg >= 9 && o4.slow > 0, 'caged');
 });
 
-test('Astra Quill: star pins (3 at most), burning links, a steerable comet, the gravity well throws shots back', () => {
+test('Astra Quill: Star Line, Shooting Star trail, an automatic Comet Ride, Eclipse', () => {
   const c = load(), K = B(c);
-  let g = game(c, 'astra'); const [f, o] = g.fighters; o.x = f.x + 900;
-  for (let k = 0; k < 4; k++) { press(c, g, K.BS, 20); }
-  assert.equal(g.projs.filter(p => p.shape === 'starpin').length, 3, 'three at most');
-  // two stars with the dummy between them, then link them
-  g = game(c, 'astra'); const [f2, o2] = g.fighters; o2.x = f2.x + 380;
-  press(c, g, K.BS, 20); f2.y -= 0; f2.x += 0;
-  const s1 = g.projs.find(p => p.shape === 'starpin'); s1.x = o2.x - 80; s1.y = o2.y - o2.H / 2; s1.vx = s1.vy = 0;
-  press(c, g, K.BS, 20);
-  const s2 = g.projs.filter(p => p.shape === 'starpin')[1]; s2.x = o2.x + 80; s2.y = o2.y - o2.H / 2; s2.vx = s2.vy = 0;
-  o2.dmg = 0; press(c, g, K.BR | K.BS, 10);
-  assert.ok(o2.dmg > 0, 'burned by the link');
-  // Comet Ride goes up, and steering bends it
+  // Star Line: hits right away at long range
+  let g = game(c, 'astra'); const [f, o] = g.fighters; o.x = f.x + 220; o.dmg = 0;
+  press(c, g, K.BS, 12);
+  assert.ok(o.dmg > 0, 'the star line burned them');
+  const one = o.dmg; run(c, g, 20); assert.equal(o.dmg, one, 'it hits once');
+  // Shooting Star: she zips forward; an enemy she passed gets hit when the trail bursts
+  g = game(c, 'astra'); const [f2, o2] = g.fighters; o2.x = f2.x + 90; o2.dmg = 0; const sx = f2.x;
+  press(c, g, K.BR | K.BS, 0); run(c, g, 16);
+  assert.ok(f2.x > sx + 120, 'zipped forward');
+  assert.equal(o2.dmg, 0, 'no hit from the dash itself');
+  run(c, g, 24); assert.ok(o2.dmg > 0, 'the trail burst');
+  // Comet Ride: up and forward on its own, no steering needed
   g = game(c, 'astra'); const [f3] = g.fighters; const y0 = f3.y, x0 = f3.x;
-  press(c, g, K.BU | K.BS, 0); for (let k = 0; k < 30; k++) step(c, g, K.BR, 0);
-  assert.ok(f3.y < y0 - 150, 'flew up'); assert.ok(f3.x > x0 + 60, 'steered right');
-  // Gravity Well: an enemy shot gets caught, orbits, then flies back at the enemy
-  g = game(c, 'astra'); const [f4, o4] = g.fighters; o4.x = f4.x + 320; o4.dmg = 0;
-  press(c, g, K.BD | K.BS, 8);
-  vm.runInContext('(g) => { const [f, o] = g.fighters; g.projs.push({ owner: o, tid: o.tid, key: "neutral", m: { speed: 8, life: 120, size: 14, dmg: 6, b: 3, g: 0.3, angle: 30 }, shape: "orb", color: "#fff", size: 14, x: f.x + 140, y: f.y - f.H / 2, vx: -8, vy: 0, life: 120, dmg: 6, hit: new Set(), age: 0, armed: 0, stuck: false, face: -1 }); }', c)(g);
-  run(c, g, 6);
-  const shot = g.projs.find(p => p.shape === 'orb'); assert.ok(shot && shot.orbit && shot.tid === f4.tid, 'caught in orbit');
-  let i = 0; while (!(o4.dmg > 0) && i++ < 160) run(c, g, 1);
-  assert.ok(o4.dmg > 0, 'thrown back and hit');
+  press(c, g, K.BU | K.BS, 30);
+  assert.ok(f3.y < y0 - 150, 'flew up'); assert.ok(f3.x > x0 + 60, 'and forward');
+  // Eclipse: she can't be hurt while the moon covers her, then the burst hits on both sides
+  g = game(c, 'astra'); const [f4, o4] = g.fighters; o4.x = f4.x - 70; o4.dmg = 0;
+  press(c, g, K.BD | K.BS, 10);
+  assert.ok(f4.inv > 0, 'untouchable during the eclipse');
+  run(c, g, 20); assert.ok(o4.dmg > 0, 'the burst hit someone behind her');
 });
