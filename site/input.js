@@ -6,8 +6,8 @@ const BIND_ACTIONS = [
   ['left', 'Move left', BL], ['right', 'Move right', BR], ['up', 'Up / aim up', BU], ['down', 'Down / drop', BD],
   ['jump', 'Jump', BJ], ['atk', 'Attack', BA], ['sp', 'Special', BS], ['sm', 'Smash attack', BM],
   ['sh', 'Shield / dodge', BH], ['ult', 'Ultimate', BZ], ['frz', 'Freeze Ray', 0],
-  // Legend Yen's styles: ys8 is his own Legend style, ys1–ys7 are the borrowed ones (in the order of his modes)
-  ['ys8', 'Legend style', 0], ['ys1', 'Zephyr style', 0], ['ys2', 'Blaze style', 0], ['ys3', 'Volt style', 0],
+  // Legend Yen's styles: ys8 is his own Legend style, ys1–ys7 are the borrowed ones (in the order of his modes). Mr. Shang's weapons use ys1–ys3
+  ['ys8', 'Legend style', 0], ['ys1', 'Zephyr style · Shang Flamethrower', 0], ['ys2', 'Blaze style · Shang Grenade Launcher', 0], ['ys3', 'Volt style · Shang Shotgun', 0],
   ['ys4', 'Mr. Chiu style', 0], ['ys5', 'Mr. Guo style', 0], ['ys6', 'Lumi style', 0], ['ys7', 'Kiro style', 0]
 ];
 /* keys that only matter for one fighter: which fighter they belong to (shown under "Fighters" in Settings) */
@@ -63,7 +63,7 @@ const IN = { keys: new Set(), press: 0, prev: 0, touch: 0, counters: [0, 0, 0, 0
 function keyBits() { let b = 0; IN.keys.forEach(k => { b |= KEYMAP[k] || 0; }); return b | ((IN.mode || 0) << 10); }
 
 /* Legend Yen's style keys (Y and 1–7 unless changed in Settings → Controls) */
-function styleBindId(c, i) { return c.modes && CHAR[c.modes[i]] && CHAR[c.modes[i]].hidden ? 'ys8' : 'ys' + (i + 1); }
+function styleBindId(c, i) { return c.modes && CHAR[c.modes[i]] && CHAR[c.modes[i]].hidden && !CHAR[c.modes[i]].weapon ? 'ys8' : 'ys' + (i + 1); }   // Mr. Shang's weapons use 1–3
 function styleKeyLabel(c, i) { return bindLabel(styleBindId(c, i)); }
 window.addEventListener('keydown', e => {
   if (!IN.active || typeof G === 'undefined' || G.screen !== 'fight' || e.repeat) return;
