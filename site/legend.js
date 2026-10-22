@@ -66,7 +66,7 @@ const LOOK_LEGEND = {
 
 /* eight little style orbs circling Legend Yen; the active one is bigger */
 function drawLegendOrbs(g, f, t) {
-  if (!f.c || !f.c.modes || f.frozen > 0) return;
+  if (!f.c || !f.c.modes || f.c.weaponKit || f.frozen > 0) return;   // Mr. Shang shows his weapon in his hand instead
   const n = f.c.modes.length, cur = f.yenMode | 0, cx = f.x, cy = f.y - f.H * 0.55;
   g.save();
   for (let i = 0; i < n; i++) {
@@ -151,7 +151,7 @@ if (typeof SWOOSH_NEW !== 'undefined') SWOOSH_NEW.legend = function (g, f, t, m,
 function showStylePop(f, intro) {
   const el = legendEl(), c = f.c, cur = f.yenMode | 0, m = CHAR[c.modes[cur]];
   el.style.setProperty('--pc', m.look.accent);
-  el.innerHTML = `<p class="sp-sub">${intro ? (TOUCH.on ? 'Tap STYLE to switch' : 'Press a style key to switch') : 'Style'}</p>
+  el.innerHTML = `<p class="sp-sub">${intro ? (TOUCH.on ? (c.weaponKit ? 'Tap SWAP to switch weapon' : 'Tap STYLE to switch') : (c.weaponKit ? 'Press 1 / 2 / 3 to switch weapon' : 'Press a style key to switch')) : (c.weaponKit ? 'Weapon' : 'Style')}</p>
     <div class="sp-big"><span class="sp-num">${modeKey(c, cur)}</span><span>${esc(m.name)}</span></div>
     <div class="sp-row">${c.modes.map((id, i) => `<i class="${i === cur ? 'on' : ''}" style="--c:${CHAR[id].look.accent}" title="${esc(CHAR[id].name)}">${modeKey(c, i)}</i>`).join('')}</div>`;
   // sits bottom-left above the damage cards; if the left key-hint bar is stacked above the cards, go just above it
@@ -174,7 +174,7 @@ function tickLegend(view, hud) {
   }
   LEGEND.f = f;
   const btn = document.getElementById('style-btn') || (f ? (legendEl(), document.getElementById('style-btn')) : null);
-  if (btn) btn.hidden = !f;
+  if (btn) { btn.hidden = !f; if (f) btn.textContent = f.c.weaponKit ? 'SWAP' : 'STYLE'; }
   if (!f) { LEGEND.last = null; if (LEGEND.el) LEGEND.el.classList.remove('show'); return; }
   const key = G.mode === 'guest' || G.remote ? 'net' + NET.gid : G.game;
   if (LEGEND.key !== key) { LEGEND.key = key; LEGEND.last = f.yenMode | 0; showStylePop(f, true); return; }
