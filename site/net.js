@@ -633,7 +633,8 @@ function guestView() {
     const pa = P.a.p && P.a.p[i], pb = P.b.p && P.b.p[i];
     let x = p[0], y = p[1];
     if (pa && pb && pa[3] === pb[3] && Math.hypot(pb[0] - pa[0], pb[1] - pa[1]) < 150) { x = lerp(pa[0], pb[0], P.k); y = lerp(pa[1], pb[1], P.k); }
-    return { x, y, dir: p[2], vx: p[2], shape: SHAPES[p[3]] || 'orb', size: p[4], color: p[5], armed: p[6], ang: p[7] / 100, charged: p[8], os: p[9] == null ? -1 : p[9] };   // os: the owner's slot (for skin effects)
+    return { x, y, dir: p[2], vx: p[2], shape: SHAPES[p[3]] || 'orb', size: p[4], color: p[5], armed: p[6], ang: p[7] / 100, charged: p[8], os: p[9] == null ? -1 : p[9],   // os: the owner's slot (for skin effects)
+      life: 60, age: 30, t: 30 };   // the server doesn't send these; drawings that fade in or out by them show fully formed online
   }) : [];
   return {
     stage: st, fighters: NET.vf, over: s ? !!s.o : false, overT: s ? s.ot : 0, shake: s ? s.sh : 0,
