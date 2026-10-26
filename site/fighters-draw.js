@@ -711,7 +711,13 @@ function drawSwoosh(g, f, t) {
   g.restore();
 }
 
+/* draws one projectile; if its drawing fails (for example online, where some numbers are missing),
+   that projectile is skipped and the canvas settings are put back, so the rest of the screen is unaffected */
 function drawProj(g, p, t) {
+  g.save();
+  try { drawProjBody(g, p, t); } catch (e) { g.restore(); } finally { g.restore(); }   // on a failure, also undo the save the drawing itself made
+}
+function drawProjBody(g, p, t) {
   const r = p.size * 0.5, x = p.x, y = p.y, dir = p.dir || Math.sign(p.vx) || 1;
   g.save();
   switch (p.shape) {
