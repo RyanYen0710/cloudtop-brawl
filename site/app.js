@@ -286,6 +286,8 @@ function draw() {
   if (vw < 2 || vh < 2) return;
   if (cv.width !== Math.round(vw * dpr) || cv.height !== Math.round(vh * dpr)) { cv.width = Math.round(vw * dpr); cv.height = Math.round(vh * dpr); }
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  // start every frame with normal canvas settings, so an effect that breaks can never leave the screen washed out (white)
+  ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1; ctx.filter = 'none'; ctx.shadowBlur = 0; ctx.shadowColor = 'rgba(0,0,0,0)';
   let view = null, hud = false;
   if (G.screen === 'fight' || G.screen === 'results') {
     if (G.mode === 'guest' || G.remote) view = guestView();
